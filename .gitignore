@@ -25,4 +25,6 @@ dist-ssr
 
 # Draft
 draft
-
+src
+package.json
+package-lock.json
