@@ -1,0 +1,1 @@
+export type Control = "left" | "right" | "up" | "down";
