@@ -1,5 +1,5 @@
 export class LelevedBar {
-	static FAST_DURATION = 20; // frames
+	static FAST_DURATION = 10; // frames
 	static SLOW_DURATION = 60; // frames
 
 	orientation: "vertical" | "horizontal";

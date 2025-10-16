@@ -13,14 +13,29 @@
         width: 100%;
         height: 100%;
       }
+      
       canvas {
         display: block;
         background: black;
       }
+
+      #chrono {
+        position: absolute;
+        right: 0px;
+        top: 0px;
+        color: white;
+        background-color: black;
+        padding: 10px;
+        font-size: 30px;
+        font-family: 'Courier New', Courier, monospace;
+      }
+
     </style>
   </head>
   <body>
     <canvas id="gameCanvas"></canvas>
+    <div id="chrono">00:00.00</div>
+
     <script type="module" src="/src/main.ts"></script>
   </body>
 </html>

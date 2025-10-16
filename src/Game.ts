@@ -6,6 +6,7 @@ import { stages } from "./stages";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
+
 class State {
 	private type: TypeState = 'play';
 	private chrono = 0;
@@ -54,7 +55,9 @@ export class Game {
 	stage: Stage = stages[0];
 	frame = 0;
 	goalComplete = 0;
+	gameChrono = 0;
 	state = new State();
+	validRun = true;
 
 
 	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget) {
@@ -75,6 +78,15 @@ export class Game {
 
 
 	playLogic(checkComplete: boolean) {
+		if (checkComplete) {
+			if (this.inputHandler.press('debug')) {
+				this.validRun = false;
+				this.player.eternalMode = true;
+			} else {
+				this.player.eternalMode = false;
+			}
+		}
+
 		this.player.frame(this);
 	
 		this.stage.frame(this);
@@ -87,8 +99,32 @@ export class Game {
 			this.handleRoom();
 		}
 		
-		if (checkComplete && this.goalComplete > 0) {
-			this.state.set('playToWin');
+		if (checkComplete) {
+			if (this.goalComplete > 0)
+				this.state.set('playToWin');
+
+			if (this.player.respawnCouldown < 0)
+				this.gameChrono++;
+		}
+	}
+
+	winLogic() {
+		if (this.validRun && this.inputHandler.first('debug')) {
+			const newTab = window.open('', '_blank');
+			const text = "This feature is coming soon...";
+
+			if (newTab) {
+				const content = newTab?.document.createElement("div");
+				content.innerText = text;
+				newTab.document.body.appendChild(content);
+
+			} else {
+				alert("inspect page to get run link");
+				console.log(text);
+			}
+
+			this.validRun = false;
+			// content?.innerHTML
 		}
 	}
 
@@ -104,11 +140,10 @@ export class Game {
 			break
 			
 		case 'menu':
-			console.log("menu");
 			break;
 
 		case 'win':
-			console.log("win");
+			this.winLogic();
 			break;
 			
 		}
@@ -119,13 +154,42 @@ export class Game {
 		this.inputHandler.update();
 	}
 
+
+	generateChronoText() {
+		const gameState = this.state.get();
+		if (gameState !== 'play' && gameState !== 'playToWin' && gameState !== 'win') {
+			return "";
+		}
+
+		if (!this.validRun)
+			return "debug";
+
+		const time = this.gameChrono / 60; // seconds as float
+		const minutes = Math.floor(time / 60);
+		const seconds = Math.floor(time % 60);
+		const centis = Math.floor((time - Math.floor(time)) * 100);
+
+		const pad = (n: number, len = 2) => n.toString().padStart(len, "0");
+
+		return `${pad(minutes)}:${pad(seconds)}.${pad(centis)}`;
+
+	}
+
+
 	
 	resetStage() {
 		this.stage.reset();
+				
+		const gameState = this.state.get();
+		if (gameState === 'play') {
+			this.validRun = true;
+			this.gameChrono = 0;
+		}
 	}
 
 	handleRoom() {
-		switch (this.stage.update(this.player.x, this.player.y)) {
+		const size = this.player.getSize();
+		switch (this.stage.update(this.player.x, this.player.y, size.x, size.y)) {
 		case "same":
 			break; // nothing to do
 		
@@ -146,21 +210,89 @@ export class Game {
 
 
 	private draw(ctx: CanvasRenderingContext2D, followCamera: Function, unfollowCamera: Function) {
-		followCamera();
+		const state = this.state.get();
+		switch (this.state.get()) {
+		case 'play':
+		case 'playToWin':
+		{
+			followCamera();
+	
+			
+			// Draw backgrounds
+			ctx.fillStyle = "#111";
+			ctx.fillRect(
+				this.stage.currentRoom.x,
+				this.stage.currentRoom.y,
+				this.stage.currentRoom.w,
+				this.stage.currentRoom.h,
+			);
+			ctx.fillStyle = "#1a1a1a";
+			for (let room of this.stage.currentRoom.adjacentRooms!) {
+				ctx.fillRect(room.x, room.y, room.w, room.h);
+			}
 
-		this.stage.currentRoom.draw(ctx);
-		for (let room of this.stage.currentRoom.adjacentRooms!) {
-			room.draw(ctx);
+
+			// Draw blocks
+			this.stage.currentRoom.draw(ctx);
+			for (let room of this.stage.currentRoom.adjacentRooms!) {
+				room.draw(ctx);
+			}
+			
+			this.player.draw(ctx);		
+			
+			
+			// Draw adjacence rects
+			ctx.fillStyle = "white";
+			this.stage.currentRoom.drawAdjacenceRects(ctx);
+			for (let room of this.stage.currentRoom.adjacentRooms!) {
+				room.drawAdjacenceRects(ctx);
+			}
+			unfollowCamera();
+	
+	
+	
+			this.player.drawInfos(ctx);
+	
+			this.player.drawDeathTransition(ctx);
+
+			if (state === 'playToWin') {
+				let ratio = 1.5 * this.state.getChrono() / State.PLAY_TO_WIN_DURATION;
+				if (ratio < 1) {
+					ratio = Math.sin(ratio * Math.PI/2);
+				} else {
+					ratio = 1;
+				}
+				ctx.fillStyle = `rgba(0, 0, 0, ${ratio*ratio*ratio})`;
+				ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+			}
+
+			break;
+		};
+
+		case 'menu':
+		{
+			ctx.fillStyle = "black";
+			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+			break;
 		}
-		
-		this.player.draw(ctx);		
-		unfollowCamera();
+
+		case 'win':
+		{
+			ctx.fillStyle = "black";
+			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+			ctx.font = "30px Arial";
+			ctx.fillStyle = "white";
+			ctx.fillText("Press P to save", Game.WIDTH_2, Game.HEIGHT_2 - 20);
+
+			ctx.fillStyle = "white";
+			ctx.fillText("Press F5 to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
+
+			break;
+		}
 
 
-
-		this.player.drawInfos(ctx);
-
-		this.player.drawDeathTransition(ctx);
+		}
 	}
 
 	gameDraw(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
@@ -175,7 +307,7 @@ export class Game {
 		ctx.scale(scale, scale);
 
 		// Draw background
-		ctx.fillStyle = "#222";
+		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
 		this.camera.update();
@@ -203,10 +335,6 @@ export class Game {
 		if (offsetY > 0) ctx.fillRect(0, canvasHeight - offsetY, canvasWidth, offsetY);
 		if (offsetX > 0) ctx.fillRect(0, 0, offsetX, canvasHeight);
 		if (offsetX > 0) ctx.fillRect(canvasWidth - offsetX, 0, offsetX, canvasHeight);
-
-
-		
-
 	}
 
 

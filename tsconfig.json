@@ -2,8 +2,8 @@
   "compilerOptions": {
     "outDir": "./dist",
     "rootDir": "./src",
-    "target": "es6",
-    "module": "es6",
+    "target": "es2022",
+    "module": "es2022",
     "strict": true
   }
 }

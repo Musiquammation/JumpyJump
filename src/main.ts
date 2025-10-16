@@ -13,11 +13,13 @@ window.addEventListener("resize", resizeCanvas);
 
 const canvasContext = canvas.getContext("2d")!;
 const game = new Game("zqsd", document);
-
+const chronoDiv = document.getElementById("chrono")!;
 
 function runGameLoop() {
 	game.gameLogic();
 	game.gameDraw(canvasContext, canvas.width, canvas.height);
+
+	chronoDiv.innerText = game.generateChronoText();
 
 	if (window.running) {
 		requestAnimationFrame(runGameLoop);

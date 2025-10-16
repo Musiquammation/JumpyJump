@@ -2,37 +2,30 @@ import type { Control } from "./Control";
 
 type Mode = "zqsd" | "wasd";
 
+class Keydown {
+	left = false;
+	right = false;
+	up = false;
+	down = false;
+	debug = false;
+}
+
 export class InputHandler {
 	private mode: Mode;
 
-	private keysDown: Record<Control, boolean> = {
-		left: false,
-		right: false,
-		up: false,
-		down: false,
-	};
+	private keysDown: Record<Control, boolean> = new Keydown();
 
-	private firstPress: Record<Control, boolean> = {
-		left: false,
-		right: false,
-		up: false,
-		down: false,
-	};
+	private firstPress: Record<Control, boolean> = new Keydown();
 
-	private killedPress: Record<Control, boolean> = {
-		left: false,
-		right: false,
-		up: false,
-		down: false,
-	};
+	private killedPress: Record<Control, boolean> = new Keydown();
 
 	private keyMap: Record<string, Control>;
 
 	constructor(mode: Mode) {
 		this.mode = mode;
 		this.keyMap = this.mode === "zqsd"
-			? { z: "up", q: "left", s: "down", d: "right" }
-			: { w: "up", a: "left", s: "down", d: "right" };
+			? { z: "up", q: "left", s: "down", d: "right", p: "debug" }
+			: { w: "up", a: "left", s: "down", d: "right", p: "debug" };
 	}
 
 	private onKeydown = (event: Event) => {
@@ -61,7 +54,7 @@ export class InputHandler {
 
 	update() {
 		// Reset firstPress et killedPress pour la prochaine frame
-		for (const control of ["left", "right", "up", "down"] as Control[]) {
+		for (const control of ["left", "right", "up", "down", "special"] as Control[]) {
 			this.firstPress[control] = false;
 			this.killedPress[control] = false;
 		}

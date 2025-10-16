@@ -1,6 +1,7 @@
 import type { Block } from "./Block";
 import type { Game } from "./Game";
 import { Room } from "./Room";
+import { Vector } from "./Vector";
 
 export class Stage {
 	rooms: Room[];
@@ -9,6 +10,8 @@ export class Stage {
 	constructor(rooms: Room[]) {
 		this.rooms = rooms;
 		this.fillAdjacentRooms();
+		for (let r of rooms)
+			r.fillAdjacenceRects();
 		
 		const currentRoom = this.findRoom(0, 0);
 		if (currentRoom === null)
@@ -89,7 +92,7 @@ export class Stage {
 
 	}
 
-	update(x: number, y: number) {
+	update(x: number, y: number, w: number, h: number) {
 		if (this.currentRoom.contains(x, y))
 			return 'same';
 
@@ -98,6 +101,9 @@ export class Stage {
 			this.currentRoom = room;
 			return 'new';
 		}
+
+		if (this.currentRoom.containsBox(x, y, w, h))
+			return 'same';
 
 		return 'out';
 	}

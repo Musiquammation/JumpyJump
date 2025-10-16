@@ -35,11 +35,17 @@ class EntityCouldownHelper {
 
 	reset() {
 		this.usages.clear();
-;	}
+	}
 }
 
 
-class MovingModule {
+
+interface DrawableModule<T> {
+	generateAnimator(_: Block): T;
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: T): void;
+}
+
+class MovingModule implements DrawableModule<null> {
 	readonly patterns: MovingPath[];
 	readonly times: number; // -1 means infinite
 	private currentPattern: number;
@@ -119,13 +125,42 @@ class MovingModule {
 		copy.active = this.active;
 		return copy;
 	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+	}
+
+	generateAnimator(_: Block) {
+		return null;
+	}
 }
 
-class CouldownedAttackModule {
+
+
+
+
+
+class CouldownedAttackAnimator {
+	spikes_x: number;
+	spikes_y: number;
+	spikes_w: number;
+	spikes_h: number;
+
+	constructor(w: number, h: number, defaultSpike_w: number = 32, defaultSpike_h: number = 32) {
+		this.spikes_x = Math.max(1, Math.ceil(w / defaultSpike_w));
+		this.spikes_w = w / this.spikes_x;
+
+		this.spikes_y = Math.max(1, Math.ceil(h / defaultSpike_h));
+		this.spikes_h = h / this.spikes_y;
+	}
+}
+
+
+class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator> {
 	private readonly damages: number;
 	private readonly duration: number;
 	private readonly playerOnly: boolean;
-
 	couldowns = new Map<Entity, number>();
 
 	constructor(damages: number, duration: number, playerOnly = true) {
@@ -153,7 +188,6 @@ class CouldownedAttackModule {
 		if (this.playerOnly && !(entity instanceof Player)) {
 			return;
 		}
-
 		if (!this.couldowns.has(entity)) {
 			this.couldowns.set(entity, this.duration);
 			entity.hit(this.damages, null);
@@ -165,13 +199,193 @@ class CouldownedAttackModule {
 		copy.couldowns = new Map(this.couldowns);
 		return copy;
 	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: CouldownedAttackAnimator) {
+		ctx.fillStyle = "#9B59B6";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+
+		let completion = 1;
+		for (const [e, d] of this.couldowns) {
+			if (e instanceof Player) {
+				completion = (this.duration - d) / this.duration;
+				if (completion < 0) completion = 0;
+				if (completion > 1) completion = 1;
+				break;
+			}
+		}
+
+		function drawSpike(baseL: [number, number], baseR: [number, number], tip: [number, number]) {
+			const [bxL, byL] = baseL;
+			const [bxR, byR] = baseR;
+			const [tx, ty] = tip;
+
+			// Background
+			{
+				const fxL = bxL + (tx - bxL);
+				const fyL = byL + (ty - byL);
+				const fxR = bxR + (tx - bxR);
+				const fyR = byR + (ty - byR);
+
+				ctx.beginPath();
+				ctx.moveTo(bxL, byL); // base left
+				ctx.lineTo(fxL, fyL); // toward tip left
+				ctx.lineTo(fxR, fyR); // toward tip right
+				ctx.lineTo(bxR, byR); // base right
+				ctx.closePath();
+				ctx.fillStyle = "#dec5ffff";
+				ctx.fill();
+			}
+
+			// Outline
+			ctx.beginPath();
+			ctx.moveTo(bxL, byL);
+			ctx.lineTo(tx, ty);
+			ctx.lineTo(bxR, byR);
+			ctx.closePath();
+			ctx.strokeStyle = "#FFEEAA";
+			ctx.lineWidth = 2;
+			ctx.stroke();
+
+
+			if (completion > 0) {
+				const fxL = bxL + (tx - bxL) * completion;
+				const fyL = byL + (ty - byL) * completion;
+				const fxR = bxR + (tx - bxR) * completion;
+				const fyR = byR + (ty - byR) * completion;
+
+				ctx.beginPath();
+				ctx.moveTo(bxL, byL); // base left
+				ctx.lineTo(fxL, fyL); // toward tip left
+				ctx.lineTo(fxR, fyR); // toward tip right
+				ctx.lineTo(bxR, byR); // base right
+				ctx.closePath();
+				ctx.fillStyle = "#882dffff";
+				ctx.fill();
+			}
+		}
+
+		for (let i = 0; i < animator.spikes_x; i++) {
+			const cx = -block.w / 2 + i * animator.spikes_w + animator.spikes_w / 2;
+			const topY = -block.h / 2;
+			drawSpike(
+				[cx - animator.spikes_w / 2, topY],
+				[cx + animator.spikes_w / 2, topY],
+				[cx, topY - animator.spikes_h]
+			);
+			const bottomY = block.h / 2;
+			drawSpike(
+				[cx - animator.spikes_w / 2, bottomY],
+				[cx + animator.spikes_w / 2, bottomY],
+				[cx, bottomY + animator.spikes_h]
+			);
+		}
+
+		for (let i = 0; i < animator.spikes_y; i++) {
+			const cy = -block.h / 2 + i * animator.spikes_h + animator.spikes_h / 2;
+			const leftX = -block.w / 2;
+			drawSpike(
+				[leftX, cy - animator.spikes_w / 2],
+				[leftX, cy + animator.spikes_w / 2],
+				[leftX - animator.spikes_h, cy]
+			);
+			const rightX = block.w / 2;
+			drawSpike(
+				[rightX, cy - animator.spikes_w / 2],
+				[rightX, cy + animator.spikes_w / 2],
+				[rightX + animator.spikes_h, cy]
+			);
+		}
+	}
+
+	generateAnimator(block: Block) {
+		return new CouldownedAttackAnimator(block.w, block.h);
+	}
 }
 
-class ContinuousAttackModule {
+
+
+
+
+class ContinousAttackParticle {
+	x: number;
+	y: number;
+	size: number;
+	vx: number;
+	vy: number;
+	alpha: number;
+	rotation: number;
+	vr: number;
+
+	constructor(w: number, h: number) {
+		this.x = (Math.random() - 0.5) * w;
+		this.y = (Math.random() - 0.5) * h;
+		this.size = 3 + Math.random() * 4;
+		this.vx = (Math.random() - 0.5) * 0.3;
+		this.vy = -0.4 - Math.random() * 0.6;
+		this.alpha = 1.2;
+		this.rotation = Math.random() * Math.PI;
+		this.vr = (Math.random() - 0.5) * 0.04;
+	}
+
+	update() {
+		this.x += this.vx;
+		this.y += this.vy;
+		this.rotation += this.vr;
+		this.alpha -= 0.01;
+		return this.alpha > 0;
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.rotate(this.rotation);
+		const s = this.size;
+		const r = s * 0.5; // radius for rounded corners
+		const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 1.5);
+		gradient.addColorStop(0, `rgba(114, 0, 129, ${this.alpha})`);
+		gradient.addColorStop(1, `rgba(114, 0, 129, 0)`);
+
+		ctx.fillStyle = gradient;
+
+		// Rounded diamond shape (rotated square)
+		ctx.beginPath();
+		ctx.moveTo(0, -s);
+		ctx.quadraticCurveTo(r, -s + r, s, 0);
+		ctx.quadraticCurveTo(s - r, r, 0, s);
+		ctx.quadraticCurveTo(-r, s - r, -s, 0);
+		ctx.quadraticCurveTo(-s + r, -r, 0, -s);
+		ctx.closePath();
+		ctx.fill();
+
+		ctx.restore();
+	}
+}
+
+class ContinuousAttackAnimator {
+	particles: ContinousAttackParticle[] = [];
+	production = 0;
+	static PRODUCTION = 200000;
+
+	update(w: number, h: number) {
+		this.production += w * h;
+		if (this.production > ContinuousAttackAnimator.PRODUCTION) {
+			this.production -= ContinuousAttackAnimator.PRODUCTION;
+			this.particles.push(new ContinousAttackParticle(w, h));
+		}
+
+		this.particles = this.particles.filter(p => p.update());
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		this.particles.forEach(p => p.draw(ctx));
+	}
+	
+}
+
+class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator> {
 	private readonly damages: number;
 	private readonly playerOnly: boolean;
 
-	couldowns = new Map<Entity, number>();
 
 	constructor(damages: number, playerOnly = true) {
 		this.damages = damages;
@@ -179,61 +393,228 @@ class ContinuousAttackModule {
 	}
 
 	reset() {
-		this.couldowns.clear();
+		
 	}
 
 	onTouch(entity: Entity) {
-		if (this.playerOnly && !(entity instanceof Player)) {
-			return;
-		}
-
+		if (this.playerOnly && !(entity instanceof Player)) return;
 		entity.hit(this.damages, null);
 	}
 
 	copy() {
 		const copy = new ContinuousAttackModule(this.damages, this.playerOnly);
-		copy.couldowns = new Map(this.couldowns);
 		return copy;
+	}
+
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: ContinuousAttackAnimator) {
+		ctx.save();
+		ctx.shadowColor = "rgb(111, 0, 255)";
+		ctx.shadowBlur = 50;
+		ctx.fillStyle = "rgba(212, 0, 255, 1)";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		animator.update(block.w, block.h);
+		block.cancelRotation(ctx, () => animator.draw(ctx));
+	}
+
+
+	generateAnimator(_: Block) {
+		return new ContinuousAttackAnimator();
 	}
 }
 
-class BounceModule {
+
+
+
+class BounceAnimator {
+	private arrows: { y: number }[] = [];
+	private spacing: number;
+	private time: number = 0;
+
+	constructor(blockHeight: number, spacing: number = 30) {
+		// adjust spacing so that blockHeight / spacing is an integer
+		const count = Math.ceil(blockHeight / spacing);
+		this.spacing = blockHeight / count;
+
+		for (let i = 0; i < count; i++) {
+			this.arrows.push({ y: i * this.spacing });
+		}
+	}
+
+
+	private getSpeed(): number {
+		return Math.max(.3, Math.sin(this.time/2) * 3); 
+	}
+
+	update(blockHeight: number) {
+		this.time += 0.1;
+
+		const speed = this.getSpeed();
+		for (const arrow of this.arrows) {
+			arrow.y += speed;
+
+			// recycle arrows that go past the top
+			if (arrow.y > blockHeight) arrow.y -= blockHeight;
+		}
+	}
+
+	getArrows() {
+		return this.arrows;
+	}
+
+	// compute opacity from y position
+	getOpacity(y: number, blockHeight: number): number {
+		const fadeZone = this.spacing; // distance from top/bottom where fade occurs
+		if (y < fadeZone) return y / fadeZone;               // fade in at bottom
+		if (y > blockHeight - fadeZone) return (blockHeight - y) / fadeZone; // fade out at top
+		return 1; // full opacity in middle
+	}
+}
+
+
+class BounceModule implements DrawableModule<BounceAnimator> {
 	private readonly cost: number;
+	private readonly factor: number;
 	private readonly playerOnly: boolean;
 	private readonly helper: EntityCouldownHelper;
 
-	constructor(cost: number, playerOnly = true, liberationCouldown = 12) {
+	constructor(factor: number, cost: number, playerOnly = true, liberationCouldown = 12) {
+		this.factor = factor;
 		this.cost = cost;
 		this.playerOnly = playerOnly;
 		this.helper = new EntityCouldownHelper(liberationCouldown);
 	}
 
-	reset() {
-		this.helper.reset();
-	}
+	reset() { this.helper.reset(); }
 
 	onTouch(entity: Entity, frameNumber: number) {
 		if (this.playerOnly && !(entity instanceof Player)) return;
+		if (this.helper.track(entity, frameNumber)) entity.bounce(this.factor, this.cost);
+	}
 
-		if (this.helper.track(entity, frameNumber)) {
-			entity.bounce(this.cost);
+	update() {}
+
+	copy() {
+		const copy = new BounceModule(this.factor, this.cost, this.playerOnly);
+		return copy;
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: BounceAnimator) {
+		animator.update(block.h);
+
+		// --- draw glowing yellow block ---
+		ctx.save();
+		ctx.shadowColor = "rgba(255, 220, 100, 0.9)";
+		ctx.shadowBlur = 35;
+		const grad = ctx.createLinearGradient(-block.w / 2, -block.h / 2, block.w / 2, block.h / 2);
+		grad.addColorStop(0, "#FFE066");
+		grad.addColorStop(1, "#FFAA00");
+		ctx.fillStyle = grad;
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		// --- draw hollow arrows ---
+		const arrowW = block.w * 0.6;
+		const arrowH = 20;
+		const spacing = -10;
+
+		for (let i = 0; i < animator.getArrows().length; i++) {
+			const arrow = animator.getArrows()[i];
+			const cx = 0;
+			const cy = block.h / 2 - arrow.y - 10;
+
+			const opacity = animator.getOpacity(arrow.y, block.h);
+
+			ctx.save();
+			ctx.globalAlpha = opacity;
+			ctx.strokeStyle = "#FFFF80";
+			ctx.lineWidth = 3;
+			ctx.shadowColor = "rgba(255, 240, 180, 1)";
+			ctx.shadowBlur = 20;
+
+			ctx.beginPath();
+			ctx.moveTo(cx, cy - arrowH / 2);               // tip
+			ctx.lineTo(cx - arrowW / 2, cy + arrowH / 2); // left edge
+			ctx.moveTo(cx, cy - arrowH / 2);               // tip again
+			ctx.lineTo(cx + arrowW / 2, cy + arrowH / 2); // right edge
+			ctx.stroke();
+
+			ctx.restore();
 		}
 	}
 
-	update() {
 
-	}
-	
-	copy() {
-		const copy = new BounceModule(this.cost, this.playerOnly);
-		return copy;
+	generateAnimator(block: Block) {
+		return new BounceAnimator(block.h);
 	}
 }
 
 
 
 
-class KillModule {
+
+
+
+class LavaBubble {
+	x: number;
+	y: number;
+	r: number;
+	vx: number;
+	vy: number;
+	alpha: number;
+
+	constructor(w: number, h: number) {
+		this.x = (Math.random() - 0.5) * w;
+		this.y = (Math.random() - 0.5) * h;
+		this.r = 2 + Math.random() * 4;
+		this.vx = (Math.random() - 0.5) * 0.5;
+		this.vy = -0.5 - Math.random() * 1;
+		this.alpha = 1.4;
+	}
+
+	update() {
+		this.x += this.vx;
+		this.y += this.vy;
+		this.alpha -= 0.01;
+		return this.alpha > 0;
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		const gradient = ctx.createRadialGradient(this.x, this.y, 0, this.x, this.y, this.r * 2);
+		gradient.addColorStop(0, `rgba(200, 20, 0, ${this.alpha})`);
+		gradient.addColorStop(1, `rgba(255, 30, 0, 0)`);
+		ctx.fillStyle = gradient;
+		ctx.beginPath();
+		ctx.arc(this.x, this.y, this.r, 0, Math.PI * 2);
+		ctx.fill();
+	}
+}
+
+class KillAnimator {
+	bubbles: LavaBubble[] = [];
+	production = 0;
+	static PRODUCTION = 200000;
+
+	update(w: number, h: number) {
+		this.production += w*h;
+		if (this.production > KillAnimator.PRODUCTION) {
+			this.production -= KillAnimator.PRODUCTION;
+			this.bubbles.push(new LavaBubble(w, h));
+		}
+
+		this.bubbles = this.bubbles.filter(b => {
+			return b.update();
+		});
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		this.bubbles.forEach(b => b.draw(ctx));
+	}
+}
+
+class KillModule implements DrawableModule<KillAnimator> {
 	private readonly playerOnly: boolean;
 
 	constructor(playerOnly = true) {
@@ -246,16 +627,33 @@ class KillModule {
 		if (this.playerOnly && !(entity instanceof Player)) {
 			return;
 		}
-
 		entity.hit(Infinity, null);
 	}
 
 	copy() {
 		return new KillModule(this.playerOnly);
 	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: KillAnimator) {
+		ctx.save();
+		ctx.shadowColor = "rgba(255,0,0,0.8)";
+		ctx.shadowBlur = 20;
+		ctx.fillStyle = "red";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		animator.update(block.w, block.h);
+		block.cancelRotation(ctx, () => animator.draw(ctx));
+	}
+
+	generateAnimator(_: Block) {
+		return new KillAnimator();
+	}
 }
 
-class CouldownDespawnModule {
+
+
+class CouldownDespawnModule implements DrawableModule<null> {
 	private readonly duration: number;
 	private couldown: number;
 
@@ -279,9 +677,18 @@ class CouldownDespawnModule {
 		copy.couldown = this.couldown;
 		return copy;
 	}
-}
 
-class TouchDespawnModule {
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+	}
+
+	generateAnimator(_: Block) {
+		return null;
+	}
+ }
+
+class TouchDespawnModule implements DrawableModule<null> {
 	private readonly playerOnly: boolean;
 
 	constructor(playerOnly = true) {
@@ -301,12 +708,101 @@ class TouchDespawnModule {
 	copy() {
 		return new TouchDespawnModule(this.playerOnly);
 	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+	}
+
+	generateAnimator(_: Block) {
+		return null;
+	}
 }
 
-class HealModule {
+
+
+
+
+class HealAnimator {
+	particles: { x: number; y: number; vy: number; size: number; alpha: number }[] = [];
+
+	private usableColor = { r: 50, g: 150, b: 50 }; // green when usable
+	private touchedColor = { r: 30, g: 100, b: 30 }; // darker green when used
+	private currentColor = { r: 50, g: 150, b: 50 };
+
+	private baseShadowBlur = 30;
+	private shadowPulse = 0;
+
+	production = 0;
+	static PRODUCTION = 200000;
+
+
+	update(block: Block) {
+		// --- color transition ---
+		const factor = 0.05;
+		if (block.module.heal?.playerHasTouched) {
+			this.currentColor.r += (this.touchedColor.r - this.currentColor.r) * factor;
+			this.currentColor.g += (this.touchedColor.g - this.currentColor.g) * factor;
+			this.currentColor.b += (this.touchedColor.b - this.currentColor.b) * factor;
+		} else {
+			this.currentColor.r += (this.usableColor.r - this.currentColor.r) * factor;
+			this.currentColor.g += (this.usableColor.g - this.currentColor.g) * factor;
+			this.currentColor.b += (this.usableColor.b - this.currentColor.b) * factor;
+		}
+
+		// --- shadow blur animation ---
+		if (!block.module.heal?.playerHasTouched) {
+			this.shadowPulse += 0.04;
+		} else {
+			this.shadowPulse = 0; // reset pulse when used
+		}
+
+		// --- particle generation ---
+		if (!block.module.heal?.playerHasTouched) {
+			this.production += block.w * block.h;
+			if (this.production > HealAnimator.PRODUCTION) {
+				this.production -= HealAnimator.PRODUCTION;
+				this.particles.push({
+					x: (Math.random() - 0.5) * block.w * 0.8,
+					y: (Math.random() - 0.5) * block.h * 0.8,
+					vy: -0.5 - Math.random(),
+					size: 5 + Math.random() * 5,
+					alpha: 1
+				});
+			}
+
+		}
+
+		
+		// --- particle update ---
+		for (const p of this.particles) {
+			p.y += p.vy;
+			p.alpha -= 0.02;
+		}
+		this.particles = this.particles.filter(p => p.alpha > 0);
+	}
+
+	getColor(): string {
+		return `rgb(${this.currentColor.r}, ${this.currentColor.g}, ${this.currentColor.b})`;
+	}
+
+	getShadowBlur(block: Block): number {
+		if (block.module.heal?.playerHasTouched) {
+			return this.baseShadowBlur * 0.1; // reduced glow when used
+		} else {
+			// animate pulse
+			return this.baseShadowBlur + Math.sin(this.shadowPulse) * 5;
+		}
+	}
+}
+
+
+
+class HealModule implements DrawableModule<HealAnimator> {
 	private readonly hp: number;
 	private readonly playerOnly: boolean;
 	touched = new Set<Entity>();
+	playerHasTouched = false;
 
 	constructor(hp: number, playerOnly = true) {
 		this.hp = hp;
@@ -315,11 +811,17 @@ class HealModule {
 
 	reset() {
 		this.touched.clear();
+		this.playerHasTouched = false;
 	}
 
 	onTouch(entity: Entity) {
-		if (this.playerOnly && !(entity instanceof Player)) {
+		const isPlayer = entity instanceof Player;
+		if (this.playerOnly && !isPlayer) {
 			return;
+		}
+
+		if (isPlayer) {
+			this.playerHasTouched = true;
 		}
 
 		if (!this.touched.has(entity)) {
@@ -333,9 +835,54 @@ class HealModule {
 		copy.touched = new Set(this.touched);
 		return copy;
 	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: HealAnimator) {
+		animator.update(block);
+
+		const shadowBlur = animator.getShadowBlur(block);
+
+		// --- draw glowing green block ---
+		ctx.save();
+		ctx.shadowColor = "rgba(100, 255, 100, 0.8)";
+		ctx.shadowBlur = shadowBlur;
+		ctx.fillStyle = animator.getColor();
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		// --- draw particles in shape of + ---
+		block.cancelRotation(ctx, () => {
+			for (const p of animator.particles) {
+				ctx.save();
+				ctx.globalAlpha = p.alpha;
+				ctx.strokeStyle = "#B0FFB0";
+				ctx.lineWidth = 2;
+				ctx.shadowColor = "rgba(180, 255, 180, 0.8)";
+				ctx.shadowBlur = shadowBlur / 2;
+	
+				const cx = p.x;
+				const cy = p.y;
+				const s = p.size / 2;
+	
+				ctx.beginPath();
+				ctx.moveTo(cx - s, cy);
+				ctx.lineTo(cx + s, cy);
+				ctx.moveTo(cx, cy - s);
+				ctx.lineTo(cx, cy + s);
+				ctx.stroke();
+	
+				ctx.restore();
+			}
+		});
+
+	}
+
+
+	generateAnimator(_: Block) {
+		return new HealAnimator();
+	}
 }
 
-class SpeedModule {
+class SpeedModule implements DrawableModule<null> {
 	vx: number;
 	vy: number;
 
@@ -372,32 +919,130 @@ class SpeedModule {
 	copy() {
 		return new SpeedModule(this.vx, this.vy);
 	}
-}
 
-class GravityModule {
-	private readonly gravity: number;
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+	}
 
-	constructor(gravity = 0.5) {
-		this.gravity = gravity;
+	generateAnimator(_: Block) {
+		return null;
+	}
+ }
+
+class AccelerationModule implements DrawableModule<null> {
+	private readonly ax: number;
+	private readonly ay: number;
+
+	constructor(ax: number, ay: number) {
+		this.ax = ax;
+		this.ay = ay;
 	}
 
 	update(block: Block) {
 		if (!block.module.speed) {
-			console.warn("GravityModule requires SpeedModule to be present");
-			return;
+			throw new Error("AccelerationModule requires SpeedModule to be used");
 		}
 
-		block.module.speed.vy += this.gravity;
+		block.module.speed.vx += this.ax;
+		block.module.speed.vy += this.ay;
 	}
 
 	reset() {}
 
 	copy() {
-		return new GravityModule(this.gravity);
+		return new AccelerationModule(this.ax, this.ay);
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+	}
+
+	generateAnimator(_: Block) {
+		return null;
 	}
 }
 
-class RestoreJumpModule {
+
+
+
+class RestoreJumpParticle {
+	x: number;
+	y: number;
+	size: number;
+	vx: number;
+	vy: number;
+	alpha: number;
+	rotation: number;
+	vr: number;
+
+	constructor(w: number, h: number) {
+		this.x = (Math.random() - 0.5) * w;
+		this.y = (Math.random() - 0.5) * h;
+		this.size = 3 + Math.random() * 4;
+		this.vx = (Math.random() - 0.5) * 0.3;
+		this.vy = -0.4 - Math.random() * 0.6;
+		this.alpha = 1.2;
+		this.rotation = Math.random() * Math.PI;
+		this.vr = (Math.random() - 0.5) * 0.04;
+	}
+
+	update() {
+		this.x += this.vx;
+		this.y += this.vy;
+		this.rotation += this.vr;
+		this.alpha -= 0.01;
+		return this.alpha > 0;
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.rotate(this.rotation);
+		const s = this.size;
+		const r = s * 0.5; // radius for rounded corners
+		const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 1.5);
+		gradient.addColorStop(0, `rgba(255, 255, 180, ${this.alpha})`);
+		gradient.addColorStop(1, `rgba(255, 200, 0, 0)`);
+
+		ctx.fillStyle = gradient;
+
+		// Rounded diamond shape (rotated square)
+		ctx.beginPath();
+		ctx.moveTo(0, -s);
+		ctx.quadraticCurveTo(r, -s + r, s, 0);
+		ctx.quadraticCurveTo(s - r, r, 0, s);
+		ctx.quadraticCurveTo(-r, s - r, -s, 0);
+		ctx.quadraticCurveTo(-s + r, -r, 0, -s);
+		ctx.closePath();
+		ctx.fill();
+
+		ctx.restore();
+	}
+}
+
+class RestoreJumpAnimator {
+	particles: RestoreJumpParticle[] = [];
+	production = 0;
+	static PRODUCTION = 200000;
+
+	update(w: number, h: number) {
+		this.production += w * h
+		if (this.production > HealAnimator.PRODUCTION) {
+			this.production -= HealAnimator.PRODUCTION;
+			this.particles.push(new RestoreJumpParticle(w, h));
+		}
+
+		this.particles = this.particles.filter(p => p.update());
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		this.particles.forEach(p => p.draw(ctx));
+	}
+}
+
+class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator> {
 	private readonly gain: number;
 	private readonly helper: EntityCouldownHelper;
 
@@ -411,9 +1056,7 @@ class RestoreJumpModule {
 	}
 
 	onTouch(entity: Entity, frameNumber: number) {
-		if (!(entity instanceof Player)) {
-			return;
-		}
+		if (!(entity instanceof Player)) return;
 
 		if (this.helper.track(entity, frameNumber)) {
 			entity.restoreJumpAdd(this.gain);
@@ -421,10 +1064,26 @@ class RestoreJumpModule {
 	}
 
 	copy() {
-		const copy = new RestoreJumpModule(this.gain);
-		return copy;
+		return new RestoreJumpModule(this.gain);
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: RestoreJumpAnimator) {
+		ctx.save();
+		ctx.shadowColor = "rgba(255, 230, 100, 0.9)";
+		ctx.shadowBlur = 15;
+		ctx.fillStyle = "rgba(255, 220, 0, 0.6)";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		animator.update(block.w, block.h);
+		block.cancelRotation(ctx, () => animator.draw(ctx));
+	}
+
+	generateAnimator(_: Block) {
+		return new RestoreJumpAnimator();
 	}
 }
+
 
 class RotationModule {
 	private readonly start: number;
@@ -458,6 +1117,63 @@ class RotationModule {
 	}
 }
 
+
+
+
+class GoalAnimator {
+	time = 0;
+
+	getColor() {
+		// Oscillation douce du bleu pour le scintillement
+		const glow = 0.7 + 0.3 * Math.sin(this.time * 4);
+		const r = 0;
+		const g = Math.floor(150 + 50 * glow);
+		const b = 255;
+		return `rgb(${r}, ${g}, ${b})`;
+	}
+
+	getShadowBlur(base: number) {
+		// Halo plus ou moins intense selon le temps
+		return base + 15 * Math.sin(this.time * 4);
+	}
+}
+
+class GoalModule implements DrawableModule<GoalAnimator> {
+	type: number;
+
+	constructor(type: number) {
+		this.type = type;
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: GoalAnimator): void {
+		animator.time += 0.015;
+
+		function run(shadowBlur: number) {
+			ctx.save();
+			ctx.shadowColor = "rgba(0, 200, 255, 0.9)"; // halo bleu intense
+			ctx.shadowBlur = shadowBlur;
+			ctx.fillStyle = animator.getColor();
+			ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+			ctx.restore();
+	
+			// Optionnel : contour léger pour mieux délimiter le bloc
+			ctx.lineWidth = 2;
+			ctx.strokeStyle = "rgba(0, 150, 255, 0.8)";
+			ctx.strokeRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		} 
+		
+		run(animator.getShadowBlur(100));
+		run(animator.getShadowBlur(70));
+		run(animator.getShadowBlur(40));
+	}
+
+
+
+
+	generateAnimator(_: Block): GoalAnimator {
+		return new GoalAnimator();
+	}
+}
 
 
 
@@ -505,7 +1221,7 @@ class SpawnerModule {
 
 		return copy;
 	}
-}
+ }
 
 
 
@@ -558,8 +1274,12 @@ export class BlockBuilder {
 
 
 
+
+
+
+
+
 export class BlockModule {
-	checkCollision: boolean;
 	moving?: MovingModule;
 	rotation?: RotationModule;
 	couldownedAttack?: CouldownedAttackModule;
@@ -572,9 +1292,11 @@ export class BlockModule {
 	couldownDespawn?: CouldownDespawnModule;
 	spawner?: SpawnerModule;
 	speed?: SpeedModule;
-	gravity?: GravityModule;
+	acceleration?: AccelerationModule;
+	goal?: GoalModule;
+
+	checkCollision: boolean;
 	runInAdjacentRoom: boolean;
-	goal: number;
 
 	constructor(args: {
 		moving?: MovingModule,
@@ -589,7 +1311,7 @@ export class BlockModule {
 		couldownDespawn?: CouldownDespawnModule,
 		spawner?: SpawnerModule,
 		speed?: SpeedModule,
-		gravity?: GravityModule,
+		acceleration?: AccelerationModule,
 		runInAdjacentRoom?: boolean,
 		goal?: number,
 	}) {
@@ -605,10 +1327,16 @@ export class BlockModule {
 		this.couldownDespawn = args.couldownDespawn;
 		this.spawner = args.spawner;
 		this.speed = args.speed;
-		this.gravity = args.gravity;
+		this.acceleration = args.acceleration;
+
+		if (this.acceleration && !this.speed) {
+			this.speed = new SpeedModule(0, 0);
+		}
 
 		this.runInAdjacentRoom = args.runInAdjacentRoom ? true : false;
-		this.goal = args.goal ?? 0;
+		if (args.goal) {
+			this.goal = new GoalModule(args.goal);
+		}
 
 		this.checkCollision = [
 			args.couldownedAttack,
@@ -636,11 +1364,40 @@ export class BlockModule {
 			couldownDespawn: this.couldownDespawn?.copy(),
 			spawner: this.spawner?.copy(),
 			speed: this.speed?.copy(),
-			gravity: this.gravity?.copy(),
+			acceleration: this.acceleration?.copy(),
 			runInAdjacentRoom: this.runInAdjacentRoom
 		});
 	}
+
+
+	getDrawModule(level: number): DrawableModule<any> | null {
+		const list = [
+			this.goal,
+			this.kill,
+			this.heal,
+			this.couldownedAttack,
+			this.continuousAttack,
+			this.restoreJump,
+			this.bounce,
+			this.moving,
+			this.speed,
+			this.acceleration
+		];
+
+		let idx = level;
+		for (let i of list) {
+			if (i) {
+				if (idx === 0)
+					return i;
+				idx--;
+			}
+		}
+
+		return null;
+	}
 }
+
+
 
 export class Block {
 	x: number;
@@ -661,6 +1418,9 @@ export class Block {
 	spawnRoom?: Room;
 	fromSpawner = false;
 
+	drawMode: DrawableModule<any> | null;
+	drawAnimator: any;
+
 	constructor(
 		x: number,
 		y: number,
@@ -679,6 +1439,13 @@ export class Block {
 		this.start_h = h;
 
 		this.module = module;
+		this.drawMode = module.getDrawModule(0);
+
+		if (this.drawMode) {
+			this.drawAnimator = this.drawMode.generateAnimator(this);
+		} else {
+			this.drawAnimator = undefined;
+		}
 	}
 
 	getRotation() {
@@ -702,8 +1469,8 @@ export class Block {
 		this.module.touchDespawn?.onTouch(entity, this);
 		this.module.restoreJump?.onTouch(entity, game.frame);
 
-		if (this.module.goal > 0) {
-			game.goalComplete = this.module.goal;
+		if (this.module.goal) {
+			game.goalComplete = this.module.goal.type;
 		}
 	}
 
@@ -715,7 +1482,7 @@ export class Block {
 		// Frame
 		this.module.moving?.update(this, room);
 		this.module.speed?.update(this, room);
-		this.module.gravity?.update(this);
+		this.module.acceleration?.update(this);
 		this.module.rotation?.update();
 		this.module.couldownedAttack?.update(this);
 		this.module.couldownDespawn?.update(this);
@@ -750,17 +1517,40 @@ export class Block {
 		this.module.couldownDespawn?.reset();
 	}
 
-	draw(ctx: CanvasRenderingContext2D): void {
-		ctx.fillStyle = "brown";
+	draw(ctx: CanvasRenderingContext2D) {
+		ctx.fillStyle = "#555";
 
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		if (this.module.rotation) {
+			ctx.rotate(this.module.rotation.getAngle());
+		}
+		
+		if (this.drawMode) {
+			this.drawMode.draw(this, ctx, this.drawAnimator);
+		} else {
+			this.drawAsDefault(ctx);
+		}
+
+		ctx.restore();
+	}
+
+	
+	drawAsDefault(ctx: CanvasRenderingContext2D) {
+		ctx.fillStyle = "#555";
+		ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+	}
+
+
+	cancelRotation(ctx: CanvasRenderingContext2D, callback: any) {
 		if (this.module.rotation) {
 			ctx.save();
-			ctx.translate(this.x, this.y);
-			ctx.rotate(this.module.rotation.getAngle());
-			ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
+			ctx.rotate(-this.module.rotation.getAngle());
+			callback();
 			ctx.restore();
 		} else {
-			ctx.fillRect(this.x - this.w / 2, this.y - this.h / 2, this.w, this.h);
+			callback();
+
 		}
 	}
 }
@@ -776,8 +1566,10 @@ export const bmodules = {
 	TouchDespawnModule,
 	HealModule,
 	SpeedModule,
-	GravityModule,
+	AccelerationModule,
 	RestoreJumpModule,
 	RotationModule,
 	SpawnerModule
 };
+
+

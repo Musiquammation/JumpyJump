@@ -1,1 +1,1 @@
-export type Control = "left" | "right" | "up" | "down";
+export type Control = "left" | "right" | "up" | "down" | "debug";

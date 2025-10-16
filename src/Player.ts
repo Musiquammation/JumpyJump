@@ -7,7 +7,7 @@ export class Player extends Entity {
 	static GRAVITY = .9;
 	static DASH = 20;
 	static JUMP = 25;
-	static MAX_SPEED = 20;
+	static MAX_SPEED = 25;
 	static SPEED_INC = 3;
 	static SPEED_DEC = 10;
 	static JUMP_COUNT = 3;
@@ -17,10 +17,10 @@ export class Player extends Entity {
 	static DEATH_ANIM_COULDOWN = 60;
 	static SIZE = 40;
 	static SIZE_2 = Player.SIZE/2;
-	static BOUNCE = .9;
 
 	vx = 0;
 	vy = 0;
+	eternalMode = false;
 
 	jumps = Player.JUMP_COUNT;
 	respawnCouldown = -1;
@@ -28,15 +28,15 @@ export class Player extends Entity {
 	jump_leveledBar = new LelevedBar(
 		"vertical", 1.0,
 		1500, 150, 30, 600,
-		["red", "orange", "yellow"],
-		"white", null, "black"
+		["#FFA800", "#FFD000", "#FFF200"],
+		"#fffdceff", null, "black"
 	);
 
 	hp_leveledBar = new LelevedBar(
 		"horizontal", 1.0,
-		100, 100, 1000, 30,
-		["red", "orange", "yellow"],
-		"white", null, "black"
+		300, 100, 1000, 30,
+		["#ff0044", "#ff002f", "#ff001a"],
+		"#ffb1c5", null, "black"
 	);
 
 	constructor() {
@@ -58,7 +58,7 @@ export class Player extends Entity {
 		this.hit(Player.JUMP_HP_COST, null);
 	}
 
-	override bounce(cost: number) {
+	override bounce(factor: number, cost: number) {
 		if (this.vy <= 0)
 			return;
 
@@ -71,7 +71,7 @@ export class Player extends Entity {
 			this.jump_leveledBar.setValue(0);
 
 		}
-		this.vy *= -Player.BOUNCE;
+		this.vy *= -factor;
 
 	}
 
@@ -93,6 +93,9 @@ export class Player extends Entity {
 
 	
 	override hit(damages: number, _: Entity | null) {
+		if (this.eternalMode)
+			return;
+
 		if (this.isAlive()) {
 			this.hp -= damages;
 			this.hp_leveledBar.setValue(this.hp / Player.HP);
@@ -117,6 +120,9 @@ export class Player extends Entity {
 	}
 
 	kill() {
+		if (this.eternalMode)
+			return;
+
 		this.respawnCouldown = Player.DEATH_ANIM_COULDOWN;
 	}
 
@@ -185,14 +191,36 @@ export class Player extends Entity {
 		}
 
 		// Update position
-		this.x += this.vx;
+		this.x += this.vx * (this.eternalMode ? 3 : 1);
 		this.y += this.vy;
 	}
 
 
 	draw(ctx: CanvasRenderingContext2D) {
 		ctx.fillStyle = "white";
-		ctx.fillRect(this.x - Player.SIZE_2, this.y - Player.SIZE_2, Player.SIZE, Player.SIZE);
+		ctx.strokeStyle = "black";
+		ctx.lineWidth = 5;
+
+		const radius = 4;
+		const x = this.x - Player.SIZE_2;
+		const y = this.y - Player.SIZE_2;
+		const size = Player.SIZE;
+
+		ctx.fillRect(x, y, size, size);
+
+		ctx.beginPath();
+		ctx.moveTo(x + radius, y);
+		ctx.lineTo(x + size - radius, y);
+		ctx.quadraticCurveTo(x + size, y, x + size, y + radius);
+		ctx.lineTo(x + size, y + size - radius);
+		ctx.quadraticCurveTo(x + size, y + size, x + size - radius, y + size);
+		ctx.lineTo(x + radius, y + size);
+		ctx.quadraticCurveTo(x, y + size, x, y + size - radius);
+		ctx.lineTo(x, y + radius);
+		ctx.quadraticCurveTo(x, y, x + radius, y);
+		ctx.closePath();
+		ctx.stroke();
+
 	}
 
 	drawInfos(ctx: CanvasRenderingContext2D) {
@@ -221,7 +249,6 @@ export class Player extends Entity {
 			const rectWidth = Game.WIDTH * 2 * (1 - t); // de width à 0
 			ctx.fillRect(0, 0, rectWidth, Game.HEIGHT);
 		}
-
 	}
 
 

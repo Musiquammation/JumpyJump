@@ -26,6 +26,6 @@ export abstract class Entity {
 	getRotation() {return 0;}
 
 	heal(_: number) {}
-	bounce(_: number) {}
+	bounce(_factor: number, _cost: number) {}
 }
 
