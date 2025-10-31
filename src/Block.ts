@@ -19,8 +19,8 @@ class MovingPath {
 }
 
 class EntityCouldownHelper {
-	private readonly liberationCouldown: number;
-	private readonly usages = new Map<Entity, number>();
+	liberationCouldown: number;
+	usages = new Map<Entity, number>();
 
 	constructor(liberationCouldown: number) {
 		this.liberationCouldown = liberationCouldown;
@@ -126,7 +126,7 @@ class MovingModule implements DrawableModule<null> {
 		return copy;
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
 		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
 	}
@@ -158,9 +158,9 @@ class CouldownedAttackAnimator {
 
 
 class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator> {
-	private readonly damages: number;
-	private readonly duration: number;
-	private readonly playerOnly: boolean;
+	damages: number;
+	duration: number;
+	playerOnly: boolean;
 	couldowns = new Map<Entity, number>();
 
 	constructor(damages: number, duration: number, playerOnly = true) {
@@ -383,8 +383,8 @@ class ContinuousAttackAnimator {
 }
 
 class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator> {
-	private readonly damages: number;
-	private readonly playerOnly: boolean;
+	damages: number;
+	playerOnly: boolean;
 
 
 	constructor(damages: number, playerOnly = true) {
@@ -475,10 +475,10 @@ class BounceAnimator {
 
 
 class BounceModule implements DrawableModule<BounceAnimator> {
-	private readonly cost: number;
-	private readonly factor: number;
-	private readonly playerOnly: boolean;
-	private readonly helper: EntityCouldownHelper;
+	cost: number;
+	factor: number;
+	playerOnly: boolean;
+	helper: EntityCouldownHelper;
 
 	constructor(factor: number, cost: number, playerOnly = true, liberationCouldown = 12) {
 		this.factor = factor;
@@ -518,7 +518,6 @@ class BounceModule implements DrawableModule<BounceAnimator> {
 		// --- draw hollow arrows ---
 		const arrowW = block.w * 0.6;
 		const arrowH = 20;
-		const spacing = -10;
 
 		for (let i = 0; i < animator.getArrows().length; i++) {
 			const arrow = animator.getArrows()[i];
@@ -615,7 +614,7 @@ class KillAnimator {
 }
 
 class KillModule implements DrawableModule<KillAnimator> {
-	private readonly playerOnly: boolean;
+	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
 		this.playerOnly = playerOnly;
@@ -654,7 +653,7 @@ class KillModule implements DrawableModule<KillAnimator> {
 
 
 class CouldownDespawnModule implements DrawableModule<null> {
-	private readonly duration: number;
+	duration: number;
 	private couldown: number;
 
 	constructor(duration: number) {
@@ -678,7 +677,7 @@ class CouldownDespawnModule implements DrawableModule<null> {
 		return copy;
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
 		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
 	}
@@ -689,7 +688,7 @@ class CouldownDespawnModule implements DrawableModule<null> {
  }
 
 class TouchDespawnModule implements DrawableModule<null> {
-	private readonly playerOnly: boolean;
+	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
 		this.playerOnly = playerOnly;
@@ -709,7 +708,7 @@ class TouchDespawnModule implements DrawableModule<null> {
 		return new TouchDespawnModule(this.playerOnly);
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
 		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
 	}
@@ -799,8 +798,8 @@ class HealAnimator {
 
 
 class HealModule implements DrawableModule<HealAnimator> {
-	private readonly hp: number;
-	private readonly playerOnly: boolean;
+	hp: number;
+	playerOnly: boolean;
 	touched = new Set<Entity>();
 	playerHasTouched = false;
 
@@ -920,7 +919,7 @@ class SpeedModule implements DrawableModule<null> {
 		return new SpeedModule(this.vx, this.vy);
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
 		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
 	}
@@ -931,8 +930,8 @@ class SpeedModule implements DrawableModule<null> {
  }
 
 class AccelerationModule implements DrawableModule<null> {
-	private readonly ax: number;
-	private readonly ay: number;
+	ax: number;
+	ay: number;
 
 	constructor(ax: number, ay: number) {
 		this.ax = ax;
@@ -954,7 +953,7 @@ class AccelerationModule implements DrawableModule<null> {
 		return new AccelerationModule(this.ax, this.ay);
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: null) {
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
 		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
 	}
@@ -1043,8 +1042,8 @@ class RestoreJumpAnimator {
 }
 
 class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator> {
-	private readonly gain: number;
-	private readonly helper: EntityCouldownHelper;
+	gain: number;
+	helper: EntityCouldownHelper;
 
 	constructor(gain: number, liberationCouldown = 12) {
 		this.gain = gain;
@@ -1086,8 +1085,8 @@ class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator> {
 
 
 class RotationModule {
-	private readonly start: number;
-	private readonly speed: number;
+	start: number;
+	speed: number;
 	angle: number;
 
 	constructor(start: number, speed: number) {

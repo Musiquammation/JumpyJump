@@ -2,13 +2,12 @@ import { Camera } from "./Camera";
 import { InputHandler } from "./InputHandler";
 import { Player } from "./Player";
 import { Stage } from "./Stage";
-import { stages } from "./stages";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
 
 class State {
-	private type: TypeState = 'play';
+	private type: TypeState = 'menu';
 	private chrono = 0;
 
 	static PLAY_TO_WIN_DURATION = 60;
@@ -52,28 +51,29 @@ export class Game {
 
 	inputHandler: InputHandler;
 
-	stage: Stage = stages[0];
+	stageList: Stage[][];
+	stage: Stage | null = null;
 	frame = 0;
 	goalComplete = 0;
 	gameChrono = 0;
 	state = new State();
 	validRun = true;
+	currentWorld = 0;
+	currentLevel = 0;
 
 
-	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget) {
+	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget, stageList: Stage[][]) {
 		this.inputHandler = new InputHandler(keyboardMode);
 		this.inputHandler.addEventListeners(eventTarget);
+		this.stageList = stageList;
 	}
 
 
 	
 
-	updateState() {
-
-	}
-
-	getState() {
-
+	startLevel(stage: Stage) {
+		this.stage = stage;
+		this.resetStage();
 	}
 
 
@@ -89,7 +89,7 @@ export class Game {
 
 		this.player.frame(this);
 	
-		this.stage.frame(this);
+		this.stage!.frame(this);
 
 		if (this.player.respawnCouldown == Player.RESPAWN_COULDOWN) {
 			this.resetStage();
@@ -108,6 +108,38 @@ export class Game {
 		}
 	}
 
+
+	menuLogic() {
+		if (this.inputHandler.first('enter')) {
+			const stage = this.stageList[this.currentWorld][this.currentLevel];
+			if (stage) {
+				this.state.set('play');
+				this.startLevel(stage);
+			}
+		}
+
+		if (
+			this.inputHandler.first('right') &&
+			this.currentLevel < this.stageList[this.currentWorld].length - 1
+		) {this.currentLevel++;}
+
+		if (
+			this.inputHandler.first('left') &&
+			this.currentLevel > 0
+		) {this.currentLevel--;}
+
+
+		if (
+			this.inputHandler.first('down') &&
+			this.currentWorld < this.stageList.length - 1
+		) {this.currentWorld++;}
+
+		if (
+			this.inputHandler.first('up') &&
+			this.currentWorld > 0
+		) {this.currentWorld--;}
+	}
+
 	winLogic() {
 		if (this.validRun && this.inputHandler.first('debug')) {
 			const newTab = window.open('', '_blank');
@@ -124,7 +156,10 @@ export class Game {
 			}
 
 			this.validRun = false;
-			// content?.innerHTML
+		}
+
+		if (this.inputHandler.first('enter')) {
+			this.state.set('menu');
 		}
 	}
 
@@ -140,6 +175,7 @@ export class Game {
 			break
 			
 		case 'menu':
+			this.menuLogic();
 			break;
 
 		case 'win':
@@ -162,7 +198,7 @@ export class Game {
 		}
 
 		if (!this.validRun)
-			return "debug";
+			return 'debug';
 
 		const time = this.gameChrono / 60; // seconds as float
 		const minutes = Math.floor(time / 60);
@@ -172,31 +208,33 @@ export class Game {
 		const pad = (n: number, len = 2) => n.toString().padStart(len, "0");
 
 		return `${pad(minutes)}:${pad(seconds)}.${pad(centis)}`;
-
 	}
 
 
 	
 	resetStage() {
-		this.stage.reset();
+		this.stage!.reset();
 				
 		const gameState = this.state.get();
 		if (gameState === 'play') {
+			this.player.respawn();
+			this.camera.reset();
 			this.validRun = true;
 			this.gameChrono = 0;
+			this.goalComplete = 0;
 		}
 	}
 
 	handleRoom() {
 		const size = this.player.getSize();
-		switch (this.stage.update(this.player.x, this.player.y, size.x, size.y)) {
+		switch (this.stage!.update(this.player.x, this.player.y, size.x, size.y)) {
 		case "same":
 			break; // nothing to do
 		
 		case "new":
 		{
 			this.player.restoreJumps();
-			const room = this.stage.currentRoom;
+			const room = this.stage!.currentRoom;
 			this.camera.move(room.x + room.w/2, room.y + room.h/2);
 			break;
 		}
@@ -209,7 +247,7 @@ export class Game {
 
 
 
-	private draw(ctx: CanvasRenderingContext2D, followCamera: Function, unfollowCamera: Function) {
+	drawMethod(ctx: CanvasRenderingContext2D, followCamera: Function, unfollowCamera: Function) {
 		const state = this.state.get();
 		switch (this.state.get()) {
 		case 'play':
@@ -221,20 +259,20 @@ export class Game {
 			// Draw backgrounds
 			ctx.fillStyle = "#111";
 			ctx.fillRect(
-				this.stage.currentRoom.x,
-				this.stage.currentRoom.y,
-				this.stage.currentRoom.w,
-				this.stage.currentRoom.h,
+				this.stage!.currentRoom.x,
+				this.stage!.currentRoom.y,
+				this.stage!.currentRoom.w,
+				this.stage!.currentRoom.h,
 			);
 			ctx.fillStyle = "#1a1a1a";
-			for (let room of this.stage.currentRoom.adjacentRooms!) {
+			for (let room of this.stage!.currentRoom.adjacentRooms!) {
 				ctx.fillRect(room.x, room.y, room.w, room.h);
 			}
 
 
 			// Draw blocks
-			this.stage.currentRoom.draw(ctx);
-			for (let room of this.stage.currentRoom.adjacentRooms!) {
+			this.stage!.currentRoom.draw(ctx);
+			for (let room of this.stage!.currentRoom.adjacentRooms!) {
 				room.draw(ctx);
 			}
 			
@@ -242,11 +280,9 @@ export class Game {
 			
 			
 			// Draw adjacence rects
-			ctx.fillStyle = "white";
-			this.stage.currentRoom.drawAdjacenceRects(ctx);
-			for (let room of this.stage.currentRoom.adjacentRooms!) {
-				room.drawAdjacenceRects(ctx);
-			}
+			this.stage!.drawAdjacenceRects(ctx, this.player);
+
+
 			unfollowCamera();
 	
 	
@@ -271,8 +307,21 @@ export class Game {
 
 		case 'menu':
 		{
-			ctx.fillStyle = "black";
+			ctx.fillStyle = "#111";
 			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+
+			ctx.font = "30px Arial";
+			ctx.fillStyle = "white";
+			ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
+
+			for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
+				ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+				let x = 400 + 200 * (i%5);
+				let y = 300 + Math.floor(i/5) * 100;
+				ctx.fillText(`#${i}`, x, y);
+			}
+
 			break;
 		}
 
@@ -288,6 +337,8 @@ export class Game {
 			ctx.fillStyle = "white";
 			ctx.fillText("Press F5 to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
 
+			ctx.fillStyle = "white";
+			ctx.fillText("Press enter to select level", Game.WIDTH_2, Game.HEIGHT_2 + 60);
 			break;
 		}
 
@@ -295,7 +346,7 @@ export class Game {
 		}
 	}
 
-	gameDraw(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number) {
+	gameDraw(ctx: CanvasRenderingContext2D, canvasWidth: number, canvasHeight: number, drawMethod: Function) {
 		const scaleX = canvasWidth / Game.WIDTH;
 		const scaleY = canvasHeight / Game.HEIGHT;
 		const scale = Math.min(scaleX, scaleY);
@@ -322,7 +373,7 @@ export class Game {
 			ctx.restore();
 		}
 		
-		this.draw(ctx, followCamera, unfollowCamera);
+		drawMethod(ctx, followCamera, unfollowCamera);
 		
 		
 		ctx.restore();
@@ -336,10 +387,6 @@ export class Game {
 		if (offsetX > 0) ctx.fillRect(0, 0, offsetX, canvasHeight);
 		if (offsetX > 0) ctx.fillRect(canvasWidth - offsetX, 0, offsetX, canvasHeight);
 	}
-
-
-
-
 }
 
 

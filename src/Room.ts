@@ -1,8 +1,10 @@
 import type { Block } from "./Block";
 import type { Game } from "./Game";
+import { physics } from "./physics";
+import { Player } from "./Player";
 
 
-interface AdjacenceRect {
+export interface AdjacenceRect {
 	x: number;
 	y: number;
 	w: number;
@@ -181,9 +183,31 @@ export class Room {
 	}
 
 
-	drawAdjacenceRects(ctx: CanvasRenderingContext2D) {
+	drawAdjacenceRects(ctx: CanvasRenderingContext2D, player: Player, drawTouch: boolean) {
+		const playerSize = player.getSize();
+		const playerRect =  {
+			x: player.x,
+			y: player.y,
+			w: playerSize.x,
+			h: playerSize.y,
+			r: 0
+		};
+
 		for (let r of this.adjacenceRects!) {
-			ctx.fillRect(r.x, r.y, r.w, r.h);
+			const touch = physics.checkRectRectCollision(
+				{
+					x: r.x,
+					y: r.y,
+					w: r.w,
+					h: r.h,
+					r: 0
+				},
+				playerRect
+			);
+
+			if (drawTouch === touch) {
+				ctx.fillRect(r.x, r.y, r.w, r.h);
+			}
 		}
 	}
 

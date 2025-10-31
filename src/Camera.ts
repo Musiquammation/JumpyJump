@@ -40,4 +40,8 @@ export class Camera {
 		this.x = this.startX + (this.targetX - this.startX) * this.progress;
 		this.y = this.startY + (this.targetY - this.startY) * this.progress;
 	}
+
+	reset() {
+		this.teleport(0, 0);
+	}
 }
