@@ -126,7 +126,6 @@ export class Player extends Entity {
 		this.respawnCouldown = Player.DEATH_ANIM_COULDOWN;
 	}
 
-	
 
 
 	respawn() {
@@ -136,6 +135,10 @@ export class Player extends Entity {
 		this.vy = -Player.JUMP;
 		this.restoreHp();
 		this.restoreJumps();
+	}
+
+	getSpeed2() {
+		return this.vx*this.vx + this.vy*this.vy;
 	}
 
 

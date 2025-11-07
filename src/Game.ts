@@ -1,7 +1,9 @@
+import { importStage } from "./importStage";
 import { Camera } from "./Camera";
 import { InputHandler } from "./InputHandler";
 import { Player } from "./Player";
 import { Stage } from "./Stage";
+import { Room } from "./Room";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
@@ -46,6 +48,8 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
+	static GAME_VERSION = "1.2.0";
+
 	player = new Player();
 	camera = new Camera();
 
@@ -60,11 +64,12 @@ export class Game {
 	validRun = true;
 	currentWorld = 0;
 	currentLevel = 0;
+	selectWorldFile = false;
 
 
 	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget, stageList: Stage[][]) {
 		this.inputHandler = new InputHandler(keyboardMode);
-		this.inputHandler.addEventListeners(eventTarget);
+		this.inputHandler.startListeners(eventTarget);
 		this.stageList = stageList;
 	}
 
@@ -111,33 +116,79 @@ export class Game {
 
 	menuLogic() {
 		if (this.inputHandler.first('enter')) {
-			const stage = this.stageList[this.currentWorld][this.currentLevel];
-			if (stage) {
-				this.state.set('play');
-				this.startLevel(stage);
+			if (this.selectWorldFile) {
+
+			} else {
+				const stage = this.stageList[this.currentWorld][this.currentLevel];
+				if (stage) {
+					this.state.set('play');
+					this.startLevel(stage);
+				}
 			}
 		}
 
-		if (
-			this.inputHandler.first('right') &&
-			this.currentLevel < this.stageList[this.currentWorld].length - 1
-		) {this.currentLevel++;}
+		if (this.inputHandler.first('right')) {
+			if (this.selectWorldFile) {
+				this.selectWorldFile = false;
+			} else if (this.currentLevel < this.stageList[this.currentWorld].length - 1) {
+				this.currentLevel++;
+			}
+		}
 
-		if (
-			this.inputHandler.first('left') &&
-			this.currentLevel > 0
-		) {this.currentLevel--;}
+		if (this.inputHandler.first('left') && !this.selectWorldFile) {
+			if (this.currentLevel > 0) {
+				this.currentLevel--;
+			} else {
+				this.selectWorldFile = true;
+			}
+		}
 
 
-		if (
-			this.inputHandler.first('down') &&
-			this.currentWorld < this.stageList.length - 1
-		) {this.currentWorld++;}
+		if (this.selectWorldFile) {
+			if (this.inputHandler.first('debug')) {
+				(async ()=>{
+					const [handle] = await window.showOpenFilePicker!();
+					const file = await handle.getFile();
+					
+					async function* read() {
+						const reader = file.stream().getReader();
+						const decoder = new TextDecoder();
+						let result;
+						let buffer = "";
+	
+						while (!(result = await reader.read()).done) {
+							buffer += decoder.decode(result.value, { stream: true });
+	
+							let index;
+							while ((index = buffer.search(/[ \r\n]/)) !== -1) {
+							let mot = buffer.slice(0, index).trim();
+							buffer = buffer.slice(index + 1);
+							if (mot) yield mot;
+							}
+						}
+	
+						const last = buffer.trim();
+						if (last) yield last;
+					}
 
-		if (
-			this.inputHandler.first('up') &&
-			this.currentWorld > 0
-		) {this.currentWorld--;}
+					const stage = await importStage(read);
+					this.inputHandler.kill('debug');
+					this.state.set('play');
+					this.startLevel(stage);
+				})();
+			}
+
+		} else {
+			if (
+				this.inputHandler.first('down') &&
+				this.currentWorld < this.stageList.length - 1
+			) {this.currentWorld++;}
+	
+			if (
+				this.inputHandler.first('up') &&
+				this.currentWorld > 0
+			) {this.currentWorld--;}
+		}
 	}
 
 	winLogic() {
@@ -164,8 +215,10 @@ export class Game {
 	}
 
 	gameLogic() {
+		this.inputHandler.update();
+
+		
 		switch (this.state.get()) {
-			
 		case 'play':
 			this.playLogic(true);
 			break;
@@ -187,7 +240,6 @@ export class Game {
 
 		this.frame++;
 		this.state.update();
-		this.inputHandler.update();
 	}
 
 
@@ -203,11 +255,11 @@ export class Game {
 		const time = this.gameChrono / 60; // seconds as float
 		const minutes = Math.floor(time / 60);
 		const seconds = Math.floor(time % 60);
-		const centis = Math.floor((time - Math.floor(time)) * 100);
+		const millis = Math.floor((time - Math.floor(time)) * 1000);
 
-		const pad = (n: number, len = 2) => n.toString().padStart(len, "0");
+		const pad = (n: number, len: number) => n.toString().padStart(len, "0");
 
-		return `${pad(minutes)}:${pad(seconds)}.${pad(centis)}`;
+		return `${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(millis, 3)}`;
 	}
 
 
@@ -227,15 +279,52 @@ export class Game {
 
 	handleRoom() {
 		const size = this.player.getSize();
+		
+
+		const getCamera = (room: Room) => {
+			let camX: number;
+			let camY: number;
+
+			if (room.w <= Game.WIDTH) {
+				camX = room.x + room.w/2;
+			} else if (this.player.x - Game.WIDTH_2 <= room.x) {
+				camX = room.x + Game.WIDTH_2;
+			} else if (this.player.x + Game.WIDTH_2 >= room.x + room.w) {
+				camX = room.x + room.w - Game.WIDTH_2;
+			} else {
+				camX = this.player.x;
+			}
+
+
+			if (room.h <= Game.HEIGHT) {
+				camY = room.y + room.h/2;
+			} else if (this.player.y - Game.HEIGHT_2 <= room.y) {
+				camY = room.y + Game.HEIGHT_2;
+			} else if (this.player.y + Game.HEIGHT_2 >= room.y + room.h) {
+				camY = room.y + room.h - Game.HEIGHT_2;
+			} else {
+				camY = this.player.y;
+			}
+
+
+			return {camX, camY};
+		}
+		
+		// Place camera
 		switch (this.stage!.update(this.player.x, this.player.y, size.x, size.y)) {
 		case "same":
+		{
+			const cam = getCamera(this.stage!.currentRoom);
+			this.camera.move(cam.camX, cam.camY);
 			break; // nothing to do
+		}
 		
 		case "new":
 		{
+			const cam = getCamera(this.stage!.currentRoom);
+			this.camera.startTracker(cam.camX, cam.camY);
 			this.player.restoreJumps();
-			const room = this.stage!.currentRoom;
-			this.camera.move(room.x + room.w/2, room.y + room.h/2);
+			// this.camera.move(room.x + room.w/2, room.y + room.h/2);
 			break;
 		}
 
@@ -276,11 +365,11 @@ export class Game {
 				room.draw(ctx);
 			}
 			
-			this.player.draw(ctx);		
-			
-			
 			// Draw adjacence rects
 			this.stage!.drawAdjacenceRects(ctx, this.player);
+			
+			// Draw player
+			this.player.draw(ctx);		
 
 
 			unfollowCamera();
@@ -309,19 +398,33 @@ export class Game {
 		{
 			ctx.fillStyle = "#111";
 			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+			ctx.textAlign = "center";
 
 
 			ctx.font = "30px Arial";
 			ctx.fillStyle = "white";
-			ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
-
-			for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
-				ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
-				let x = 400 + 200 * (i%5);
-				let y = 300 + Math.floor(i/5) * 100;
-				ctx.fillText(`#${i}`, x, y);
+			if (this.selectWorldFile) {
+				ctx.fillText(`Select file (press P)`, Game.WIDTH_2, 100);
+			} else {
+				ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
+				for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
+					ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+					let x = 400 + 200 * (i%5);
+					let y = 300 + Math.floor(i/5) * 100;
+					ctx.fillText(`#${i}`, x, y);
+				}
 			}
 
+			// Show version
+			const defaultBaseline = ctx.textBaseline;
+			ctx.textBaseline = "bottom";
+			ctx.textAlign = "right";
+			ctx.font = "20px monospace";
+			ctx.fillText("v" + Game.GAME_VERSION, Game.WIDTH, Game.HEIGHT);
+
+			
+			
+			ctx.textBaseline = defaultBaseline;
 			break;
 		}
 
@@ -332,6 +435,7 @@ export class Game {
 
 			ctx.font = "30px Arial";
 			ctx.fillStyle = "white";
+			ctx.textAlign = "center";
 			ctx.fillText("Press P to save", Game.WIDTH_2, Game.HEIGHT_2 - 20);
 
 			ctx.fillStyle = "white";
@@ -361,7 +465,7 @@ export class Game {
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-		this.camera.update();
+		this.camera.update(this.player.getSpeed2());
 
 
 		const followCamera = () => {

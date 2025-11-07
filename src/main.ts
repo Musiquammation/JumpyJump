@@ -37,7 +37,7 @@ export function startGame() {
 			) => {game.drawMethod(ctx, followCamera, unfollowCamera);}
 		);
 	
-		chronoDiv.innerText = game.generateChronoText();
+		chronoDiv.innerHTML = game.generateChronoText();
 	
 		if (window.running) {
 			requestAnimationFrame(runGameLoop);

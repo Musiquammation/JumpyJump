@@ -1,4 +1,5 @@
-import { Block, BlockBuilder, BlockModule, bmodules } from "./Block";
+import { importStage } from "./importStage";
+import { Block, BlockModule, bmodules } from "./Block";
 import { Game } from "./Game";
 import { Room } from "./Room";
 import { Stage } from "./Stage";
@@ -47,7 +48,7 @@ interface CameraState {
 
 interface DragState {
 	active: boolean;
-	type: "block" | "room" | "create-block" | "create-room" | "resize-block" | "resize-room" | "multi-select" | null;
+	type: "block" | "room" | "create-block" | "create-room" | "resize-block" | "resize-room" | "multi-select" | "multi-select-move" | null;
 	target: Block | Room | null;
 	startMouseX: number;
 	startMouseY: number;
@@ -60,6 +61,83 @@ interface DragState {
 	createStartY?: number;
 }
 
+
+async function exportStage(stage: Stage, writeln: Function) {
+	for (const room of stage.rooms) {
+		await writeln(`${room.blocks.length ? "room" : "emptyroom"} ${room.x} ${room.y} ${room.w} ${room.h}`);
+
+		for (const block of room.blocks) {
+			await writeln(`\t${block.x} ${block.y} ${block.w} ${block.h}`);
+			const m = block.module;
+
+			if (m) {
+				if (m.moving) {
+					// await writeln(`\t\tmoving ${m.moving.patterns.length} ${m.moving.times}`);
+					throw "Moving todo";
+				}
+
+				if (m.rotation) {
+					await writeln(`\t\trotation ${m.rotation.start ?? 0} ${m.rotation.speed ?? 0}`);
+				}
+
+				if (m.couldownedAttack) {
+					await writeln(`\t\tcouldownedAttack ${m.couldownedAttack.damages ?? 0} ${m.couldownedAttack.duration ?? 0}`);
+				}
+
+				if (m.continuousAttack) {
+					await writeln(`\t\tcontinuousAttack ${m.continuousAttack.damages ?? 0}`);
+				}
+
+				if (m.bounce) {
+					await writeln(`\t\tbounce ${m.bounce.factor ?? 0} ${m.bounce.cost ?? 0}`);
+				}
+
+				if (m.kill) {
+					await writeln(`\t\tkill ${m.kill.playerOnly ? 1 : 0}`);
+				}
+
+				if (m.heal) {
+					await writeln(`\t\theal ${m.heal.hp ?? 0}`);
+				}
+
+				if (m.touchDespawn) {
+					await writeln(`\t\ttouchDespawn ${m.touchDespawn.playerOnly ? 1 : 0}`);
+				}
+
+				if (m.restoreJump) {
+					await writeln(`\t\trestoreJump ${m.restoreJump.gain ?? 0}`);
+				}
+
+				if (m.couldownDespawn) {
+					await writeln(`\t\tcouldownDespawn ${m.couldownDespawn.duration ?? 0}`);
+				}
+
+				if (m.spawner) {
+					throw "Spawner to do";
+				}
+
+				if (m.speed) {
+					await writeln(`\t\tspeed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
+				}
+
+				if (m.acceleration) {
+					await writeln(`\t\tacceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
+				}
+
+				if (m.goal) {
+					await writeln(`\t\tgoal ${m.goal.type ?? 0}`);
+				}
+
+			}
+		}
+	}
+}
+
+
+
+
+
+
 export function startEditor() {
 	const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 	const modeHTML = document.getElementById("mode")!;
@@ -67,6 +145,14 @@ export function startEditor() {
 	const ctx = canvas.getContext("2d")!;
 	let selectedBlocks: Block[] = [];
 	let clipboardBlocks: { module: BlockModule, dx: number, dy: number, w: number, h: number }[] = [];
+
+	function destroyGame() {
+		if (playGame) {
+			
+		}
+		playGame = null;
+		window.game = null;
+	}
 
 	// Setup canvas
 	function resizeCanvas() {
@@ -101,6 +187,12 @@ export function startEditor() {
 	// Stage data
 	const rooms: Room[] = [new Room(-800, -450, 1600, 900, [])];
 	const stageContainer = [new Stage(rooms)];
+
+	
+
+
+
+
 
 	// Utility functions
 	const clamp = (v: number, a: number, b: number) => Math.max(a, Math.min(b, v));
@@ -243,6 +335,103 @@ export function startEditor() {
 			blockTop >= room.y && 
 			blockBottom <= room.y + room.h;
 	}
+
+	function moveBlockToRoom(block: Block, newRoom: Room) {
+		const stage = stageContainer[0];
+		
+		// Trouver et retirer le bloc de son ancienne room
+		for (const room of stage.rooms) {
+			const idx = room.blocks.indexOf(block);
+			if (idx >= 0) {
+				room.blocks.splice(idx, 1);
+				break;
+			}
+		}
+		
+		// Ajouter le bloc à la nouvelle room
+		newRoom.blocks.push(block);
+	}
+
+	function getSelectionBounds(blocks: Block[]): { minX: number, minY: number, maxX: number, maxY: number } {
+		if (blocks.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
+		
+		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+		
+		for (const block of blocks) {
+			const left = block.x - block.w / 2;
+			const right = block.x + block.w / 2;
+			const top = block.y - block.h / 2;
+			const bottom = block.y + block.h / 2;
+			
+			minX = Math.min(minX, left);
+			maxX = Math.max(maxX, right);
+			minY = Math.min(minY, top);
+			maxY = Math.max(maxY, bottom);
+		}
+		
+		return { minX, minY, maxX, maxY };
+	}
+
+	function canMoveSelection(blocks: Block[], dx: number, dy: number): boolean {
+		const stage = stageContainer[0];
+		
+		// Créer un Set des blocs sélectionnés pour une recherche rapide
+		const selectedSet = new Set(blocks);
+		
+		// Pour chaque bloc sélectionné, vérifier sa nouvelle position
+		for (const block of blocks) {
+			const newX = block.x + dx;
+			const newY = block.y + dy;
+			
+			// Vérifier qu'il est dans une room
+			const targetRoom = findRoomAt(newX, newY);
+			if (!targetRoom || !isBlockInRoom({ x: newX, y: newY, w: block.w, h: block.h } as Block, targetRoom)) {
+				return false;
+			}
+			
+			// Vérifier les collisions avec les blocs NON sélectionnés
+			for (const room of stage.rooms) {
+				for (const otherBlock of room.blocks) {
+					// Ignorer si c'est un bloc de la sélection
+					if (selectedSet.has(otherBlock)) continue;
+					
+					const distX = Math.abs(newX - otherBlock.x);
+					const distY = Math.abs(newY - otherBlock.y);
+					const minDistX = (block.w + otherBlock.w) / 2;
+					const minDistY = (block.h + otherBlock.h) / 2;
+					
+					if (distX < minDistX && distY < minDistY) {
+						return false;
+					}
+				}
+			}
+		}
+		
+		return true;
+	}
+
+	function moveSelection(blocks: Block[], dx: number, dy: number) {
+		const stage = stageContainer[0];
+		
+		// Déplacer tous les blocs
+		for (const block of blocks) {
+			const newX = block.x + dx;
+			const newY = block.y + dy;
+			
+			// Trouver la nouvelle room
+			const targetRoom = findRoomAt(newX, newY);
+			if (targetRoom) {
+				const currentRoom = getRoomForBlock(block);
+				if (currentRoom !== targetRoom) {
+					moveBlockToRoom(block, targetRoom);
+				}
+			}
+			
+			block.x = newX;
+			block.y = newY;
+		}
+	}
+	
 
 	// Panel management
 	function clearPanel() {
@@ -719,8 +908,23 @@ export function startEditor() {
 		// Right mouse button - Multi-selection
 		if (e.button === 2 && mode === "default") {
 			e.preventDefault();
+			
+			// Si on a déjà une sélection, vérifier si on clique sur un bloc sélectionné
+			if (selectedBlocks.length > 0) {
+				const block = findBlockAt(world.x, world.y);
+				if (block && selectedBlocks.includes(block)) {
+					// Démarrer le déplacement groupé avec clic droit
+					drag.active = true;
+					drag.type = "multi-select-move"
+					drag.startMouseX = world.x;
+					drag.startMouseY = world.y;
+					return;
+				}
+			}
+			
+			// Sinon, démarrer une nouvelle sélection
 			drag.active = true;
-			drag.type = "multi-select" as any;
+			drag.type = "multi-select"
 			drag.createStartX = world.x;
 			drag.createStartY = world.y;
 			return;
@@ -729,6 +933,22 @@ export function startEditor() {
 		// Left mouse button
 		if (e.button === 0) {
 			if (mode === "default") {
+				// Si on a une sélection multiple, vérifier si on clique sur un bloc sélectionné
+				if (selectedBlocks.length > 0) {
+					const block = findBlockAt(world.x, world.y);
+					if (block && selectedBlocks.includes(block)) {
+						// Démarrer le déplacement groupé avec clic gauche
+						drag.active = true;
+						drag.type = "multi-select-move" as any;
+						drag.startMouseX = world.x;
+						drag.startMouseY = world.y;
+						return;
+					} else {
+						// Clic en dehors de la sélection : désélectionner
+						selectedBlocks = [];
+					}
+				}
+				
 				// Check for resize handles first
 				const block = findBlockAt(world.x, world.y);
 				if (block) {
@@ -766,7 +986,6 @@ export function startEditor() {
 				drag.createStartX = snapToGrid(world.x);
 				drag.createStartY = snapToGrid(world.y);
 			} else if (mode === "rooms") {
-				// Check for resize handles first
 				const room = findRoomAt(world.x, world.y);
 				if (room) {
 					const edge = getRoomResizeEdge(room, world.x, world.y);
@@ -802,6 +1021,7 @@ export function startEditor() {
 				drag.type = "create-room";
 				drag.createStartX = snapToGrid(world.x);
 				drag.createStartY = snapToGrid(world.y);
+
 			}
 		}
 	});
@@ -813,43 +1033,67 @@ export function startEditor() {
 			isPanning = false;
 		}
 
-		if (e.button === 2 && drag.active && drag.type === "multi-select") {
-			const world = screenToWorld(e.clientX, e.clientY);
-			const x1 = Math.min(drag.createStartX!, world.x);
-			const y1 = Math.min(drag.createStartY!, world.y);
-			const x2 = Math.max(drag.createStartX!, world.x);
-			const y2 = Math.max(drag.createStartY!, world.y);
+		if (e.button === 2 && drag.active) {
+			if (drag.type === "multi-select-move") {
+				// Fin du déplacement groupé
+				drag.active = false;
+				drag.type = null;
+				return;
+			}
+			
+			if (drag.type === "multi-select") {
+				const world = screenToWorld(e.clientX, e.clientY);
+				const x1 = Math.min(drag.createStartX!, world.x);
+				const y1 = Math.min(drag.createStartY!, world.y);
+				const x2 = Math.max(drag.createStartX!, world.x);
+				const y2 = Math.max(drag.createStartY!, world.y);
 
-			// Find all blocks in selection area
-			selectedBlocks = [];
-			const stage = stageContainer[0];
-			for (const room of stage.rooms) {
-				for (const block of room.blocks) {
-					const blockLeft = block.x - block.w / 2;
-					const blockRight = block.x + block.w / 2;
-					const blockTop = block.y - block.h / 2;
-					const blockBottom = block.y + block.h / 2;
-					
-					if (blockLeft >= x1 && blockRight <= x2 &&
-						blockTop >= y1 && blockBottom <= y2) {
-						selectedBlocks.push(block);
+				// Find all blocks that intersect with selection area (at least 1 pixel)
+				selectedBlocks = [];
+				const stage = stageContainer[0];
+				for (const room of stage.rooms) {
+					for (const block of room.blocks) {
+						const blockLeft = block.x - block.w / 2;
+						const blockRight = block.x + block.w / 2;
+						const blockTop = block.y - block.h / 2;
+						const blockBottom = block.y + block.h / 2;
+						
+						// Vérifier si les rectangles se chevauchent (au moins 1 pixel)
+						const overlapX = !(blockRight <= x1 || blockLeft >= x2);
+						const overlapY = !(blockBottom <= y1 || blockTop >= y2);
+						
+						if (overlapX && overlapY) {
+							selectedBlocks.push(block);
+						}
 					}
 				}
-			}
 
-			drag.active = false;
-			drag.type = null;
-			return;
+				drag.active = false;
+				drag.type = null;
+				
+				// Cacher le panel si des blocs sont sélectionnés
+				if (selectedBlocks.length > 0) {
+					clearPanel();
+				}
+				return;
+			}
 		}
 
 		if (e.button === 0 && drag.active) {
 			const world = screenToWorld(e.clientX, e.clientY);
 
+			if (drag.type === "multi-select-move") {
+				// Fin du déplacement groupé
+				drag.active = false;
+				drag.type = null;
+				return;
+			}
+
 			if (drag.type === "create-block") {
 				const x1 = Math.min(drag.createStartX!, snapToGrid(world.x));
 				const y1 = Math.min(drag.createStartY!, snapToGrid(world.y));
-				const x2 = Math.max(drag.createStartX!, snapToGrid(world.x)) + PIXEL_SIZE; // +1 pixel
-				const y2 = Math.max(drag.createStartY!, snapToGrid(world.y)) + PIXEL_SIZE; // +1 pixel
+				const x2 = Math.max(drag.createStartX!, snapToGrid(world.x)) + PIXEL_SIZE;
+				const y2 = Math.max(drag.createStartY!, snapToGrid(world.y)) + PIXEL_SIZE;
 				const w = x2 - x1;
 				const h = y2 - y1;
 
@@ -865,14 +1109,11 @@ export function startEditor() {
 						new BlockModule({})
 					);
 
-					// Find room to add block to
 					const room = findRoomAt(block.x, block.y);
 					if (room) {
-						// Check if block fits in room and doesn't overlap
 						const stage = stageContainer[0];
 						let canPlace = true;
 						
-						// Check for overlapping blocks
 						for (const r of stage.rooms) {
 							for (const existingBlock of r.blocks) {
 								const dx = Math.abs(block.x - existingBlock.x);
@@ -898,15 +1139,14 @@ export function startEditor() {
 			} else if (drag.type === "create-room") {
 				const x1 = Math.min(drag.createStartX!, snapToGrid(world.x));
 				const y1 = Math.min(drag.createStartY!, snapToGrid(world.y));
-				const x2 = Math.max(drag.createStartX!, snapToGrid(world.x)) + PIXEL_SIZE; // +1 pixel
-				const y2 = Math.max(drag.createStartY!, snapToGrid(world.y)) + PIXEL_SIZE; // +1 pixel
+				const x2 = Math.max(drag.createStartX!, snapToGrid(world.x)) + PIXEL_SIZE;
+				const y2 = Math.max(drag.createStartY!, snapToGrid(world.y)) + PIXEL_SIZE;
 				const w = x2 - x1;
 				const h = y2 - y1;
 
 				if (w >= PIXEL_SIZE * 4 && h >= PIXEL_SIZE * 4) {
 					const room = new Room(x1, y1, w, h, []);
 					
-					// Check for overlapping rooms
 					const stage = stageContainer[0];
 					let canPlace = true;
 					
@@ -941,7 +1181,6 @@ export function startEditor() {
 		mouse.wx = snapToGrid(world.x);
 		mouse.wy = snapToGrid(world.y);
 
-		// Update cursor based on hover state
 		if (mode !== "play" && !drag.active && !isPanning) {
 			let newCursor = "default";
 			
@@ -978,7 +1217,23 @@ export function startEditor() {
 			lastMouse.y = e.clientY;
 		}
 
-		if (drag.active && drag.type === "block" && drag.target) {
+		if (drag.active && (drag.type === "multi-select-move" || (drag.type === "multi-select" && selectedBlocks.length > 0 && mouse.button === 0)) && selectedBlocks.length > 0) {
+			const dx = snapToGrid(world.x) - snapToGrid(drag.startMouseX);
+			const dy = snapToGrid(world.y) - snapToGrid(drag.startMouseY);
+			
+			// Ne rien faire si pas de déplacement
+			if (dx === 0 && dy === 0) return;
+			
+			// Vérifier si le déplacement est possible
+			if (canMoveSelection(selectedBlocks, dx, dy)) {
+				// Effectuer le déplacement
+				moveSelection(selectedBlocks, dx, dy);
+				
+				// Mettre à jour le point de départ pour le prochain delta
+				drag.startMouseX = snapToGrid(world.x);
+				drag.startMouseY = snapToGrid(world.y);
+			}
+		} else if (drag.active && drag.type === "block" && drag.target) {
 			const block = drag.target as Block;
 			const dx = snapToGrid(world.x) - snapToGrid(drag.startMouseX);
 			const dy = snapToGrid(world.y) - snapToGrid(drag.startMouseY);
@@ -986,10 +1241,10 @@ export function startEditor() {
 			const newX = drag.startTargetX + dx;
 			const newY = drag.startTargetY + dy;
 			
-			// Check for collisions with other blocks
 			const stage = stageContainer[0];
 			let canMove = true;
 			
+			// Vérifier collisions avec autres blocs
 			for (const r of stage.rooms) {
 				for (const existingBlock of r.blocks) {
 					if (existingBlock === block) continue;
@@ -1007,11 +1262,24 @@ export function startEditor() {
 				if (!canMove) break;
 			}
 			
+			// Vérifier qu'on reste dans une room
+			const targetRoom = findRoomAt(newX, newY);
+			if (!targetRoom || !isBlockInRoom({ x: newX, y: newY, w: block.w, h: block.h } as Block, targetRoom)) {
+				canMove = false;
+			}
+			
 			if (canMove) {
+				// Changer de room si nécessaire
+				if (targetRoom) {
+					const currentRoom = getRoomForBlock(block);
+					if (currentRoom !== targetRoom) {
+						moveBlockToRoom(block, targetRoom);
+					}
+				}
+				
 				block.x = newX;
 				block.y = newY;
 				
-				// Update panel display
 				if ((block as any)._updateDisplay) {
 					(block as any)._updateDisplay();
 				}
@@ -1024,7 +1292,6 @@ export function startEditor() {
 			const newX = drag.startTargetX + dx;
 			const newY = drag.startTargetY + dy;
 			
-			// Check for collisions with other rooms
 			const stage = stageContainer[0];
 			let canMove = true;
 			
@@ -1041,7 +1308,6 @@ export function startEditor() {
 			}
 			
 			if (canMove) {
-				// Déplacer tous les blocs de la room avec elle
 				const deltaX = newX - room.x;
 				const deltaY = newY - room.y;
 				
@@ -1053,7 +1319,6 @@ export function startEditor() {
 				room.x = newX;
 				room.y = newY;
 				
-				// Update panel display
 				if ((room as any)._updateDisplay) {
 					(room as any)._updateDisplay();
 				}
@@ -1073,7 +1338,6 @@ export function startEditor() {
 			let newH = drag.startTargetH!;
 
 			if (keepAspectRatio) {
-				// Keep aspect ratio
 				const aspectRatio = drag.startTargetW! / drag.startTargetH!;
 				
 				if (edge.includes("left") || edge.includes("right")) {
@@ -1124,7 +1388,6 @@ export function startEditor() {
 					}
 				}
 			} else {
-				// Normal resize
 				if (edge.includes("left")) {
 					newW = drag.startTargetW! - dx;
 					if (newW >= minSize) {
@@ -1159,10 +1422,10 @@ export function startEditor() {
 				}
 			}
 			
-			// Check for collisions with other blocks
 			const stage = stageContainer[0];
 			let canResize = true;
 			
+			// Vérifier collisions
 			for (const r of stage.rooms) {
 				for (const existingBlock of r.blocks) {
 					if (existingBlock === block) continue;
@@ -1180,13 +1443,18 @@ export function startEditor() {
 				if (!canResize) break;
 			}
 			
+			// Vérifier qu'on reste dans une room
+			const room = getRoomForBlock(block);
+			if (room && !isBlockInRoom({ x: newX, y: newY, w: newW, h: newH } as Block, room)) {
+				canResize = false;
+			}
+			
 			if (canResize) {
 				block.x = newX;
 				block.y = newY;
 				block.w = newW;
 				block.h = newH;
 				
-				// Update panel display
 				if ((block as any)._updateDisplay) {
 					(block as any)._updateDisplay();
 				}
@@ -1206,7 +1474,6 @@ export function startEditor() {
 			let newH = drag.startTargetH!;
 
 			if (keepAspectRatio) {
-				// Keep aspect ratio
 				const aspectRatio = drag.startTargetW! / drag.startTargetH!;
 				
 				if (edge.includes("left") || edge.includes("right")) {
@@ -1249,7 +1516,6 @@ export function startEditor() {
 					}
 				}
 			} else {
-				// Normal resize
 				if (edge.includes("left")) {
 					newW = drag.startTargetW! - dx;
 					if (newW >= minSize) {
@@ -1280,7 +1546,6 @@ export function startEditor() {
 				}
 			}
 			
-			// Check for collisions with other rooms
 			const stage = stageContainer[0];
 			let canResize = true;
 			
@@ -1296,7 +1561,6 @@ export function startEditor() {
 				}
 			}
 			
-			// Vérifier que tous les blocs de la room restent à l'intérieur
 			if (canResize) {
 				const tempRoom = { x: newX, y: newY, w: newW, h: newH };
 				for (const block of room.blocks) {
@@ -1313,7 +1577,6 @@ export function startEditor() {
 				room.w = newW;
 				room.h = newH;
 				
-				// Update panel display
 				if ((room as any)._updateDisplay) {
 					(room as any)._updateDisplay();
 				}
@@ -1323,75 +1586,151 @@ export function startEditor() {
 
 	document.addEventListener("keydown", (e) => {
 		switch (e.code) {
-			case "F3": {
-				e.preventDefault(); // Empêcher le comportement par défaut du navigateur
-				const MODES: EditorMode[] = ["default", "rooms", "play"];
-				const MODE_COLORS = ["black", "#ff0044", "rgb(0, 132, 255)"];
-				const currentIdx = MODES.indexOf(mode);
-
-				if (currentIdx === MODES.length - 2) {
-					// Transition to play mode
-					mode = "play";
-					let num = 15;
-					
-					// Hide panel when entering play mode
-					clearPanel();
-
-					if (modeTransitionTimer >= 0) clearInterval(modeTransitionTimer);
-
-					modeTransitionTimer = setInterval(() => {
-						num--;
-
-						if (num <= 0) {
-							// Start game
-							const keyboardMode = localStorage.getItem("keyboardMode");
-							let realKeyboardMode: "zqsd" | "wasd" = "wasd";
-							if (keyboardMode === "zqsd" || keyboardMode === "wasd") {
-								realKeyboardMode = keyboardMode;
-							}
-
-							// Create deep copy of stage
-							const stageCopy = new Stage(stageContainer[0].rooms.map(room => 
-								new Room(room.x, room.y, room.w, room.h, room.blocks.map(block => 
-									new Block(block.x, block.y, block.w, block.h, block.module.copy())
-								))
-							));
-
-							playGame = new Game(realKeyboardMode, document, [[stageCopy]]);
-							playGame.startLevel(stageCopy);
-
-							modeHTML.textContent = "play";
-							clearInterval(modeTransitionTimer);
-							modeTransitionTimer = -1;
-						} else {
-							modeHTML.textContent = `play (${(num / 10).toFixed(1)})`;
-						}
-					}, 100);
-
-					modeHTML.style.backgroundColor = MODE_COLORS[2];
-					modeHTML.textContent = `play (${(num / 10).toFixed(1)})`;
-				} else if (mode === "play") {
-					// Exit play mode
-					mode = "default";
-					playGame = null;
-					modeHTML.style.backgroundColor = MODE_COLORS[0];
-					modeHTML.textContent = "default";
-					if (modeTransitionTimer >= 0) {
-						clearInterval(modeTransitionTimer);
-						modeTransitionTimer = -1;
-					}
-				} else {
-					// Cycle modes
-					const nextIdx = (currentIdx + 1) % (MODES.length - 1);
-					mode = MODES[nextIdx];
-					modeHTML.style.backgroundColor = MODE_COLORS[nextIdx];
-					modeHTML.textContent = mode;
+		case "F1": {
+			e.preventDefault();
+			
+			if (mode === "play") {
+				// Si on est en play, retourner à default
+				mode = "default";
+				playGame = null;
+				window.game = null;
+				modeHTML.style.backgroundColor = "black";
+				modeHTML.textContent = "default";
+				if (modeTransitionTimer >= 0) {
+					clearInterval(modeTransitionTimer);
+					modeTransitionTimer = -1;
 				}
+			} else {
+				// Alterner entre default et rooms
+				if (mode === "default") {
+					mode = "rooms";
+					modeHTML.style.backgroundColor = "#ff0044";
+					modeHTML.textContent = "rooms";
+				} else {
+					mode = "default";
+					modeHTML.style.backgroundColor = "black";
+					modeHTML.textContent = "default";
+				}
+				// Désélectionner et cacher le panel lors du changement de mode
+				selectedBlocks = [];
+				clearPanel();
+			}
+			break;
+		}
+
+		case "F2": {
+			e.preventDefault();
+			
+			if (mode === "play") {
+				mode = "default";
+				playGame = null;
+				window.game = null;
+				modeHTML.style.backgroundColor = "black";
+				modeHTML.textContent = "default";
+				if (modeTransitionTimer >= 0) {
+					clearInterval(modeTransitionTimer);
+					modeTransitionTimer = -1;
+				}
+			} else {
+				mode = "play";
+				selectedBlocks = [];
+				clearPanel();
+				
+				const keyboardMode = localStorage.getItem("keyboardMode");
+				let realKeyboardMode: "zqsd" | "wasd" = "wasd";
+				if (keyboardMode === "zqsd" || keyboardMode === "wasd") {
+					realKeyboardMode = keyboardMode;
+				}
+
+				// Create deep copy of stage
+				const stageCopy = new Stage(stageContainer[0].rooms.map(room => 
+					new Room(room.x, room.y, room.w, room.h, room.blocks.map(block => 
+						new Block(block.x, block.y, block.w, block.h, block.module.copy())
+					))
+				));
+
+				playGame = new Game(realKeyboardMode, document, [[stageCopy]]);
+				window.game = playGame;
+				playGame.state.set('play');
+				playGame.startLevel(stageCopy);
+
+				modeHTML.style.backgroundColor = "rgb(0, 132, 255)";
+				modeHTML.textContent = "play";
+			}
+			break;
+		}
+
+		case "F3": {
+			// F3 ne fait plus rien, ou tu peux le garder pour une autre fonction
+			e.preventDefault();
+			break;
+		}
+
+			// export
+			case "F9": {
+				e.preventDefault();
+
+				(async ()=>{
+					const handle = await window.showSaveFilePicker!({
+						suggestedName: "stage.txt",
+						types: [{ description: "Stage", accept: { "text/plain": [".txt"] } }]
+					});
+
+					const writable = await handle.createWritable();
+					const encoder = new TextEncoder();
+					function writeln(text: string) {
+						return writable.write(encoder.encode(text + "\n"));
+					}
+
+					await exportStage(stageContainer[0], writeln);
+					await writable.close();
+				})();
+				break;
+			}
+
+			// import
+			case "F10": {
+				e.preventDefault();
+				
+				(async ()=>{
+					const [handle] = await window.showOpenFilePicker!();
+					const file = await handle.getFile();
+					
+					async function* read() {
+						const reader = file.stream().getReader();
+						const decoder = new TextDecoder();
+						let result;
+						let buffer = "";
+
+						while (!(result = await reader.read()).done) {
+							buffer += decoder.decode(result.value, { stream: true });
+
+							// sépare sur espace ou saut de ligne (\n, \r)
+							let index;
+							while ((index = buffer.search(/[ \r\n]/)) !== -1) {
+							let mot = buffer.slice(0, index).trim();
+							buffer = buffer.slice(index + 1);
+							if (mot) yield mot; // ignore mots vides
+							}
+						}
+
+						// dernier mot restant
+						const last = buffer.trim();
+						if (last) yield last;
+
+					}
+
+					const stage = await importStage(read);
+					stageContainer[0] = stage;
+				})();
 				break;
 			}
 
 			case "Escape": {
-				if (selectedObject) {
+				if (selectedBlocks.length > 0) {
+					// Désélectionner les blocs
+					selectedBlocks = [];
+				} else if (selectedObject) {
 					// Deselect object
 					clearPanel();
 				} else {
@@ -1402,7 +1741,20 @@ export function startEditor() {
 			}
 
 			case "Delete": {
-				if (selectedObject) {
+				if (selectedBlocks.length > 0) {
+					// Supprimer tous les blocs sélectionnés
+					const stage = stageContainer[0];
+					for (const block of selectedBlocks) {
+						for (const room of stage.rooms) {
+							const idx = room.blocks.indexOf(block);
+							if (idx >= 0) {
+								room.blocks.splice(idx, 1);
+								break;
+							}
+						}
+					}
+					selectedBlocks = []; // Retirer la sélection
+				} else if (selectedObject) {
 					if (selectedObject instanceof Block) {
 						const room = getRoomForBlock(selectedObject);
 						if (room) {
@@ -1440,10 +1792,13 @@ export function startEditor() {
 			case "KeyV": {
 				if (e.ctrlKey && clipboardBlocks.length > 0) {
 					e.preventDefault();
-					// Paste blocks at mouse position
 					const world = screenToWorld(mouse.sx, mouse.sy);
 					const baseX = snapToGrid(world.x);
 					const baseY = snapToGrid(world.y);
+					
+					// Trouver la room cible
+					const targetRoom = findRoomAt(baseX, baseY);
+					if (!targetRoom) break;
 					
 					selectedBlocks = [];
 					
@@ -1456,10 +1811,9 @@ export function startEditor() {
 							clipBlock.module.copy()
 						);
 						
-						// Find room to add block to
-						const room = findRoomAt(newBlock.x, newBlock.y);
-						if (room) {
-							room.blocks.push(newBlock);
+						// Vérifier que le bloc est bien dans la room
+						if (isBlockInRoom(newBlock, targetRoom)) {
+							targetRoom.blocks.push(newBlock);
 							selectedBlocks.push(newBlock);
 						}
 					}
@@ -1774,8 +2128,9 @@ export function startEditor() {
 		}
 
 		// Draw create preview
-		drawCreatePreview(ctx);
-
+		if (drag.active) {
+			drawCreatePreview(ctx);
+		}
 		// Draw mouse cursor (white transparent square)
 		ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
 		ctx.fillRect(mouse.wx, mouse.wy, PIXEL_SIZE, PIXEL_SIZE);
@@ -1793,11 +2148,12 @@ export function startEditor() {
 		// Draw info text
 		ctx.fillStyle = "white";
 		ctx.font = "16px monospace";
-		ctx.fillText(`Camera: (${camera.x.toFixed(0)}, ${camera.y.toFixed(0)}) Zoom: ${camera.zoom.toFixed(2)}`, 10, canvas.height - 80);
-		ctx.fillText(`Mouse: (${mouse.wx.toFixed(0)}, ${mouse.wy.toFixed(0)})`, 10, canvas.height - 60);
-		ctx.fillText(`Mode: ${mode} | Press F3 to change mode | Esc to deselect | Del to delete`, 10, canvas.height - 40);
+		ctx.fillText(`Camera: (${camera.x.toFixed(0)}, ${camera.y.toFixed(0)}) Zoom: ${camera.zoom.toFixed(2)}`, 10, canvas.height - 60);
+		ctx.fillText(`Mouse: (${mouse.wx.toFixed(0)}, ${mouse.wy.toFixed(0)})`, 10, canvas.height - 40);
+		ctx.fillText(`Mode: ${mode} | F1: Default/Rooms | F2: Play | Esc: deselect | Del: delete`, 10, canvas.height - 20);
 		if (selectedBlocks.length > 0) {
-			ctx.fillText(`Selected blocks: ${selectedBlocks.length} | Ctrl+C to copy | Ctrl+V to paste`, 10, canvas.height - 20);
+			ctx.fillStyle = "yellow";
+			ctx.fillText(`Selected blocks: ${selectedBlocks.length} | Ctrl+C to copy | Ctrl+V to paste`, 10, canvas.height - 80);
 		}
 	}
 
@@ -1832,8 +2188,10 @@ export function startEditor() {
 declare global {
 	interface Window {
 		game: any;
-		running: boolean;
+		running: any;
 		startEditor: any;
+		showOpenFilePicker?: () => Promise<FileSystemFileHandle[]>;
+		showSaveFilePicker?: (options?: any) => Promise<FileSystemFileHandle>;
 	}
 }
 
