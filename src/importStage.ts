@@ -155,15 +155,6 @@ export async function importStage(read: Function) {
             break;
         }
 
-        case "bounce":
-            moduleBuffer.push(take(word));
-            if (moduleBuffer.length < 2) {break;}
-
-            blockToPush!.bounce = new BounceModule(moduleBuffer[1], moduleBuffer[0]);
-            moduleBuffer.length = 0;
-            currentMode = null;
-            break;
-
         case "moving":
             throw "Moving todo";
             break;

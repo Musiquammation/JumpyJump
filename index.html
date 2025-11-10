@@ -1,117 +1,50 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Jumpy Jump</title>
-    <style>
-      body, html {
-        margin: 0;
-        padding: 0;
-        overflow: hidden;
-        width: 100%;
-        height: 100%;
-      }
-      
-      canvas {
-        display: block;
-        background: black;
-      }
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<title>Jumpy Jump</title>
+		<link rel="stylesheet" href="index.css">
+	</head>
+	<body>
+		<canvas id="gameCanvas"></canvas>
+		<div id="chrono">00:00.00</div>
+		<div id="mobileEntryContainer" class="hidden">
+			<div id="mobileEntry-left" class="entry">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
+					<path d="M15 6 L9 12 L15 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+				</svg>
+			</div>
+			<div id="mobileEntry-right" class="entry">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
+					<path d="M9 6 L15 12 L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+				</svg>
 
-      #chrono {
-        position: absolute;
-        right: 0px;
-        top: 0px;
-        color: white;
-        background-color: black;
-        padding: 10px;
-        font-size: 3vmin;
-        font-family: 'Courier New', Courier, monospace;
-      }
+			</div>
+			<div id="mobileEntry-up" class="entry">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
+					<path d="M6 15 L12 9 L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+				</svg>
 
+			</div>
+			<div id="mobileEntry-down" class="entry">
+				<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Flèche bas" class="icon">
+					<path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+				</svg>
 
-      #mobileEntryContainer > * {
-        position: absolute;
-        width: 60px;
-        height: 60px;
-        background-color: #fff2;
-        border: 2px solid white;
-        color: white;
-      }
+			</div>
+			
+			<div id="mobileEntry-special" class="entry">SPECIAL</div>
+			<div id="mobileEntry-specialContainer" class="hidden">
+				<div id="mobileEntry-special-enter" class="entry">ENTER</div>
+				<div id="mobileEntry-special-debug" class="entry">DEBUG</div>
+			</div>
+		</div>
 
-      #mobileEntryContainer > *.high {
-        background-color: #fff4;
-      }
+		<div id="loadingIcon" class="hidden">loading</div>
 
-      #mobileEntry-left {
-        left: 40px;
-        bottom: 40px;
-      }
-
-      #mobileEntry-right {
-        left: 110px;
-        bottom: 40px;
-      }
-
-      #mobileEntry-up {
-        right: 40px;
-        bottom: 110px;
-      }
-
-      #mobileEntry-down {
-        right: 40px;
-        bottom: 40px;
-      }
-
-      #mobileEntry-special {
-        left: 5px;
-        top: 5px;
-        width: auto;
-        height: auto;
-        font-size: 15px;
-        text-align: center;
-        font-family: 'Courier New', Courier, monospace;
-        border: 1px solid white;
-      }
-
-      .hidden {
-        display: none;
-      }
-
-    </style>
-  </head>
-  <body>
-    <canvas id="gameCanvas"></canvas>
-    <div id="chrono">00:00.00</div>
-    <div id="mobileEntryContainer" class="hidden">
-      <div id="mobileEntry-left">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
-          <path d="M15 6 L9 12 L15 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-      </div>
-      <div id="mobileEntry-right">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
-          <path d="M9 6 L15 12 L9 18" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-
-      </div>
-      <div id="mobileEntry-up">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" class="icon">
-          <path d="M6 15 L12 9 L18 15" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-
-      </div>
-      <div id="mobileEntry-down">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Flèche bas" class="icon">
-          <path d="M6 9 L12 15 L18 9" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-        </svg>
-
-      </div>
-      <div id="mobileEntry-special">SPECIAL</div>
-    </div>
-
-    <script>
-      import("/src/main.ts").then(m => m.startGame());
-    </script>
-  </body>
+		<script>
+			import("/src/main.ts").then(m => m.startGame());
+		</script>
+	</body>
 </html>

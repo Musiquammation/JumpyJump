@@ -14,6 +14,12 @@ class State {
 
 	static PLAY_TO_WIN_DURATION = 60;
 
+	game: Game;
+
+	constructor(game: Game) {
+		this.game = game;
+	}
+
 	update() {
 		this.chrono++;
 
@@ -31,8 +37,19 @@ class State {
 	}
 
 	set(type: TypeState) {
+		switch (type) {
+		case 'play':
+			this.game.inputHandler.startRecord();
+			break;
+		
+			default:
+			this.game.inputHandler.stopRecord();
+			break;
+		}
+
 		this.type = type;
 		this.chrono = 0;
+
 	}
 
 	get() {
@@ -60,7 +77,7 @@ export class Game {
 	frame = 0;
 	goalComplete = 0;
 	gameChrono = 0;
-	state = new State();
+	state = new State(this);
 	validRun = true;
 	currentWorld = 0;
 	currentLevel = 0;
@@ -81,6 +98,19 @@ export class Game {
 		this.resetStage();
 	}
 
+	startReplay(stage: Stage) {
+		this.startLoading();
+		
+		this.inputHandler.loadRecord().then(() => {
+			this.startLevel(stage);
+			this.state.set('play')
+		}).catch(e => {
+			console.error(e);
+		}).finally(() => {
+			this.finishLoading();
+		})
+		;
+	}
 
 	playLogic(checkComplete: boolean) {
 		if (checkComplete) {
@@ -265,6 +295,7 @@ export class Game {
 
 	
 	resetStage() {
+		this.inputHandler.restartRecord();
 		this.stage!.reset();
 				
 		const gameState = this.state.get();
@@ -490,6 +521,23 @@ export class Game {
 		if (offsetY > 0) ctx.fillRect(0, canvasHeight - offsetY, canvasWidth, offsetY);
 		if (offsetX > 0) ctx.fillRect(0, 0, offsetX, canvasHeight);
 		if (offsetX > 0) ctx.fillRect(canvasWidth - offsetX, 0, offsetX, canvasHeight);
+	}
+
+
+
+
+	startLoading() {
+		const loadingIcon = document.getElementById("loadingIcon");
+		if (loadingIcon) {
+			loadingIcon.classList.remove("hidden");
+		}
+	}
+
+	finishLoading() {
+		const loadingIcon = document.getElementById("loadingIcon");
+		if (loadingIcon) {
+			loadingIcon.classList.add("hidden");
+		}
 	}
 }
 

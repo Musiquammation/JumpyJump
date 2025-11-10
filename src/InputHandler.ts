@@ -29,14 +29,14 @@ class KeyboardCollector {
 }
 
 
+
 export class InputHandler {
 	static CONTROLS: Control[] = ["left", "right", "up", "down", "debug", "enter"];
+	static CONTROL_STACK_SIZE = 256;
 
 	private keyboardUsed = false;
 	private mobileUsed = false;
-	private inFullScreen = false;
 
-	private controlBounds: DOMRect[] = [];
 	private collectedKeys: Record<Control, Action> = new KeyboardCollector();
 
 	private keysDown: Record<Control, boolean> = new Keydown();
@@ -47,6 +47,11 @@ export class InputHandler {
 
 	private keyMap: Record<string, Control>;
 
+	gameFirstRecord = 0;
+	gameRecords: Uint32Array[] | null = null;
+	frameCount = 0;
+	recordCompletion = -1;
+	recordState: 'none' | 'record' | 'emulate' = 'none';
 
 	static KEYBOARDS: Record<Mode, Record<string, Control>> = {
 		zqsd: {
@@ -140,272 +145,187 @@ export class InputHandler {
 	}
 
 
-	getInputControl(x: number, y: number, mode: 'first' | 'move' | 'remove'): Control | null {
-		if (this.controlBounds.length == 0) {
-			return null;
+
+	private onButtonTouchStart = (control: Control | 'special', element: HTMLElement) => {
+		element.classList.add("high");
+
+		if (control === 'special') {
+			return;
 		}
 
-		for (let i = 0; i < this.controlBounds.length; i++) {
-			const rect = this.controlBounds[i];
-			if (
-				x >= rect.left + window.scrollX &&
-				x <= rect.right + window.scrollX &&
-				y >= rect.top + window.scrollY &&
-				y <= rect.bottom + window.scrollY
-			) {
-				switch (i) {
-				case 0:
-					return 'left';
+		switch (this.collectedKeys[control]) {
+		case Action.NONE:
+			this.collectedKeys[control] = Action.DOWN;
+			break;
+			
+		case Action.DOWN:
+			break;
+			
+		case Action.UP:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
 
-				case 1:
-					return 'right';
+		case Action.DOWN_THEN_UP:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
 
-				case 2:
-					return 'up';
+		case Action.UP_THEN_DOWN:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
 
-				case 3:
-					return 'down';
-
-				case 4:
-				{
-					if (mode !== 'first')
-						break;
-
-					const out = prompt("Type 0 for enter ; 1 for debug ; 2 for fullscreen ; 3 for refresh");
-
-					if (out === null)
-						break;
-
-					const result = Number.parseInt(out);
-					if (result === 0)
-						return 'enter';
-					if (result === 1)
-						return 'debug';
-					
-					if (result === 2) {
-						// Fullscreen
-						try {
-							if (document.body.requestFullscreen) {
-								document.body.requestFullscreen();
-							} else if ((document.body as any).webkitRequestFullscreen) { // Safari
-								(document.body as any).webkitRequestFullscreen();
-							} else if ((document.body as any).msRequestFullscreen) { // IE/Edge
-								(document.body as any).msRequestFullscreen();
-							}
-						} catch (e) {
-							console.error(e);
-						}
-
-						this.inFullScreen = true;
-						return null;
-					}
-
-					if (result === 3) {
-						// Refresh
-						window.location.reload();
-						return null;
-					}
-					
-					break;
-				}
-				}
-			}
 		}
-
-		return null;
 	}
 
-	private onTouchStart = (event: TouchEvent) => {
-		event.preventDefault();
+	private onButtonTouchEnd = (control: Control | 'special', element: HTMLElement) => {
+		element.classList.remove("high");
+		if (control === 'special') {
+			document.getElementById("mobileEntry-specialContainer")?.classList.toggle('hidden');
+			return;
+		}
+
+		switch (this.collectedKeys[control]) {
+		case Action.NONE:
+			this.collectedKeys[control] = Action.UP;
+			break;
+			
+		case Action.DOWN:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+			
+		case Action.UP:
+			break;
+
+		case Action.DOWN_THEN_UP:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+
+		case Action.UP_THEN_DOWN:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+			
+		}
+	}
+
+
+
+	startRecord() {
+		if (this.recordState === 'emulate')
+			return;
+
+		this.gameFirstRecord =
+			(+this.firstPress ['left']  <<  0) |
+			(+this.firstPress ['right'] <<  1) |
+			(+this.firstPress ['up']    <<  2) |
+			(+this.firstPress ['down']  <<  3) |
+			(+this.keysDown   ['left']  <<  4) |
+			(+this.keysDown   ['right'] <<  5) |
+			(+this.keysDown   ['up']    <<  6) |
+			(+this.keysDown   ['down']  <<  7) |
+			(+this.killedPress['left']  <<  8) |
+			(+this.killedPress['right'] <<  9) |
+			(+this.killedPress['up']    << 10) |
+			(+this.killedPress['down']  << 11);
+
 		
-		const uses = [false, false, false, false];
-		const touches = Array.from(event.touches);
-		for (let i of touches) {
-			const control = this.getInputControl(i.clientX, i.clientY, 'first');
-			if (!control)
-				continue;
-			
-			switch (control) {
-				case "left":
-					uses[0] = true;
-					break;
-				case "right":
-					uses[1] = true;
-					break;
-				case "up":
-					uses[2] = true;
-					break;
-				case "down":
-					uses[3] = true;
-					break;
 
-				case "debug":
-				case "enter":
-					this.collectedKeys[control] = Action.DOWN_THEN_UP;
-					break;
-
-			}
-
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.collectedKeys[control] = Action.DOWN;
-				break;
-				
-			case Action.DOWN:
-				break;
-				
-			case Action.UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.DOWN_THEN_UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.UP_THEN_DOWN:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			}
-		}
-
-		const container = document.getElementById("mobileEntryContainer");
-		if (container) {
-			for (let i = 0; i < 4; i++) {
-				if (uses[i]) {
-					container.children[i].classList.add("high");
-				} else {
-					container.children[i].classList.remove("high");
-				}
-			}
-		}
+		this.gameRecords = [];
+		this.recordCompletion = InputHandler.CONTROL_STACK_SIZE;
+		this.frameCount = 0;
+		this.recordState = 'record';
 	}
 
-	
-	private onTouchMove = (event: TouchEvent) => {
-		event.preventDefault();
+	pushRecord() {
+		if (!this.gameRecords || this.recordState !== 'record')
+			return;
 
-		const uses = [false, false, false, false];
-		const touches = Array.from(event.touches);
-		for (let i of touches) {
-			const control = this.getInputControl(i.clientX, i.clientY, 'move');
-			if (!control)
-				continue;
-			
+		const line = (this.collectedKeys['left'] << 24) |
+			(this.collectedKeys['right'] << 16) |
+			(this.collectedKeys['up'] << 8) |
+			(this.collectedKeys['down']);
 
-			switch (control) {
-				case "left":
-					uses[0] = true;
-					break;
-				case "right":
-					uses[1] = true;
-					break;
-				case "up":
-					uses[2] = true;
-					break;
-				case "down":
-					uses[3] = true;
-					break;
 
-				case "debug":
-				case "enter":
-					this.collectedKeys[control] = Action.DOWN_THEN_UP;
-					break;
-
-			}
-
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.collectedKeys[control] = Action.DOWN;
-				break;
-				
-			case Action.DOWN:
-				break;
-				
-			case Action.UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.DOWN_THEN_UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.UP_THEN_DOWN:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			}
+		if (this.recordCompletion === InputHandler.CONTROL_STACK_SIZE) {
+			this.recordCompletion = 0;
+			this.gameRecords.push(new Uint32Array(InputHandler.CONTROL_STACK_SIZE));
 		}
 
-
-		const container = document.getElementById("mobileEntryContainer");
-		if (container) {
-			for (let i = 0; i < 4; i++) {
-				if (uses[i]) {
-					container.children[i].classList.add("high");
-				} else {
-					container.children[i].classList.remove("high");
-				}
-			}
-		}
+		this.gameRecords[this.gameRecords.length-1][this.recordCompletion] = line;
+		this.recordCompletion++;
 	}
-	
-	private onTouchEnd = (event: TouchEvent) => {
-		const touches = Array.from(event.changedTouches);
-		const uses = [false, false, false, false];
 
-		for (let i of touches) {
-			const control = this.getInputControl(i.clientX, i.clientY, 'remove');
-			if (!control)
-				continue;
+	stopRecord() {
+		this.recordState = 'none';
+	}
 
-			switch (control) {
-				case "left":
-					uses[0] = true;
-					break;
-				case "right":
-					uses[1] = true;
-					break;
-				case "up":
-					uses[2] = true;
-					break;
-				case "down":
-					uses[3] = true;
-					break;
+	resumeRecord() {
+		if (this.recordState === 'none')
+			this.recordState = 'record';
+	}
 
-			}
-			
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.collectedKeys[control] = Action.UP;
-				break;
-				
-			case Action.DOWN:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
-				
-			case Action.UP:
-				break;
+	async saveRecord() {
+		if (!this.gameRecords)
+			return;
 
-			case Action.DOWN_THEN_UP:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
+		
 
-			case Action.UP_THEN_DOWN:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
-				
+		const fileHandle = await window.showSaveFilePicker!({
+			suggestedName: 'jumpyJump_record.bin',
+			types: [{
+				description: 'Binary data',
+				accept: { 'application/octet-stream': ['.bin'] },
+			}],
+		});
+
+
+		const writable = await fileHandle.createWritable();
+		await writable.write(new Uint32Array([this.gameFirstRecord]).slice(0));
+
+		for (let i = 0; i < this.gameRecords.length; i++) {
+			const arr = this.gameRecords[i];
+
+			if (i === this.gameRecords.length - 1 && this.recordCompletion !== undefined) {
+				const partial = arr.slice(0, this.recordCompletion);
+				await writable.write(partial);
+			} else {
+				await writable.write(arr.slice(0));
 			}
 		}
 
-		const container = document.getElementById("mobileEntryContainer");
-		if (container) {
-			for (let i = 0; i < 4; i++) {
-				if (uses[i]) {
-					container.children[i].classList.remove("high");
-				}
-			}
-		}
+		await writable.close();
+	}
+
+	async loadRecord() {
+		this.recordState = 'none';
+		this.frameCount = 1;
+		this.recordCompletion = 0;
+		
+		const [fileHandle] = await window.showOpenFilePicker!();
+		const file = await fileHandle.getFile();
+		const buffer = await file.arrayBuffer();
+		
+		this.recordState = 'emulate';
+		this.gameRecords = [new Uint32Array(buffer)];
+
+		const first = this.gameRecords[0][0];
+		function get(n: number) {return first & (1<<n) ? true : false}
+
+		this.firstPress['left'] = get(0);
+		this.firstPress['right'] = get(1);
+		this.firstPress['up'] = get(2);
+		this.firstPress['down'] = get(3);
+		this.keysDown['left'] = get(4);
+		this.keysDown['right'] = get(5);
+		this.keysDown['up'] = get(6);
+		this.keysDown['down'] = get(7);
+		this.killedPress['left'] = get(8);
+		this.killedPress['right'] = get(9);
+		this.killedPress['up'] = get(10);
+		this.killedPress['down'] = get(11);
+	}
+
+
+	restartRecord() {
+		this.startRecord();
 	}
 
 
@@ -414,7 +334,7 @@ export class InputHandler {
 			navigator.maxTouchPoints > 0 ||
 			window.matchMedia("(pointer: coarse)").matches
 		) {
-			this.startMobileListeners(target);
+			this.startMobileListeners();
 		} else {
 			this.enableKeyboardListeners(target);
 		}
@@ -425,12 +345,6 @@ export class InputHandler {
 			target.removeEventListener("keydown", this.onKeydown);
 			target.removeEventListener("keyup", this.onKeyup);
 		}
-
-		if (this.mobileUsed) {
-			target.removeEventListener("touchstart", this.onTouchStart as EventListener);
-			target.removeEventListener("touchmove", this.onTouchMove as EventListener);
-			target.removeEventListener("touchend", this.onTouchEnd as EventListener);
-		}
 	}
 	
 	enableKeyboardListeners(target: EventTarget) {
@@ -439,90 +353,116 @@ export class InputHandler {
 		this.keyboardUsed = true;
 	}
 	
-	startMobileListeners(target: EventTarget) {
-		target.addEventListener("touchstart", this.onTouchStart as EventListener, {passive: false});
-		target.addEventListener("touchmove", this.onTouchMove as EventListener, {passive: false});
-		target.addEventListener("touchend", this.onTouchEnd as EventListener, {passive: false});
+	startMobileListeners() {
+		const add = (id: string, control: Control | 'special') => {
+			const element = document.getElementById(id);
+			if (!element)
+				return;
 
-		const container = document.getElementById("mobileEntryContainer");
-		if (container) {
-			container.classList.remove("hidden");
-			for (let i = 0; i < container.children.length; i++) {
-				const child = container.children[i];
-				this.controlBounds.push(child.getBoundingClientRect());
-			}
+			element.ontouchstart = () => this.onButtonTouchStart(control, element);
+			element.ontouchend = () => this.onButtonTouchEnd(control, element);
 		}
+
+		document.getElementById("mobileEntryContainer")?.classList.remove("hidden");
+		
+		add("mobileEntry-left", 'left');
+		add("mobileEntry-right", 'right');
+		add("mobileEntry-up", 'up');
+		add("mobileEntry-down", 'down');
+		add("mobileEntry-special", 'special');
+		add("mobileEntry-special-enter", 'enter');
+		add("mobileEntry-special-debug", 'debug');
+		
 
 		this.mobileUsed = true;
 	}
 
 	update() {
-		// Reset firstPress et killedPress pour la prochaine frame
-		for (const control of InputHandler.CONTROLS) {
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.firstPress[control] = false;
-				this.killedPress[control] = false;
-				break;
-
-			case Action.DOWN:
-				if (this.keysDown[control]) {
-					this.firstPress[control] = false;
-				} else {
-					this.firstPress[control] = true;
-					this.keysDown[control] = true;
-				}
-				this.killedPress[control] = false;
-				break;
-
-			case Action.UP:
-				if (this.keysDown[control]) {
-					this.firstPress[control] = false;
-					this.keysDown[control] = false;
-					this.killedPress[control] = true;
-				} else {
-					this.firstPress[control] = false;
-					this.killedPress[control] = false;
-				}
-				break;
-
-			case Action.DOWN_THEN_UP:
-				if (this.keysDown[control]) {
-					this.firstPress[control] = false;
-					this.keysDown[control] = false;
-				} else {
-					this.firstPress[control] = true;
-				}
-				this.killedPress[control] = true;
-
-				
-				break;
-
-			case Action.UP_THEN_DOWN:
-				if (this.keysDown[control]) {
-					this.firstPress[control] = false;
-					this.keysDown[control] = false;
-					this.killedPress[control] = true;
-				} else {
-					this.firstPress[control] = false;
-					this.killedPress[control] = false;
-				}
-
-				if (this.keysDown[control]) {
-					this.firstPress[control] = false;
-				} else {
-					this.firstPress[control] = true;
-					this.keysDown[control] = true;
-				}
-				this.killedPress[control] = false;
-				break;
-			}
-
-
-			// reset collect key
-			this.collectedKeys[control] = Action.NONE;
+		if (this.recordState === 'record') {
+			this.pushRecord();
 		}
 
+		if (this.recordState === 'record' || this.recordState === 'none') {
+			for (const control of InputHandler.CONTROLS) {
+				this.play(control, this.collectedKeys[control]);
+				this.collectedKeys[control] = Action.NONE;
+			}
+		}
+
+		if (this.recordState === 'record') {
+			this.frameCount++;
+		
+		} else if (this.recordState === 'emulate') {
+			const line = this.gameRecords![0][this.frameCount];
+			this.play('left' , (line>>24)&0xff);
+			this.play('right', (line>>16)&0xff);
+			this.play('up',    (line>> 8)&0xff);
+			this.play('down',  (line>> 0)&0xff);
+			
+			this.frameCount++;
+		}
+			
+	}
+
+	play(control: Control, action: Action) {
+		switch (action) {
+		case Action.NONE:
+			this.firstPress[control] = false;
+			this.killedPress[control] = false;
+			break;
+
+		case Action.DOWN:
+			if (this.keysDown[control]) {
+				this.firstPress[control] = false;
+			} else {
+				this.firstPress[control] = true;
+				this.keysDown[control] = true;
+			}
+			this.killedPress[control] = false;
+			break;
+
+		case Action.UP:
+			if (this.keysDown[control]) {
+				this.firstPress[control] = false;
+				this.keysDown[control] = false;
+				this.killedPress[control] = true;
+			} else {
+				this.firstPress[control] = false;
+				this.killedPress[control] = false;
+			}
+			break;
+
+		case Action.DOWN_THEN_UP:
+			if (this.keysDown[control]) {
+				this.firstPress[control] = false;
+				this.keysDown[control] = false;
+			} else {
+				this.firstPress[control] = true;
+			}
+			this.killedPress[control] = true;
+
+			
+			break;
+
+		case Action.UP_THEN_DOWN:
+			if (this.keysDown[control]) {
+				this.firstPress[control] = false;
+				this.keysDown[control] = false;
+				this.killedPress[control] = true;
+			} else {
+				this.firstPress[control] = false;
+				this.killedPress[control] = false;
+			}
+
+			if (this.keysDown[control]) {
+				this.firstPress[control] = false;
+			} else {
+				this.firstPress[control] = true;
+				this.keysDown[control] = true;
+			}
+			this.killedPress[control] = false;
+			break;
+		}
 	}
 
 	press(control: Control): boolean {
