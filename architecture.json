@@ -1,3 +1,5 @@
 [
-    {"name": "w0", "count": 1}
+    {"name": "w0", "levels:" [
+        {"name": "0", "version": 0}
+    ]}
 ]
