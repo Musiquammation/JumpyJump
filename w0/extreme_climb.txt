@@ -1,0 +1,53 @@
+Extreme climb
+room -400 -450 4800 900
+	0 425 450 50
+		bounce 1 1
+	425 225 50 450
+		couldownedAttack 1 100
+	1225 -225 50 450
+		couldownedAttack 1 100
+	2025 225 50 450
+		couldownedAttack 1 100
+	2825 -225 50 450
+		couldownedAttack 1 100
+	2250 362.5 300 75
+		restoreJump 2
+	650 362.5 300 75
+		restoreJump 2
+emptyroom 4400 -7200 400 7650
+room 4000 -2250 400 675
+	4075 -1712.5 50 175
+		heal 3
+room 4400 -8100 3600 900
+	4825 -7425 50 450
+		kill 1
+	5400 -7875 400 450
+		kill 1
+	5975 -7425 50 450
+		bounce 1 0.003
+		kill 1
+	5400 -7237.5 500 75
+		bounce 1 0.5
+	5400 -7612.5 400 25
+		restoreJump 2
+	5400 -7587.5 400 25
+		heal 1
+	6600 -7875 400 450
+		continuousAttack 0.2
+	7000 -7425 400 450
+		continuousAttack 0.2
+	7400 -7875 400 450
+		continuousAttack 0.2
+	7400 -7250 400 50
+		bounce 2 0.3
+	6600 -7250 400 50
+		bounce 2 0.3
+room 4800 -4050 400 675
+	5150 -3500 50 200
+		heal 3
+room 4000 -5850 400 675
+	4050 -5300 50 200
+		heal 3
+room 8000 -8100 1600 900
+	8800 -7650 250 150
+		goal 1

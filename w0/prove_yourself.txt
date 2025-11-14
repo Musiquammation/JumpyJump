@@ -1,4 +1,4 @@
-Tutorial
+Prove yourself
 room -800 -450 1600 900
     0 200 100 100
         bounce 1 0.003

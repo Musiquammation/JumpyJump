@@ -1,0 +1,50 @@
+Fast climb
+room -800 -450 1600 900
+	-362.5 37.5 75 75
+		kill 1
+	-237.5 162.5 75 75
+		kill 1
+	-112.5 287.5 75 75
+		kill 1
+	12.5 400.5 225 75
+		bounce 0.9 0.001
+	-37.5 287.5 75 75
+		heal 2
+		speed 0.5 0
+		acceleration 0.04 0
+	-287.5 37.5 75 75
+		heal 2
+		speed 0.5 0
+		acceleration 0.06 0
+	-162.5 163.5 75 75
+		heal 2
+		speed 0.5 0
+		acceleration 0.05 0
+room 800 -450 4000 900
+	1625 0 50 450
+		couldownedAttack 1 100
+	2200 425 400 50
+		bounce 1 0.003
+	3400 0 400 450
+		restoreJump 2
+	4650 -112.5 300 675
+		kill 1
+	4350 400 100 100
+		heal 2
+		speed 0 -1
+room 4000 450 1600 900
+	4400 1300 800 100
+		bounce 0.8 0.003
+emptyroom 5200 1350 1600 675
+emptyroom 6400 0 800 1350
+room 7200 -900 800 1350
+	7250 -500 100 100
+		heal 2
+	7400 0 400 300
+		continuousAttack 0.015
+emptyroom 6400 -1800 800 1350
+room 6800 -2700 1600 900
+	7225 -2025 50 450
+		kill 1
+	8187.5 -2362.5 75 75
+		goal 1

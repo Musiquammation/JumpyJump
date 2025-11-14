@@ -1,9 +1,8 @@
 [
-	{"name": "w0-tutorial", "levels": [
-		{"filename": "tutorial.txt", "name": "tutorial", "version": 1}
-	]},
-
-	{"name": "w1-hard", "levels": [
-		{"filename": "prove_yourself.txt", "name": "Prove yourself", "version": 1}
+	{"name": "w0", "levels": [
+		{"filename": "tutorial.txt", "name": "Tutorial", "version": 2},
+		{"filename": "extreme_climb.txt", "name": "Extreme climb", "version": 1},
+		{"filename": "prove_yourself.txt", "name": "Prove yourself", "version": 2},
+		{"filename": "fast_climb.txt", "name": "Fast climb", "version": 1}
 	]}
 ]
