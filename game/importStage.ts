@@ -133,6 +133,7 @@ export async function importStage(read: Function) {
 
 		if (name === null) {
 			name = word;
+			console.log(name);
 			continue;
 		}
 

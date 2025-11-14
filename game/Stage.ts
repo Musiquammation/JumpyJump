@@ -52,8 +52,25 @@ export class WeakStage {
 
 		function* words(): Generator<string> {
 			let buffer = "";
+			let firstLineSent = false;
+
 			for (let i = 0; i < file.length; i++) {
 				const c = file[i];
+
+				// Si on n'a pas encore envoyé la première ligne
+				if (!firstLineSent) {
+					if (c === "\n" || c === "\r") {
+						yield buffer;   // envoie la ligne complète
+						buffer = "";
+						firstLineSent = true;
+						continue;
+					} else {
+						buffer += c;
+						continue;
+					}
+				}
+
+				// Comportement normal mot par mot après la première ligne
 				if (c !== " " && c !== "\t" && c !== "\n" && c !== "\r") {
 					buffer += c;
 				} else if (buffer.length > 0) {
@@ -61,9 +78,10 @@ export class WeakStage {
 					buffer = "";
 				}
 			}
-			if (buffer.length > 0) yield buffer;
 
+			if (buffer.length > 0) yield buffer;
 		}
+
 
 		const {stage, name} = await importStage(words);
 		this.stage = stage;
