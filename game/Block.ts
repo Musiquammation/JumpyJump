@@ -912,7 +912,8 @@ class SpeedModule implements DrawableModule<null> {
 	}
 
 	reset() {
-		// Keep current velocities
+		this.vx = 0;
+		this.vy = 0;
 	}
 
 	copy() {

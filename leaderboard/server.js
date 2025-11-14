@@ -80,7 +80,7 @@ app.post('/pushRun', async (req, res) => {
 			`INSERT INTO runs(username, mapid, time, runid, date)
 			 VALUES($1, $2, $3, $4, $5)
 			 ON CONFLICT(username, mapid)
-			 DO UPDATE SET time = EXCLUDED.time, date = CURRENT_TIMESTAMP
+			 DO UPDATE SET time = EXCLUDED.time, date = $5
 			 WHERE EXCLUDED.time < runs.time`,
 			[username, mapid, time, runid, now]
 		)
