@@ -61,7 +61,7 @@ async function deleteLevel(world: string, level: string) {
 }
 
 async function fetchLevel(url: string, world: string, level: string): Promise<void> {
-	const res = await loadFetch(`${url}.txt`);
+	const res = await loadFetch(url);
 	const text = await res.text();
 	await saveLevel(world, level, text);
 }
@@ -89,7 +89,7 @@ async function updateNetworkLevels(link: string, architecture: World[] | null): 
 
 			if (needsUpdate) {
 				const url = `${link}/${remoteWorld.name}/${remoteLevel.filename}`;
-				console.log(`Fetch: ${url}.txt`);
+				console.log(`Fetch: ${url}`);
 				downloads.push(
 					fetchLevel(url, remoteWorld.name, remoteLevel.filename).then(() => {
 						console.log(`Update level: ${remoteWorld.name}/${remoteLevel.filename}`);
