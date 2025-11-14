@@ -65,7 +65,7 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.2.0";
+	static GAME_VERSION = "1.3.0";
 
 	player = new Player();
 	camera = new Camera();

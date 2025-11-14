@@ -163,12 +163,15 @@
             color: #333;
         }
 
+        .time-container {
+            min-width: 150px;
+            text-align: right;
+        }
+
         .time {
             font-size: 1.3em;
             font-weight: bold;
             color: #667eea;
-            min-width: 120px;
-            text-align: right;
         }
 
         .loading {
@@ -196,9 +199,9 @@
         }
 
         .date {
-            font-size: 0.8em;
+            font-size: 0.75em;
             color: #999;
-            margin-left: 10px;
+            margin-top: 3px;
         }
 
         @media (max-width: 600px) {
@@ -210,7 +213,7 @@
                 flex-wrap: wrap;
             }
 
-            .time {
+            .time-container {
                 width: 100%;
                 text-align: left;
                 margin-top: 5px;
@@ -278,8 +281,9 @@
             }
         }
 
-        // Formater le temps (en millisecondes vers format lisible)
-        function formatTime(ms) {
+        // Formater le temps (frames vers format lisible)
+        function formatTime(frames) {
+            const ms = Math.round(frames * 1000 / 60);
             const totalSeconds = Math.floor(ms / 1000);
             const minutes = Math.floor(totalSeconds / 60);
             const seconds = totalSeconds % 60;
@@ -361,7 +365,10 @@
                         <div class="leaderboard-item ${topClass}">
                             <div class="rank">${medal || rank}</div>
                             <div class="username">${escapeHtml(run.username)}</div>
-                            <div class="time">${formatTime(run.time)}</div>
+                            <div class="time-container">
+                                <div class="time">${formatTime(run.time)}</div>
+                                <div class="date">${formatDate(run.date)}</div>
+                            </div>
                         </div>
                     `;
                 }).join('');
