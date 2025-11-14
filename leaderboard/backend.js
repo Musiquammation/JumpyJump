@@ -1,117 +1,123 @@
-import express from "express";
-import cors from "cors";
-import pg from "pg";
-import crypto from "crypto";
+import express from 'express'
+import cors from 'cors'
+import { createClient } from '@supabase/supabase-js'
+import dotenv from 'dotenv'
+import crypto from 'crypto'
 
-const { Pool } = pg;
-const pool = new Pool({
-    connectionString: process.env.DATABASE_URL,
-    ssl: { rejectUnauthorized: false }
-});
+dotenv.config()
 
-const app = express();
-app.use(cors());
-app.use(express.json());
+const supabaseUrl = process.env.SUPABASE_URL
+const supabaseKey = process.env.SUPABASE_KEY
+const supabase = createClient(supabaseUrl, supabaseKey)
 
-// Hash si mapid non fourni
+const app = express()
+app.use(cors())
+app.use(express.json())
+
+// Hash simple pour mapname si mapid non fourni
 function hashMapName(mapname) {
-    return BigInt('0x' + crypto.createHash('sha256').update(mapname).digest('hex')) % BigInt(1e12);
+    const hash = crypto.createHash('sha256').update(mapname).digest('hex')
+    return BigInt('0x' + hash.slice(0, 12)) % BigInt(1e12)
 }
 
-// Création des tables si inexistantes
+// Initialisation DB et RPC
 async function initDB() {
-    await pool.query(`
+    // Création tables
+    await supabase.rpc('sql', { sql: `
         CREATE TABLE IF NOT EXISTS maps (
             mapid BIGINT PRIMARY KEY,
             mapname TEXT NOT NULL UNIQUE
-        )
-    `);
-
-    await pool.query(`
+        );
         CREATE TABLE IF NOT EXISTS runs (
             username TEXT NOT NULL,
             mapid BIGINT NOT NULL REFERENCES maps(mapid),
             time INTEGER NOT NULL,
             date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
             PRIMARY KEY(username, mapid)
-        )
-    `);
+        );
+    `})
 
-    // Index pour accélérer les requêtes leaderboard
-    await pool.query(`
-        CREATE INDEX IF NOT EXISTS idx_runs_mapid_time ON runs(mapid, time)
-    `);
+    // Création RPC push_best_run
+    await supabase.rpc('sql', { sql: `
+        create or replace function push_best_run(
+            p_username text,
+            p_mapid bigint,
+            p_time integer
+        ) returns void as $$
+        begin
+            insert into runs(username, mapid, time, date)
+            values (p_username, p_mapid, p_time, now())
+            on conflict (username, mapid)
+            do update set time = excluded.time, date = now()
+            where excluded.time < runs.time;
+        end;
+        $$ language plpgsql;
+    `})
 }
 
-// PUSH RUN
-app.post("/pushRun", async (req, res) => {
+// POST /pushRun
+app.post('/pushRun', async (req, res) => {
     try {
-        let { username, mapid, mapname, time } = req.body;
+        let { username, mapid, mapname, time } = req.body
+        if (!username || !time) return res.status(400).json({ error: 'username and time required' })
+
         if (!mapid) {
-            if (!mapname) return res.status(400).json({ error: "mapid or mapname required" });
-            mapid = hashMapName(mapname);
-            await pool.query(
-                `INSERT INTO maps(mapid, mapname)
-                 VALUES ($1, $2)
-                 ON CONFLICT (mapid) DO NOTHING`,
-                 [mapid, mapname]
-            );
+            if (!mapname) return res.status(400).json({ error: 'mapid or mapname required' })
+            mapid = hashMapName(mapname)
+            await supabase.from('maps').upsert({ mapid, mapname }, { onConflict: ['mapid'] })
         }
 
-        // Insérer ou update seulement si meilleur temps
-        await pool.query(
-            `INSERT INTO runs(username, mapid, time, date)
-             VALUES ($1, $2, $3, CURRENT_TIMESTAMP)
-             ON CONFLICT(username, mapid) DO UPDATE
-             SET time = EXCLUDED.time,
-                 date = CURRENT_TIMESTAMP
-             WHERE EXCLUDED.time < runs.time`,
-            [username, mapid, time]
-        );
-
-        res.json({ success: true, mapid });
+        await supabase.rpc('push_best_run', { p_username: username, p_mapid: mapid, p_time: time })
+        res.json({ success: true, mapid })
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Database error" });
+        console.error(err)
+        res.status(500).json({ error: 'Database error' })
     }
-});
+})
 
-// GET LEADERBOARD
-app.get("/leaderboard", async (req, res) => {
+// GET /leaderboard?mapid=XXX ou mapname=YYY
+app.get('/leaderboard', async (req, res) => {
     try {
-        let { mapid, mapname } = req.query;
+        let { mapid, mapname } = req.query
         if (!mapid) {
-            if (!mapname) return res.status(400).json({ error: "mapid or mapname required" });
-            mapid = hashMapName(mapname);
+            if (!mapname) return res.status(400).json({ error: 'mapid or mapname required' })
+            mapid = hashMapName(mapname)
         }
-        const { rows } = await pool.query(
-            `SELECT username, time, date FROM runs
-             WHERE mapid = $1
-             ORDER BY time ASC
-             LIMIT 10`,
-             [mapid]
-        );
-        res.json(rows);
-    } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Database error" });
-    }
-});
 
-// GET ALL MAPS
-app.get("/allmaps", async (req, res) => {
+        const { data, error } = await supabase
+            .from('runs')
+            .select('username, time, date')
+            .eq('mapid', mapid)
+            .order('time', { ascending: true })
+            .limit(10)
+
+        if (error) throw error
+        res.json(data)
+    } catch (err) {
+        console.error(err)
+        res.status(500).json({ error: 'Database error' })
+    }
+})
+
+// GET /allmaps
+app.get('/allmaps', async (req, res) => {
     try {
-        const { rows } = await pool.query(`SELECT mapid, mapname FROM maps ORDER BY mapname ASC`);
-        res.json(rows);
+        const { data, error } = await supabase
+            .from('maps')
+            .select('mapid, mapname')
+            .order('mapname', { ascending: true })
+        if (error) throw error
+        res.json(data)
     } catch (err) {
-        console.error(err);
-        res.status(500).json({ error: "Database error" });
+        console.error(err)
+        res.status(500).json({ error: 'Database error' })
     }
-});
+})
 
-// Initialisation DB puis lancement serveur
+// Démarrage serveur après initialisation DB
 initDB().then(() => {
-    app.listen(process.env.PORT || 3000, () => console.log("Server running"));
+    const port = process.env.PORT || 3000
+    app.listen(port, () => console.log(`Server running on port ${port}`))
 }).catch(err => {
-    console.error("Failed to initialize DB:", err);
-});
+    console.error('Failed to initialize DB:', err)
+})
