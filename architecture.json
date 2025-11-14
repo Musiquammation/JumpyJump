@@ -1,5 +1,9 @@
 [
-    {"name": "w0", "levels": [
-        {"name": "0", "version": 0}
-    ]}
+	{"name": "w0-tutorial", "levels": [
+		{"filename": "tutorial.txt", "name": "tutorial", "version": 1}
+	]},
+
+	{"name": "w1-hard", "levels": [
+		{"filename": "prove_yourself.txt", "name": "Prove yourself", "version": 1}
+	]}
 ]
