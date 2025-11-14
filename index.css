@@ -1,0 +1,118 @@
+body, html {
+	margin: 0;
+	padding: 0;
+	overflow: hidden;
+	width: 100%;
+	height: 100%;
+}
+
+canvas {
+	display: block;
+	background: black;
+}
+
+#chrono {
+	position: absolute;
+	right: 0px;
+	top: 0px;
+	color: white;
+	background-color: black;
+	padding: 10px;
+	font-size: 3vmin;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+.loadingIcon {
+	position: absolute;
+	left: 0px;
+	top: 0px;
+	font-style: italic;
+	color: white;
+	background-color: black;
+	padding: 10px;
+	font-size: 2vmin;
+	font-family: 'Courier New', Courier, monospace;
+}
+
+
+.entry {
+	position: absolute;
+	width: 60px;
+	height: 60px;
+	background-color: #fff2;
+	border: 2px solid white;
+	color: white;
+}
+
+.entry.high {
+	background-color: #fff4;
+}
+
+#mobileEntry-left {
+	left: 40px;
+	bottom: 40px;
+}
+
+#mobileEntry-right {
+	left: 110px;
+	bottom: 40px;
+}
+
+#mobileEntry-up {
+	right: 40px;
+	bottom: 110px;
+}
+
+#mobileEntry-down {
+	right: 40px;
+	bottom: 40px;
+}
+
+#mobileEntry-special,
+#mobileEntry-specialContainer .entry {
+	width: auto;
+	height: auto;
+	font-size: 15px;
+	text-align: center;
+	font-family: 'Courier New', Courier, monospace;
+	border: 1px solid white;
+}
+
+#mobileEntry-special {
+	left: 5px;
+	top: 5px;
+}
+
+#mobileEntry-specialContainer {
+	font-style: italic;
+}
+
+#mobileEntry-special-enter {
+	left: 10px;
+	top: 30px;
+}
+
+#mobileEntry-special-debug {
+	left: 10px;
+	top: 50px;
+}
+
+
+#loadingGame {
+	position: absolute;
+	z-index: 10;
+	left: 0px;
+	top: 0px;
+	width: 100vw;
+	height: 100vh;
+	color: white;
+	background-color: #321;
+	font-size: 5vw;
+
+	display: grid;
+	place-items: center;
+}
+
+.hidden {
+	display: none;
+}
