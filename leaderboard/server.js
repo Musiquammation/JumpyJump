@@ -102,7 +102,7 @@ app.get('/leaderboard', async (req, res) => {
 		}
 
 		const { rows } = await pool.query(
-			`SELECT username, time, date
+			`SELECT username, time, date, runid
 			 FROM runs
 			 WHERE mapid=$1
 			 ORDER BY time ASC
