@@ -46,9 +46,9 @@ async function initDB() {
 		CREATE TABLE IF NOT EXISTS runs (
 			username TEXT NOT NULL,
 			mapid BIGINT NOT NULL REFERENCES maps(mapid),
-			time INTEGER NOT NULL,
+			time BIGINT NOT NULL,
 			runid TEXT NOT NULL,
-			date TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+			date BIGINT NOT NULL,
 			PRIMARY KEY(username, mapid)
 		);
 	`)

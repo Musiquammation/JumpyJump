@@ -129,9 +129,11 @@ export async function importStage(read: Function) {
 
 	let name: string | null = null;
 	for await (const word of read()) {
+		console.log(word);
+
 		if (name === null) {
 			name = word;
-			continue
+			continue;
 		}
 
 		// Check for endbuilder marker

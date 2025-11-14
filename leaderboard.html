@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leaderboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            color: white;
+            text-align: center;
+            margin-bottom: 30px;
+            font-size: 2.5em;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .map-selector {
+            background: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 30px;
+        }
+
+        .map-selector label {
+            display: block;
+            margin-bottom: 10px;
+            font-weight: 600;
+            color: #333;
+        }
+
+        .map-selector select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: border-color 0.3s;
+        }
+
+        .map-selector select:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+
+        .leaderboard-card {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .leaderboard-header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            text-align: center;
+        }
+
+        .leaderboard-header h2 {
+            font-size: 1.5em;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        thead {
+            background: #f8f9fa;
+        }
+
+        th {
+            padding: 15px;
+            text-align: left;
+            font-weight: 600;
+            color: #495057;
+            text-transform: uppercase;
+            font-size: 0.85em;
+            letter-spacing: 0.5px;
+        }
+
+        th.rank {
+            width: 80px;
+            text-align: center;
+        }
+
+        th.time {
+            width: 150px;
+        }
+
+        th.date {
+            width: 180px;
+        }
+
+        tbody tr {
+            border-bottom: 1px solid #e9ecef;
+            transition: background-color 0.2s;
+        }
+
+        tbody tr:hover {
+            background-color: #f8f9fa;
+        }
+
+        td {
+            padding: 15px;
+        }
+
+        td.rank {
+            text-align: center;
+            font-weight: 700;
+            font-size: 1.2em;
+        }
+
+        .rank-1 {
+            color: #FFD700;
+        }
+
+        .rank-2 {
+            color: #C0C0C0;
+        }
+
+        .rank-3 {
+            color: #CD7F32;
+        }
+
+        .username {
+            font-weight: 600;
+            color: #495057;
+        }
+
+        .time {
+            font-family: 'Courier New', monospace;
+            font-weight: 600;
+            color: #667eea;
+        }
+
+        .date {
+            color: #6c757d;
+            font-size: 0.9em;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+            font-size: 1.1em;
+        }
+
+        .error {
+            background: #f8d7da;
+            color: #721c24;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 20px;
+            text-align: center;
+        }
+
+        .empty {
+            text-align: center;
+            padding: 40px;
+            color: #6c757d;
+        }
+
+        @media (max-width: 768px) {
+            h1 {
+                font-size: 1.8em;
+            }
+
+            th, td {
+                padding: 10px 5px;
+                font-size: 0.9em;
+            }
+
+            th.date, td.date {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🏆 Leaderboard</h1>
+        
+        <div class="map-selector">
+            <label for="mapSelect">Sélectionner une map :</label>
+            <select id="mapSelect">
+                <option value="">Chargement...</option>
+            </select>
+        </div>
+
+        <div class="leaderboard-card">
+            <div class="leaderboard-header">
+                <h2 id="mapTitle">Sélectionnez une map</h2>
+            </div>
+            <div id="leaderboardContent">
+                <div class="loading">Sélectionnez une map pour voir le classement</div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Configuration de l'URL du serveur
+        const URL = "https://jumpyjump-production.up.railway.app";
+
+        const mapSelect = document.getElementById('mapSelect');
+        const mapTitle = document.getElementById('mapTitle');
+        const leaderboardContent = document.getElementById('leaderboardContent');
+
+        // Charger toutes les maps
+        async function loadMaps() {
+            try {
+                const response = await fetch(URL + '/allmaps');
+                const maps = await response.json();
+
+                mapSelect.innerHTML = '<option value="">-- Choisir une map --</option>';
+                maps.forEach(map => {
+                    const option = document.createElement('option');
+                    option.value = map.mapid;
+                    option.textContent = map.mapname;
+                    mapSelect.appendChild(option);
+                });
+            } catch (error) {
+                console.error('Erreur lors du chargement des maps:', error);
+                mapSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+            }
+        }
+
+        // Formater le temps (millisecondes -> MM:SS.mmm)
+        function formatTime(ms) {
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            const milliseconds = ms % 1000;
+            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+        }
+
+        // Formater la date
+        function formatDate(dateString) {
+            const date = new Date(dateString);
+            return date.toLocaleString('fr-FR', {
+                day: '2-digit',
+                month: '2-digit',
+                year: 'numeric',
+                hour: '2-digit',
+                minute: '2-digit'
+            });
+        }
+
+        // Charger le leaderboard pour une map
+        async function loadLeaderboard(mapid, mapname) {
+            leaderboardContent.innerHTML = '<div class="loading">Chargement...</div>';
+            mapTitle.textContent = mapname;
+
+            try {
+                const response = await fetch(URL + `/leaderboard?mapid=${mapid}`);
+                const runs = await response.json();
+
+                if (runs.length === 0) {
+                    leaderboardContent.innerHTML = '<div class="empty">Aucun temps enregistré pour cette map</div>';
+                    return;
+                }
+
+                let html = `
+                    <table>
+                        <thead>
+                            <tr>
+                                <th class="rank">Rang</th>
+                                <th>Joueur</th>
+                                <th class="time">Temps</th>
+                                <th class="date">Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                `;
+
+                runs.forEach((run, index) => {
+                    const rank = index + 1;
+                    const rankClass = rank <= 3 ? `rank-${rank}` : '';
+                    html += `
+                        <tr>
+                            <td class="rank ${rankClass}">${rank}</td>
+                            <td class="username">${run.username}</td>
+                            <td class="time">${formatTime(run.time)}</td>
+                            <td class="date">${formatDate(run.date)}</td>
+                        </tr>
+                    `;
+                });
+
+                html += `
+                        </tbody>
+                    </table>
+                `;
+
+                leaderboardContent.innerHTML = html;
+            } catch (error) {
+                console.error('Erreur lors du chargement du leaderboard:', error);
+                leaderboardContent.innerHTML = '<div class="error">Erreur lors du chargement du leaderboard</div>';
+            }
+        }
+
+        // Événement sur le changement de map
+        mapSelect.addEventListener('change', (e) => {
+            const mapid = e.target.value;
+            const mapname = e.target.options[e.target.selectedIndex].text;
+
+            if (mapid) {
+                loadLeaderboard(mapid, mapname);
+            } else {
+                mapTitle.textContent = 'Sélectionnez une map';
+                leaderboardContent.innerHTML = '<div class="loading">Sélectionnez une map pour voir le classement</div>';
+            }
+        });
+
+        // Charger les maps au démarrage
+        loadMaps();
+    </script>
+</body>
+</html>

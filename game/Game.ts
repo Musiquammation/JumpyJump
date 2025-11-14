@@ -202,6 +202,7 @@ export class Game {
 					const file = await handle.getFile();
 					
 					async function* read() {
+						console.log("ok")
 						const reader = file.stream().getReader();
 						const decoder = new TextDecoder();
 						let result;
