@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Jumpy Jump</title>
+    <style>
+      /* Le canvas prend tout l'écran et aucun scroll */
+      body, html {
+        margin: 0;
+        padding: 0;
+        overflow: hidden;
+        width: 100%;
+        height: 100%;
+      }
+      
+      canvas {
+        display: block;
+        background: black;
+      }
+
+      #mode {
+        position: absolute;
+        left: 0px;
+        top: 0px;
+        color: white;
+        background-color: black;
+        padding: 10px;
+        font-size: 20px;
+        font-family: 'Courier New', Courier, monospace;
+      }
+
+      #panel {
+
+      }
+
+      #panel.hidden {
+        
+      }
+
+    </style>
+  </head>
+  <body>
+	  <canvas id="gameCanvas"></canvas>
+	  <div id="mode">default</div>
+    <div id="panel"></div>
+
+    <script>
+
+      import("/JumpyJump/public/bundle.js").then(() => window.startEditor());
+    </script>
+  </body>
+</html>
