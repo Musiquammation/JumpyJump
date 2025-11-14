@@ -41,10 +41,15 @@
 			</div>
 		</div>
 
-		<div id="loadingIcon" class="hidden">loading</div>
+		<div id="loadingIcon" class="hidden loadingIcon">loading</div>
+		<div id="didLevelsUpdate" class="hidden loadingIcon">levels updated</div>
+		<div id="failedLevelsUpdate" class="hidden loadingIcon">failed to update levels</div>
+		<div id="fullyLoadLevels" class="hidden loadingIcon">Levels up to date!</div>
+		<div id="savingRun" class="hidden loadingIcon">Saving run</div>
+		<div id="sendingRun" class="hidden loadingIcon">Sending run</div>
 
 		<script>
-			import("/src/main.ts").then(m => m.startGame());
+			import("/game/main.ts").then(m => m.startGame());
 		</script>
 	</body>
 </html>

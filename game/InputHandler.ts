@@ -51,7 +51,7 @@ export class InputHandler {
 	gameRecords: Uint32Array[] | null = null;
 	frameCount = 0;
 	recordCompletion = -1;
-	recordState: 'none' | 'record' | 'emulate' = 'none';
+	recordState: 'none' | 'record' | 'emulate' | 'forbid' = 'none';
 
 	static KEYBOARDS: Record<Mode, Record<string, Control>> = {
 		zqsd: {
@@ -209,7 +209,7 @@ export class InputHandler {
 
 
 	startRecord() {
-		if (this.recordState === 'emulate')
+		if (this.recordState === 'emulate' || this.recordState === 'forbid')
 			return;
 
 		this.gameFirstRecord =
@@ -238,11 +238,13 @@ export class InputHandler {
 		if (!this.gameRecords || this.recordState !== 'record')
 			return;
 
+		
+
 		const line = (this.collectedKeys['left'] << 24) |
 			(this.collectedKeys['right'] << 16) |
 			(this.collectedKeys['up'] << 8) |
 			(this.collectedKeys['down']);
-
+			
 
 		if (this.recordCompletion === InputHandler.CONTROL_STACK_SIZE) {
 			this.recordCompletion = 0;
@@ -254,7 +256,8 @@ export class InputHandler {
 	}
 
 	stopRecord() {
-		this.recordState = 'none';
+		if (this.recordState !== 'emulate' && this.recordState !== 'forbid')
+			this.recordState = 'none';
 	}
 
 	resumeRecord() {
@@ -262,14 +265,16 @@ export class InputHandler {
 			this.recordState = 'record';
 	}
 
-	async saveRecord() {
+	async saveRecord(name: string | null) {
 		if (!this.gameRecords)
-			return;
+			return null;
 
-		
+		const gameRecords = this.gameRecords;
+		const recordCompletion = this.recordCompletion;
+		const gameFirstRecord = this.gameFirstRecord;
 
 		const fileHandle = await window.showSaveFilePicker!({
-			suggestedName: 'jumpyJump_record.bin',
+			suggestedName: `record_${name ?? "jumpyJump"}.bin`,
 			types: [{
 				description: 'Binary data',
 				accept: { 'application/octet-stream': ['.bin'] },
@@ -277,14 +282,15 @@ export class InputHandler {
 		});
 
 
+
 		const writable = await fileHandle.createWritable();
-		await writable.write(new Uint32Array([this.gameFirstRecord]).slice(0));
+		await writable.write(new Uint32Array([gameFirstRecord]).slice(0));
 
-		for (let i = 0; i < this.gameRecords.length; i++) {
-			const arr = this.gameRecords[i];
+		for (let i = 0; i < gameRecords.length; i++) {
+			const arr = gameRecords[i];
 
-			if (i === this.gameRecords.length - 1 && this.recordCompletion !== undefined) {
-				const partial = arr.slice(0, this.recordCompletion);
+			if (i === gameRecords.length - 1) {
+				const partial = arr.slice(0, recordCompletion);
 				await writable.write(partial);
 			} else {
 				await writable.write(arr.slice(0));
@@ -292,21 +298,25 @@ export class InputHandler {
 		}
 
 		await writable.close();
+		return fileHandle;
 	}
 
 	async loadRecord() {
-		this.recordState = 'none';
-		this.frameCount = 1;
-		this.recordCompletion = 0;
-		
 		const [fileHandle] = await window.showOpenFilePicker!();
 		const file = await fileHandle.getFile();
 		const buffer = await file.arrayBuffer();
 		
-		this.recordState = 'emulate';
+		this.recordState = 'forbid';
 		this.gameRecords = [new Uint32Array(buffer)];
 
-		const first = this.gameRecords[0][0];
+	}
+
+	startEmulation() {
+		this.recordState = 'emulate';
+		this.frameCount = 0;
+		this.recordCompletion = 0;
+
+		const first = this.gameRecords![0][0];
 		function get(n: number) {return first & (1<<n) ? true : false}
 
 		this.firstPress['left'] = get(0);
@@ -393,13 +403,29 @@ export class InputHandler {
 			this.frameCount++;
 		
 		} else if (this.recordState === 'emulate') {
-			const line = this.gameRecords![0][this.frameCount];
+			if (this.frameCount <= 0) {
+				this.frameCount++;
+				return;
+			}
+			const arr = this.gameRecords![0];
+			const line = arr[this.frameCount];
+
+
+
 			this.play('left' , (line>>24)&0xff);
 			this.play('right', (line>>16)&0xff);
 			this.play('up',    (line>> 8)&0xff);
 			this.play('down',  (line>> 0)&0xff);
-			
+
 			this.frameCount++;
+			if (this.frameCount > arr.length) {
+				this.recordState = 'none';
+				// Stop emulating
+				this.collectedKeys = new KeyboardCollector();
+				this.keysDown = new Keydown();
+				this.firstPress = new Keydown();
+				this.killedPress = new Keydown();
+			} 
 		}
 			
 	}
@@ -478,8 +504,12 @@ export class InputHandler {
 	}
 
 
-	kill(control: Control) {
+	kill(control: Control, removeFirstPress = false) {
 		this.keysDown[control] = false;
+
+		if (removeFirstPress) {
+			this.firstPress[control] = false;
+		}
 	}
 
 

@@ -2,8 +2,9 @@ import { importStage } from "./importStage";
 import { Camera } from "./Camera";
 import { InputHandler } from "./InputHandler";
 import { Player } from "./Player";
-import { Stage } from "./Stage";
+import { Stage, WeakStage } from "./Stage";
 import { Room } from "./Room";
+import { sendRun } from "./sendRun";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
@@ -11,9 +12,9 @@ type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
 class State {
 	private type: TypeState = 'menu';
 	private chrono = 0;
-
+	
 	static PLAY_TO_WIN_DURATION = 60;
-
+	
 	game: Game;
 
 	constructor(game: Game) {
@@ -39,10 +40,9 @@ class State {
 	set(type: TypeState) {
 		switch (type) {
 		case 'play':
-			this.game.inputHandler.startRecord();
 			break;
 		
-			default:
+		default:
 			this.game.inputHandler.stopRecord();
 			break;
 		}
@@ -72,7 +72,7 @@ export class Game {
 
 	inputHandler: InputHandler;
 
-	stageList: Stage[][];
+	stageList: WeakStage[][];
 	stage: Stage | null = null;
 	frame = 0;
 	goalComplete = 0;
@@ -82,19 +82,21 @@ export class Game {
 	currentWorld = 0;
 	currentLevel = 0;
 	selectWorldFile = false;
+	playerUsername: string | null = null;
+	stageName: string | null = null;
 
 
-	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget, stageList: Stage[][]) {
+	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget, stageList: WeakStage[][]) {
 		this.inputHandler = new InputHandler(keyboardMode);
 		this.inputHandler.startListeners(eventTarget);
 		this.stageList = stageList;
 	}
 
 
-	
-
-	startLevel(stage: Stage) {
+	startLevel(stage: Stage, stageName: string) {
 		this.stage = stage;
+		this.stageName = stageName;
+		this.player.respawnCouldown = 0;
 		this.resetStage();
 	}
 
@@ -102,17 +104,19 @@ export class Game {
 		this.startLoading();
 		
 		this.inputHandler.loadRecord().then(() => {
-			this.startLevel(stage);
-			this.state.set('play')
+			this.state.set('play');
+			this.startLevel(stage, this.stageName!);
+			this.inputHandler.startEmulation();
 		}).catch(e => {
 			console.error(e);
 		}).finally(() => {
 			this.finishLoading();
-		})
-		;
+		});
 	}
 
 	playLogic(checkComplete: boolean) {
+		const resetStage = this.player.reduceCouldown();
+
 		if (checkComplete) {
 			if (this.inputHandler.press('debug')) {
 				this.validRun = false;
@@ -120,15 +124,26 @@ export class Game {
 			} else {
 				this.player.eternalMode = false;
 			}
+
+			if (resetStage) {
+				this.resetStage();
+			}
+		}
+
+
+
+		if (this.inputHandler.first('enter')) {
+			const special = prompt("replay");
+			if (special) {
+				this.handleSpecial(special);
+			}
+			this.inputHandler.kill('enter', true);
 		}
 
 		this.player.frame(this);
 	
 		this.stage!.frame(this);
 
-		if (this.player.respawnCouldown == Player.RESPAWN_COULDOWN) {
-			this.resetStage();
-		}
 
 		if (this.player.isAlive()) {
 			this.handleRoom();
@@ -138,22 +153,28 @@ export class Game {
 			if (this.goalComplete > 0)
 				this.state.set('playToWin');
 
-			if (this.player.respawnCouldown < 0)
+			if (this.player.respawnCouldown <= Player.RESPAWN_COULDOWN)
 				this.gameChrono++;
 		}
 	}
 
 
 	menuLogic() {
+		
 		if (this.inputHandler.first('enter')) {
 			if (this.selectWorldFile) {
 
 			} else {
-				const stage = this.stageList[this.currentWorld][this.currentLevel];
-				if (stage) {
+				const weakStage = this.stageList[this.currentWorld][this.currentLevel];
+				document.getElementById("loadingIcon")?.classList.remove("hidden");
+				weakStage.load().then(({stage, name}) => {
 					this.state.set('play');
-					this.startLevel(stage);
-				}
+					this.startLevel(stage, name);
+				}).catch(e => {
+					console.error(e);
+				}).finally(() => {
+					document.getElementById("loadingIcon")?.classList.add("hidden");
+				})
 			}
 		}
 
@@ -185,26 +206,39 @@ export class Game {
 						const decoder = new TextDecoder();
 						let result;
 						let buffer = "";
-	
+						let firstLineSent = false;
+
 						while (!(result = await reader.read()).done) {
 							buffer += decoder.decode(result.value, { stream: true });
-	
+
+							if (!firstLineSent) {
+								const newlineIndex = buffer.search(/[\r\n]/);
+								if (newlineIndex !== -1) {
+									const firstLine = buffer.slice(0, newlineIndex).trim();
+									buffer = buffer.slice(newlineIndex + 1);
+									yield firstLine;
+									firstLineSent = true;
+								} else {
+									continue;
+								}
+							}
+
 							let index;
 							while ((index = buffer.search(/[ \r\n]/)) !== -1) {
-							let mot = buffer.slice(0, index).trim();
-							buffer = buffer.slice(index + 1);
-							if (mot) yield mot;
+								let mot = buffer.slice(0, index).trim();
+								buffer = buffer.slice(index + 1);
+								if (mot) yield mot;
 							}
 						}
-	
+
 						const last = buffer.trim();
 						if (last) yield last;
 					}
 
-					const stage = await importStage(read);
+					const {stage, name} = await importStage(read);
 					this.inputHandler.kill('debug');
 					this.state.set('play');
-					this.startLevel(stage);
+					this.startLevel(stage, name);
 				})();
 			}
 
@@ -223,31 +257,54 @@ export class Game {
 
 	winLogic() {
 		if (this.validRun && this.inputHandler.first('debug')) {
-			const newTab = window.open('', '_blank');
-			const text = "This feature is coming soon...";
+			const sendResult = confirm("Do you want to send your run?");
+			document.getElementById("savingRun")?.classList.remove("hidden");
+			
+			this.inputHandler.saveRecord(this.stageName).then(f => {
+				document.getElementById("savingRun")?.classList.add("hidden");
 
-			if (newTab) {
-				const content = newTab?.document.createElement("div");
-				content.innerText = text;
-				newTab.document.body.appendChild(content);
+				if (sendResult && f) {
 
-			} else {
-				alert("inspect page to get run link");
-				console.log(text);
-			}
+					let playerUsername: string;
+					if (this.playerUsername) {
+						playerUsername = this.playerUsername
+					} else {
+						playerUsername = prompt("Enter your username")!;
+						this.playerUsername = playerUsername;
+					}
 
-			this.validRun = false;
+					document.getElementById("sendingRun")?.classList.remove("hidden");
+					sendRun(
+						f,
+						playerUsername,
+						this.stageName ?? Date.now().toString(),
+						this.gameChrono
+					).finally(() => {
+						document.getElementById("sendingRun")?.classList.add("hidden");
+					})
+					
+				}
+			}).catch(e => {
+				document.getElementById("savingRun")?.classList.add("hidden");
+				console.error(e);
+
+			});
+		
 		}
 
 		if (this.inputHandler.first('enter')) {
 			this.state.set('menu');
+		}
+
+		if (this.inputHandler.first('up')) {
+			this.resetStage();
+			this.state.set('play');
 		}
 	}
 
 	gameLogic() {
 		this.inputHandler.update();
 
-		
 		switch (this.state.get()) {
 		case 'play':
 			this.playLogic(true);
@@ -299,7 +356,8 @@ export class Game {
 		this.stage!.reset();
 				
 		const gameState = this.state.get();
-		if (gameState === 'play') {
+		if (gameState === 'play' || gameState === 'win') {
+			console.log("respawn");
 			this.player.respawn();
 			this.camera.reset();
 			this.validRun = true;
@@ -438,24 +496,25 @@ export class Game {
 				ctx.fillText(`Select file (press P)`, Game.WIDTH_2, 100);
 			} else {
 				ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
-				for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
-					ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
-					let x = 400 + 200 * (i%5);
-					let y = 300 + Math.floor(i/5) * 100;
-					ctx.fillText(`#${i}`, x, y);
+				if (this.currentWorld < this.stageList.length) {
+					for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
+						ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+						let x = 400 + 200 * (i%5);
+						let y = 300 + Math.floor(i/5) * 100;
+						ctx.fillText(`#${i}`, x, y);
+					}
 				}
 			}
 
 			// Show version
-			const defaultBaseline = ctx.textBaseline;
+			const pastBaseline = ctx.textBaseline;
 			ctx.textBaseline = "bottom";
 			ctx.textAlign = "right";
 			ctx.font = "20px monospace";
+			ctx.fillStyle = "grey";
 			ctx.fillText("v" + Game.GAME_VERSION, Game.WIDTH, Game.HEIGHT);
 
-			
-			
-			ctx.textBaseline = defaultBaseline;
+			ctx.textBaseline = pastBaseline;
 			break;
 		}
 
@@ -470,10 +529,10 @@ export class Game {
 			ctx.fillText("Press P to save", Game.WIDTH_2, Game.HEIGHT_2 - 20);
 
 			ctx.fillStyle = "white";
-			ctx.fillText("Press F5 to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
+			ctx.fillText("Press SPACE to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
 
 			ctx.fillStyle = "white";
-			ctx.fillText("Press enter to select level", Game.WIDTH_2, Game.HEIGHT_2 + 60);
+			ctx.fillText("Press ENTER to select level", Game.WIDTH_2, Game.HEIGHT_2 + 60);
 			break;
 		}
 
@@ -525,6 +584,15 @@ export class Game {
 
 
 
+	handleSpecial(special: string) {
+		switch (special) {
+		case "replay":
+			if (this.stage) {
+				this.startReplay(this.stage);
+			}
+			break;
+		}
+	}
 
 	startLoading() {
 		const loadingIcon = document.getElementById("loadingIcon");
@@ -539,6 +607,8 @@ export class Game {
 			loadingIcon.classList.add("hidden");
 		}
 	}
+
+
 }
 
 

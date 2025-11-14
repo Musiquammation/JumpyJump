@@ -142,14 +142,18 @@ export class Player extends Entity {
 	}
 
 
-	frame(game: Game) {
+	reduceCouldown() {
 		if (this.respawnCouldown >= 0) {
 			this.respawnCouldown--;
 			if (this.respawnCouldown == Player.RESPAWN_COULDOWN)
-				this.respawn();
-
+				return true;
+	
 		}
 
+		return false;
+	}
+
+	frame(game: Game) {
 		const input = game.inputHandler;
 
 		// Horizontal movement

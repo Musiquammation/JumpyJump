@@ -22,7 +22,7 @@ canvas {
 	font-family: 'Courier New', Courier, monospace;
 }
 
-#loadingIcon {
+.loadingIcon {
 	position: absolute;
 	left: 0px;
 	top: 0px;
@@ -97,6 +97,21 @@ canvas {
 	top: 50px;
 }
 
+
+#loadingGame {
+	position: absolute;
+	z-index: 10;
+	left: 0px;
+	top: 0px;
+	width: 100vw;
+	height: 100vh;
+	color: white;
+	background-color: #321;
+	font-size: 5vw;
+
+	display: grid;
+	place-items: center;
+}
 
 .hidden {
 	display: none;

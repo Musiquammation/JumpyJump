@@ -1,8 +1,11 @@
 import { importStage } from "./importStage";
-import { Block, BlockModule, bmodules } from "./Block";
+import { Block, BlockBuilder, BlockModule, bmodules } from "./Block";
 import { Game } from "./Game";
 import { Room } from "./Room";
-import { Stage } from "./Stage";
+import { Stage, WeakStage } from "./Stage";
+
+
+let levelName: string | null = null;
 
 const {
 	MovingPath,
@@ -62,72 +65,94 @@ interface DragState {
 }
 
 
+
+// Helper function to export a BlockModule recursively
+async function exportBlockModule(m: BlockModule, writeln: Function, indent: string) {
+	if (m.moving) {
+		await writeln(`${indent}moving ${m.moving.times} ${m.moving.patterns.length}`);
+		for (const pattern of m.moving.patterns) {
+			await writeln(`${indent}\t${pattern.dx} ${pattern.dy} ${pattern.duration}`);
+		}
+	}
+
+	if (m.rotation) {
+		await writeln(`${indent}rotation ${m.rotation.start ?? 0} ${m.rotation.speed ?? 0}`);
+	}
+
+	if (m.couldownedAttack) {
+		await writeln(`${indent}couldownedAttack ${m.couldownedAttack.damages ?? 0} ${m.couldownedAttack.duration ?? 0}`);
+	}
+
+	if (m.continuousAttack) {
+		await writeln(`${indent}continuousAttack ${m.continuousAttack.damages ?? 0}`);
+	}
+
+	if (m.bounce) {
+		await writeln(`${indent}bounce ${m.bounce.factor ?? 0} ${m.bounce.cost ?? 0}`);
+	}
+
+	if (m.kill) {
+		await writeln(`${indent}kill ${m.kill.playerOnly ? 1 : 0}`);
+	}
+
+	if (m.heal) {
+		await writeln(`${indent}heal ${m.heal.hp ?? 0}`);
+	}
+
+	if (m.touchDespawn) {
+		await writeln(`${indent}touchDespawn ${m.touchDespawn.playerOnly ? 1 : 0}`);
+	}
+
+	if (m.restoreJump) {
+		await writeln(`${indent}restoreJump ${m.restoreJump.gain ?? 0}`);
+	}
+
+	if (m.couldownDespawn) {
+		await writeln(`${indent}couldownDespawn ${m.couldownDespawn.duration ?? 0}`);
+	}
+
+	if (m.spawner) {
+		await writeln(`${indent}spawner ${m.spawner.rythm} ${m.spawner.blocks.length}`);
+		for (const builder of m.spawner.blocks) {
+			await writeln(`${indent}\t${builder.dx} ${builder.dy} ${builder.w} ${builder.h} ${builder.keepRotation ? 1 : 0} ${builder.goal}`);
+			
+			// Recursively export builder module
+			if (builder.module) {
+				await exportBlockModule(builder.module, writeln, indent + "\t\t");
+			}
+			
+			await writeln(`${indent}\tendbuilder`);
+		}
+	}
+
+	if (m.speed) {
+		await writeln(`${indent}speed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
+	}
+
+	if (m.acceleration) {
+		await writeln(`${indent}acceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
+	}
+
+	if (m.goal) {
+		await writeln(`${indent}goal ${m.goal.type ?? 0}`);
+	}
+}
+
 async function exportStage(stage: Stage, writeln: Function) {
+	if (levelName === null) {
+		levelName = prompt("Level name?")!;
+	}
+
+	await writeln(levelName.split("\n")[0]);
+
 	for (const room of stage.rooms) {
 		await writeln(`${room.blocks.length ? "room" : "emptyroom"} ${room.x} ${room.y} ${room.w} ${room.h}`);
 
 		for (const block of room.blocks) {
 			await writeln(`\t${block.x} ${block.y} ${block.w} ${block.h}`);
-			const m = block.module;
-
-			if (m) {
-				if (m.moving) {
-					// await writeln(`\t\tmoving ${m.moving.patterns.length} ${m.moving.times}`);
-					throw "Moving todo";
-				}
-
-				if (m.rotation) {
-					await writeln(`\t\trotation ${m.rotation.start ?? 0} ${m.rotation.speed ?? 0}`);
-				}
-
-				if (m.couldownedAttack) {
-					await writeln(`\t\tcouldownedAttack ${m.couldownedAttack.damages ?? 0} ${m.couldownedAttack.duration ?? 0}`);
-				}
-
-				if (m.continuousAttack) {
-					await writeln(`\t\tcontinuousAttack ${m.continuousAttack.damages ?? 0}`);
-				}
-
-				if (m.bounce) {
-					await writeln(`\t\tbounce ${m.bounce.factor ?? 0} ${m.bounce.cost ?? 0}`);
-				}
-
-				if (m.kill) {
-					await writeln(`\t\tkill ${m.kill.playerOnly ? 1 : 0}`);
-				}
-
-				if (m.heal) {
-					await writeln(`\t\theal ${m.heal.hp ?? 0}`);
-				}
-
-				if (m.touchDespawn) {
-					await writeln(`\t\ttouchDespawn ${m.touchDespawn.playerOnly ? 1 : 0}`);
-				}
-
-				if (m.restoreJump) {
-					await writeln(`\t\trestoreJump ${m.restoreJump.gain ?? 0}`);
-				}
-
-				if (m.couldownDespawn) {
-					await writeln(`\t\tcouldownDespawn ${m.couldownDespawn.duration ?? 0}`);
-				}
-
-				if (m.spawner) {
-					throw "Spawner to do";
-				}
-
-				if (m.speed) {
-					await writeln(`\t\tspeed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
-				}
-
-				if (m.acceleration) {
-					await writeln(`\t\tacceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
-				}
-
-				if (m.goal) {
-					await writeln(`\t\tgoal ${m.goal.type ?? 0}`);
-				}
-
+			
+			if (block.module) {
+				await exportBlockModule(block.module, writeln, "\t\t");
 			}
 		}
 	}
@@ -440,11 +465,11 @@ export function startEditor() {
 		selectedObject = null;
 	}
 
-	
-
-
 	function showBlockPanel(block: Block) {
 		panelHTML.classList.remove("hidden");
+		
+
+
 
 		
 		
@@ -540,6 +565,7 @@ export function startEditor() {
 			</div>
 		`);
 		
+		// Goal module
 		const goalChecked = block.module.goal !== undefined ? "checked" : "";
 		const goalDisplay = block.module.goal !== undefined ? "block" : "none";
 		const goalType = block.module.goal?.type || 1;
@@ -557,13 +583,33 @@ export function startEditor() {
 		// Moving module
 		const movingChecked = block.module.moving ? "checked" : "";
 		const movingDisplay = block.module.moving ? "block" : "none";
+		const movingTimes = block.module.moving?.times || -1;
+		const movingPatterns = block.module.moving?.patterns || [];
+
+		let movingPatternsHTML = '';
+		movingPatterns.forEach((p, idx) => {
+			movingPatternsHTML += `
+				<div class="pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
+					<input type="number" class="pattern-dx" data-idx="${idx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
+					<input type="number" class="pattern-dy" data-idx="${idx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
+					<input type="number" class="pattern-duration" data-idx="${idx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
+					<button class="pattern-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+				</div>
+			`;
+		});
+
 		moduleSections.push(`
 			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
 				<label style="font-weight: bold;">
 					<input type="checkbox" id="modMoving" ${movingChecked}> Moving
 				</label>
 				<div id="movingOptions" style="display: ${movingDisplay}; margin-top: 10px; padding-left: 20px;">
-					<p>Configure in code (MovingPath patterns)</p>
+					<label>Times (-1 = infinite): <input type="number" id="movingTimes" value="${movingTimes}" step="1" style="width: 100px;"></label><br>
+					<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Patterns:</label>
+					<div id="movingPatternsList">
+						${movingPatternsHTML}
+					</div>
+					<button id="addPattern" style="background: green; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
 				</div>
 			</div>
 		`);
@@ -619,20 +665,99 @@ export function startEditor() {
 			</div>
 		`);
 
-		// Spawner module
+		// Spawner module - GRAPHICAL VERSION
 		const spawnerChecked = block.module.spawner ? "checked" : "";
 		const spawnerDisplay = block.module.spawner ? "block" : "none";
+		const spawnerRythm = block.module.spawner?.rythm || 60;
+		const spawnerBlocks = block.module.spawner?.blocks || [];
+
+		let spawnerBlocksHTML = '';
+		spawnerBlocks.forEach((b, idx) => {
+			const hasModule = !!b.module;
+			// const moduleDisplay = hasModule ? 'block' : 'none';
+			
+			// Extract module properties
+			const hasSpeed = b.module?.speed ? 'checked' : '';
+			const speedVx = b.module?.speed?.vx || 0;
+			const speedVy = b.module?.speed?.vy || 0;
+			const hasAcceleration = b.module?.acceleration ? 'checked' : '';
+			const accelerationAx = b.module?.acceleration?.ax || 0;
+			const accelerationAy = b.module?.acceleration?.ay || 0;
+			const hasKill = b.module?.kill ? 'checked' : '';
+			const hasBounce = b.module?.bounce ? 'checked' : '';
+			const bounceFactor = b.module?.bounce?.factor || 1;
+			const bounceCost = b.module?.bounce?.cost || 0.003;
+			const hasRotation = b.module?.rotation ? 'checked' : '';
+			const rotationStart = b.module?.rotation?.start || 0;
+			const rotationSpeed = b.module?.rotation?.speed || 0.01;
+			const hasCouldownDespawn = b.module?.couldownDespawn ? 'checked' : '';
+			const couldownDespawnDuration = b.module?.couldownDespawn?.duration || 100;
+			
+			spawnerBlocksHTML += `
+				<div class="spawner-block" style="border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;">
+					<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
+						<input type="number" class="spawn-dx" data-idx="${idx}" value="${b.dx}" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
+						<input type="number" class="spawn-dy" data-idx="${idx}" value="${b.dy}" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
+						<input type="number" class="spawn-w" data-idx="${idx}" value="${b.w}" step="1" style="width: 60px;" placeholder="w" title="Width">
+						<input type="number" class="spawn-h" data-idx="${idx}" value="${b.h}" step="1" style="width: 60px;" placeholder="h" title="Height">
+						<button class="spawn-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕ Remove</button>
+					</div>
+					
+					<details ${hasModule ? 'open' : ''}>
+						<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
+						<div style="padding-left: 10px; margin-top: 5px;">
+							<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-idx="${idx}" ${hasSpeed}> Speed</label>
+							<div class="spawn-speed-opts" data-idx="${idx}" style="display: ${hasSpeed ? 'block' : 'none'}; padding-left: 20px;">
+								<input type="number" class="spawn-speedVx" data-idx="${idx}" value="${speedVx}" step="0.5" style="width: 60px;" placeholder="vx">
+								<input type="number" class="spawn-speedVy" data-idx="${idx}" value="${speedVy}" step="0.5" style="width: 60px;" placeholder="vy">
+							</div>
+							
+							<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-idx="${idx}" ${hasAcceleration}> Acceleration</label>
+							<div class="spawn-accel-opts" data-idx="${idx}" style="display: ${hasAcceleration ? 'block' : 'none'}; padding-left: 20px;">
+								<input type="number" class="spawn-accelAx" data-idx="${idx}" value="${accelerationAx}" step="0.01" style="width: 60px;" placeholder="ax">
+								<input type="number" class="spawn-accelAy" data-idx="${idx}" value="${accelerationAy}" step="0.01" style="width: 60px;" placeholder="ay">
+							</div>
+							
+							<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-idx="${idx}" ${hasRotation}> Rotation</label>
+							<div class="spawn-rotation-opts" data-idx="${idx}" style="display: ${hasRotation ? 'block' : 'none'}; padding-left: 20px;">
+								<input type="number" class="spawn-rotationStart" data-idx="${idx}" value="${rotationStart}" step="0.1" style="width: 60px;" placeholder="start">
+								<input type="number" class="spawn-rotationSpeed" data-idx="${idx}" value="${rotationSpeed}" step="0.01" style="width: 60px;" placeholder="speed">
+							</div>
+							
+							<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-idx="${idx}" ${hasBounce}> Bounce</label>
+							<div class="spawn-bounce-opts" data-idx="${idx}" style="display: ${hasBounce ? 'block' : 'none'}; padding-left: 20px;">
+								<input type="number" class="spawn-bounceFactor" data-idx="${idx}" value="${bounceFactor}" step="0.1" style="width: 60px;" placeholder="factor">
+								<input type="number" class="spawn-bounceCost" data-idx="${idx}" value="${bounceCost}" step="0.001" style="width: 60px;" placeholder="cost">
+							</div>
+							
+							<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-idx="${idx}" ${hasKill}> Kill</label>
+							
+							<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-idx="${idx}" ${hasCouldownDespawn}> Cooldown Despawn</label>
+							<div class="spawn-despawn-opts" data-idx="${idx}" style="display: ${hasCouldownDespawn ? 'block' : 'none'}; padding-left: 20px;">
+								<input type="number" class="spawn-despawnDuration" data-idx="${idx}" value="${couldownDespawnDuration}" step="10" style="width: 60px;" placeholder="duration">
+							</div>
+						</div>
+					</details>
+				</div>
+			`;
+		});
+
 		moduleSections.push(`
 			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
 				<label style="font-weight: bold;">
 					<input type="checkbox" id="modSpawner" ${spawnerChecked}> Spawner
 				</label>
 				<div id="spawnerOptions" style="display: ${spawnerDisplay}; margin-top: 10px; padding-left: 20px;">
-					<p>Configure in code (BlockBuilder array)</p>
+					<label>Rythm (frames): <input type="number" id="spawnerRythm" value="${spawnerRythm}" step="1" style="width: 100px;"></label><br>
+					<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Blocks to spawn:</label>
+					<div id="spawnerBlocksList">
+						${spawnerBlocksHTML}
+					</div>
+					<button id="addSpawnerBlock" style="background: green; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Block</button>
 				</div>
 			</div>
 		`);
-
+		
 		// Touch Despawn module
 		const touchDespawnChecked = block.module.touchDespawn ? "checked" : "";
 		moduleSections.push(`
@@ -711,8 +836,9 @@ export function startEditor() {
 		document.getElementById("blockW")!.addEventListener("change", updateBlock);
 		document.getElementById("blockH")!.addEventListener("change", updateBlock);
 
-		// Update module parameters - RECRÉER L'OBJET À CHAQUE MODIFICATION
+		// Update module parameters - RECREATE THE OBJECT ON EVERY MODIFICATION
 		const recreateBlockModule = () => {
+			// Get checkbox states for all modules
 			const bounce = (document.getElementById("modBounce") as HTMLInputElement).checked;
 			const kill = (document.getElementById("modKill") as HTMLInputElement).checked;
 			const heal = (document.getElementById("modHeal") as HTMLInputElement).checked;
@@ -728,7 +854,7 @@ export function startEditor() {
 			const touchDespawn = (document.getElementById("modTouchDespawn") as HTMLInputElement).checked;
 			const cooldownDespawn = (document.getElementById("modCooldownDespawn") as HTMLInputElement).checked;
 
-			// Get parameter values
+			// Get parameter values for simple modules
 			const bounceFactor = bounce ? parseFloat((document.getElementById("bounceFactor") as HTMLInputElement).value) : 1;
 			const bounceCost = bounce ? parseFloat((document.getElementById("bounceCost") as HTMLInputElement).value) : 0.003;
 			const healHp = heal ? parseFloat((document.getElementById("healHp") as HTMLInputElement).value) : 2;
@@ -745,7 +871,119 @@ export function startEditor() {
 			const rotationSpeed = rotation ? parseFloat((document.getElementById("rotationSpeed") as HTMLInputElement).value) : 0.01;
 			const cooldownDespawnDuration = cooldownDespawn ? parseInt((document.getElementById("cooldownDespawnDuration") as HTMLInputElement).value) : 100;
 
-			// Create new module - keep existing complex modules if checked
+			// Parse MovingModule from JSON
+			let movingModule: InstanceType<typeof MovingModule> | undefined = undefined;
+			if (moving) {
+				try {
+					const movingTimes = parseInt((document.getElementById("movingTimes") as HTMLInputElement).value);
+					const patternsJson = (document.getElementById("movingPatterns") as HTMLTextAreaElement).value;
+					const patternsData = JSON.parse(patternsJson);
+					
+					// Create MovingPath objects from parsed data
+					const patterns = patternsData.map((p: any) => new MovingPath(p.dx, p.dy, p.duration));
+					movingModule = new MovingModule(patterns, movingTimes);
+				} catch (e) {
+					console.error("Error parsing moving patterns:", e);
+					// Keep old module if parsing fails
+					movingModule = block.module.moving;
+				}
+			}
+
+			// Parse SpawnerModule from graphical inputs
+			let spawnerModule: InstanceType<typeof SpawnerModule> | undefined = undefined;
+			if (spawner) {
+				try {
+					const spawnerRythmInput = document.getElementById("spawnerRythm") as HTMLInputElement;
+					if (!spawnerRythmInput) {
+						spawnerModule = block.module.spawner;
+					} else {
+						const spawnerRythm = parseInt(spawnerRythmInput.value);
+						const spawnerBlockElements = document.querySelectorAll(".spawner-block");
+						const blockBuilders: BlockBuilder[] = [];
+						
+						spawnerBlockElements.forEach((blockEl) => {
+							const dxInput = blockEl.querySelector(".spawn-dx") as HTMLInputElement;
+							const dyInput = blockEl.querySelector(".spawn-dy") as HTMLInputElement;
+							const wInput = blockEl.querySelector(".spawn-w") as HTMLInputElement;
+							const hInput = blockEl.querySelector(".spawn-h") as HTMLInputElement;
+							
+							// Skip if any required input is missing
+							if (!dxInput || !dyInput || !wInput || !hInput) return;
+							
+							const dx = parseFloat(dxInput.value);
+							const dy = parseFloat(dyInput.value);
+							const w = parseFloat(wInput.value);
+							const h = parseFloat(hInput.value);
+							
+							// Check which modules are enabled
+							const speedCheckbox = blockEl.querySelector(".spawn-hasSpeed") as HTMLInputElement;
+							const accelerationCheckbox = blockEl.querySelector(".spawn-hasAcceleration") as HTMLInputElement;
+							const rotationCheckbox = blockEl.querySelector(".spawn-hasRotation") as HTMLInputElement;
+							const bounceCheckbox = blockEl.querySelector(".spawn-hasBounce") as HTMLInputElement;
+							const killCheckbox = blockEl.querySelector(".spawn-hasKill") as HTMLInputElement;
+							const despawnCheckbox = blockEl.querySelector(".spawn-hasCouldownDespawn") as HTMLInputElement;
+							
+							const hasSpeed = speedCheckbox?.checked || false;
+							const hasAcceleration = accelerationCheckbox?.checked || false;
+							const hasRotation = rotationCheckbox?.checked || false;
+							const hasBounce = bounceCheckbox?.checked || false;
+							const hasKill = killCheckbox?.checked || false;
+							const hasCouldownDespawn = despawnCheckbox?.checked || false;
+							
+							let builderModule: BlockModule | undefined = undefined;
+							
+							if (hasSpeed || hasAcceleration || hasRotation || hasBounce || hasKill || hasCouldownDespawn) {
+								const speedVxInput = blockEl.querySelector(".spawn-speedVx") as HTMLInputElement;
+								const speedVyInput = blockEl.querySelector(".spawn-speedVy") as HTMLInputElement;
+								const accelAxInput = blockEl.querySelector(".spawn-accelAx") as HTMLInputElement;
+								const accelAyInput = blockEl.querySelector(".spawn-accelAy") as HTMLInputElement;
+								const rotationStartInput = blockEl.querySelector(".spawn-rotationStart") as HTMLInputElement;
+								const rotationSpeedInput = blockEl.querySelector(".spawn-rotationSpeed") as HTMLInputElement;
+								const bounceFactorInput = blockEl.querySelector(".spawn-bounceFactor") as HTMLInputElement;
+								const bounceCostInput = blockEl.querySelector(".spawn-bounceCost") as HTMLInputElement;
+								const despawnDurationInput = blockEl.querySelector(".spawn-despawnDuration") as HTMLInputElement;
+								
+								builderModule = new BlockModule({
+									speed: hasSpeed && speedVxInput && speedVyInput ? new SpeedModule(
+										parseFloat(speedVxInput.value),
+										parseFloat(speedVyInput.value)
+									) : undefined,
+									acceleration: hasAcceleration && accelAxInput && accelAyInput ? new AccelerationModule(
+										parseFloat(accelAxInput.value),
+										parseFloat(accelAyInput.value)
+									) : undefined,
+									rotation: hasRotation && rotationStartInput && rotationSpeedInput ? new RotationModule(
+										parseFloat(rotationStartInput.value),
+										parseFloat(rotationSpeedInput.value)
+									) : undefined,
+									bounce: hasBounce && bounceFactorInput && bounceCostInput ? new BounceModule(
+										parseFloat(bounceFactorInput.value),
+										parseFloat(bounceCostInput.value)
+									) : undefined,
+									kill: hasKill ? new KillModule() : undefined,
+									couldownDespawn: hasCouldownDespawn && despawnDurationInput ? new CouldownDespawnModule(
+										parseInt(despawnDurationInput.value)
+									) : undefined
+								});
+							}
+							
+							blockBuilders.push(new BlockBuilder(builderModule, { dx, dy, w, h }));
+						});
+						
+						if (blockBuilders.length > 0) {
+							spawnerModule = new SpawnerModule(spawnerRythm, false, blockBuilders);
+						} else {
+							// Keep old module if no blocks are defined
+							spawnerModule = block.module.spawner;
+						}
+					}
+				} catch (e) {
+					console.error("Error parsing spawner blocks:", e);
+					spawnerModule = block.module.spawner;
+				}
+			}
+
+			// Create new module with all parameters
 			const newModule = new BlockModule({
 				bounce: bounce ? new BounceModule(bounceFactor, bounceCost) : undefined,
 				kill: kill ? new KillModule() : undefined,
@@ -754,11 +992,11 @@ export function startEditor() {
 				continuousAttack: continuousAttack ? new ContinuousAttackModule(continuousAttackDamages) : undefined,
 				restoreJump: restoreJump ? new RestoreJumpModule(restoreJumpGain) : undefined,
 				goal: goal ? goalType : undefined,
-				moving: moving ? block.module.moving : undefined,
+				moving: movingModule,
 				speed: speed ? new SpeedModule(speedVx, speedVy) : undefined,
 				acceleration: acceleration ? new AccelerationModule(accelerationAx, accelerationAy) : undefined,
 				rotation: rotation ? new RotationModule(rotationStart, rotationSpeed) : undefined,
-				spawner: spawner ? block.module.spawner : undefined,
+				spawner: spawnerModule,
 				touchDespawn: touchDespawn ? new TouchDespawnModule() : undefined,
 				couldownDespawn: cooldownDespawn ? new CouldownDespawnModule(cooldownDespawnDuration) : undefined
 			});
@@ -792,14 +1030,153 @@ export function startEditor() {
 		setupModuleToggle("modContinuousAttack", "continuousAttackOptions");
 		setupModuleToggle("modRestoreJump", "restoreJumpOptions");
 		setupModuleToggle("modGoal", "goalOptions");
+		setupModuleToggle("modMoving", "movingOptions");
 		setupModuleToggle("modSpeed", "speedOptions");
 		setupModuleToggle("modAcceleration", "accelerationOptions");
 		setupModuleToggle("modRotation", "rotationOptions");
+		setupModuleToggle("modSpawner", "spawnerOptions");
 		setupModuleToggle("modCooldownDespawn", "cooldownDespawnOptions");
 		setupModuleToggle("modKill", "");
-		setupModuleToggle("modMoving", "movingOptions");
-		setupModuleToggle("modSpawner", "spawnerOptions");
 		setupModuleToggle("modTouchDespawn", "");
+
+		
+
+		// Event listeners for moving patterns
+		document.getElementById("addPattern")?.addEventListener("click", () => {
+			const list = document.getElementById("movingPatternsList")!;
+			const idx = list.children.length;
+			const newRow = document.createElement("div");
+			newRow.className = "pattern-row";
+			newRow.style.cssText = "display: flex; gap: 5px; margin-bottom: 5px; align-items: center;";
+			newRow.innerHTML = `
+				<input type="number" class="pattern-dx" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="dx">
+				<input type="number" class="pattern-dy" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="dy">
+				<input type="number" class="pattern-duration" data-idx="${idx}" value="100" step="1" style="width: 60px;" placeholder="dur">
+				<button class="pattern-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+			`;
+			list.appendChild(newRow);
+			
+			// Add listeners to new inputs
+			newRow.querySelectorAll("input").forEach(input => {
+				input.addEventListener("change", recreateBlockModule);
+			});
+			newRow.querySelector(".pattern-remove")?.addEventListener("click", (e) => {
+				newRow.remove();
+				recreateBlockModule();
+			});
+		});
+
+		// Add listeners to existing pattern inputs
+		document.querySelectorAll(".pattern-dx, .pattern-dy, .pattern-duration").forEach(input => {
+			input.addEventListener("change", recreateBlockModule);
+		});
+
+		document.querySelectorAll(".pattern-remove").forEach(btn => {
+			btn.addEventListener("click", (e) => {
+				(e.target as HTMLElement).closest(".pattern-row")?.remove();
+				recreateBlockModule();
+			});
+		});
+
+		// Event listeners for spawner blocks
+		document.getElementById("addSpawnerBlock")?.addEventListener("click", () => {
+			const list = document.getElementById("spawnerBlocksList")!;
+			const idx = list.children.length;
+			const newBlock = document.createElement("div");
+			newBlock.className = "spawner-block";
+			newBlock.style.cssText = "border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;";
+			newBlock.innerHTML = `
+				<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
+					<input type="number" class="spawn-dx" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
+					<input type="number" class="spawn-dy" data-idx="${idx}" value="-50" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
+					<input type="number" class="spawn-w" data-idx="${idx}" value="50" step="1" style="width: 60px;" placeholder="w" title="Width">
+					<input type="number" class="spawn-h" data-idx="${idx}" value="50" step="1" style="width: 60px;" placeholder="h" title="Height">
+					<button class="spawn-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕ Remove</button>
+				</div>
+				
+				<details>
+					<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
+					<div style="padding-left: 10px; margin-top: 5px;">
+						<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-idx="${idx}"> Speed</label>
+						<div class="spawn-speed-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-speedVx" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
+							<input type="number" class="spawn-speedVy" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-idx="${idx}"> Acceleration</label>
+						<div class="spawn-accel-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-accelAx" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
+							<input type="number" class="spawn-accelAy" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-idx="${idx}"> Rotation</label>
+						<div class="spawn-rotation-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-rotationStart" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
+							<input type="number" class="spawn-rotationSpeed" data-idx="${idx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-idx="${idx}"> Bounce</label>
+						<div class="spawn-bounce-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-bounceFactor" data-idx="${idx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
+							<input type="number" class="spawn-bounceCost" data-idx="${idx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-idx="${idx}"> Kill</label>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-idx="${idx}"> Cooldown Despawn</label>
+						<div class="spawn-despawn-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-despawnDuration" data-idx="${idx}" value="100" step="10" style="width: 60px;" placeholder="duration">
+						</div>
+					</div>
+				</details>
+			`;
+			list.appendChild(newBlock);
+			
+			// Add listeners to new inputs
+			attachSpawnerBlockListeners(newBlock);
+		});
+
+		// Function to attach listeners to spawner block elements
+		function attachSpawnerBlockListeners(blockElement: Element) {
+			blockElement.querySelectorAll("input[type='number']:not([type='checkbox'])").forEach(input => {
+				input.addEventListener("change", recreateBlockModule);
+			});
+			
+			blockElement.querySelector(".spawn-remove")?.addEventListener("click", () => {
+				blockElement.remove();
+				recreateBlockModule();
+			});
+			
+			// Toggle visibility of module options
+			const setupSpawnerToggle = (checkboxClass: string, optsClass: string) => {
+				const checkbox = blockElement.querySelector(`.${checkboxClass}`) as HTMLInputElement;
+				const opts = blockElement.querySelector(`.${optsClass}`) as HTMLElement;
+				
+				if (checkbox && opts) {
+					checkbox.addEventListener("change", () => {
+						opts.style.display = checkbox.checked ? "block" : "none";
+						recreateBlockModule();
+					});
+				} else if (checkbox) {
+					checkbox.addEventListener("change", recreateBlockModule);
+				}
+			};
+			
+			setupSpawnerToggle("spawn-hasSpeed", "spawn-speed-opts");
+			setupSpawnerToggle("spawn-hasAcceleration", "spawn-accel-opts");
+			setupSpawnerToggle("spawn-hasRotation", "spawn-rotation-opts");
+			setupSpawnerToggle("spawn-hasBounce", "spawn-bounce-opts");
+			setupSpawnerToggle("spawn-hasCouldownDespawn", "spawn-despawn-opts");
+			
+			const killCheckbox = blockElement.querySelector(".spawn-hasKill");
+			if (killCheckbox) {
+				killCheckbox.addEventListener("change", recreateBlockModule);
+			}
+		}
+
+		// Add listeners to existing spawner blocks
+		document.querySelectorAll(".spawner-block").forEach(attachSpawnerBlockListeners);
+
 
 		// Add change listeners for all parameter inputs
 		const paramInputs = [
@@ -817,9 +1194,29 @@ export function startEditor() {
 			}
 		}
 
+		// Add change listeners for moving and spawner parameters
+		const movingInputs = ["movingTimes", "movingPatterns"];
+		for (const inputId of movingInputs) {
+			const input = document.getElementById(inputId);
+			if (input) {
+				input.addEventListener("change", recreateBlockModule);
+			}
+		}
+
+		const spawnerInputs = ["spawnerRythm", "spawnerBlocks"];
+		for (const inputId of spawnerInputs) {
+			const input = document.getElementById(inputId);
+			if (input) {
+				input.addEventListener("change", recreateBlockModule);
+			}
+		}
+
 		// Store update function for use in mousemove
 		(block as any)._updateDisplay = updateBlockDisplay;
 	}
+
+
+	
 
 	function showRoomPanel(room: Room) {
 		panelHTML.classList.remove("hidden");
@@ -1649,10 +2046,11 @@ export function startEditor() {
 					))
 				));
 
-				playGame = new Game(realKeyboardMode, document, [[stageCopy]]);
+				const name = levelName ?? "edited";
+				playGame = new Game(realKeyboardMode, document, [[new WeakStage("", stageCopy, name)]]);
 				window.game = playGame;
 				playGame.state.set('play');
-				playGame.startLevel(stageCopy);
+				playGame.startLevel(stageCopy, name);
 
 				modeHTML.style.backgroundColor = "rgb(0, 132, 255)";
 				modeHTML.textContent = "play";
@@ -1701,26 +2099,37 @@ export function startEditor() {
 						const decoder = new TextDecoder();
 						let result;
 						let buffer = "";
+						let firstLineSent = false;
 
 						while (!(result = await reader.read()).done) {
 							buffer += decoder.decode(result.value, { stream: true });
 
-							// sépare sur espace ou saut de ligne (\n, \r)
+							if (!firstLineSent) {
+								const newlineIndex = buffer.search(/[\r\n]/);
+								if (newlineIndex !== -1) {
+									const firstLine = buffer.slice(0, newlineIndex).trim();
+									buffer = buffer.slice(newlineIndex + 1);
+									yield firstLine;
+									firstLineSent = true;
+								} else {
+									continue;
+								}
+							}
+
 							let index;
 							while ((index = buffer.search(/[ \r\n]/)) !== -1) {
-							let mot = buffer.slice(0, index).trim();
-							buffer = buffer.slice(index + 1);
-							if (mot) yield mot; // ignore mots vides
+								let mot = buffer.slice(0, index).trim();
+								buffer = buffer.slice(index + 1);
+								if (mot) yield mot;
 							}
 						}
 
-						// dernier mot restant
 						const last = buffer.trim();
 						if (last) yield last;
-
 					}
 
-					const stage = await importStage(read);
+
+					const {stage, name} = await importStage(read);
 					stageContainer[0] = stage;
 				})();
 				break;

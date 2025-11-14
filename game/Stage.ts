@@ -1,8 +1,76 @@
 import type { Block } from "./Block";
 import type { Game } from "./Game";
+import { importStage } from "./importStage";
 import { physics } from "./physics";
 import { Player } from "./Player";
 import { AdjacenceRect, Room } from "./Room";
+
+
+
+function openDB(): Promise<IDBDatabase> {
+	return new Promise((resolve, reject) => {
+		const request = indexedDB.open("levels-db", 1);
+
+		request.onupgradeneeded = (e) => {
+			const db = (e.target as IDBOpenDBRequest).result;
+			if (!db.objectStoreNames.contains("levels")) {
+				db.createObjectStore("levels");
+			}
+		};
+
+		request.onsuccess = () => resolve(request.result);
+		request.onerror = () => reject(request.error);
+	});
+}
+
+export class WeakStage {
+	stage: Stage | null;
+	name: string | null;
+	key: string;
+
+	constructor(key: string, stage: Stage | null = null, name: string | null = null) {
+		this.key = key;
+		this.stage = stage;
+		this.name = name;
+	}
+
+
+	async load() {
+		if (this.stage && this.name)
+			return {stage: this.stage, name: this.name};
+
+		const db = await openDB();
+		const tx = db.transaction("levels", "readonly");
+		const store = tx.objectStore("levels");
+		const req = store.get(this.key);
+		
+		const file = (await new Promise((resolve, reject) => {
+			req.onsuccess = () => resolve(req.result ?? null);
+			req.onerror = () => reject(req.error);
+		})) as string;
+		
+
+		function* words(): Generator<string> {
+			let buffer = "";
+			for (let i = 0; i < file.length; i++) {
+				const c = file[i];
+				if (c !== " " && c !== "\t" && c !== "\n" && c !== "\r") {
+					buffer += c;
+				} else if (buffer.length > 0) {
+					yield buffer;
+					buffer = "";
+				}
+			}
+			if (buffer.length > 0) yield buffer;
+
+		}
+
+		const {stage, name} = await importStage(words);
+		this.stage = stage;
+		this.name = name;
+		return {stage, name};
+	}
+}
 
 export class Stage {
 	rooms: Room[];
