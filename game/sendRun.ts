@@ -21,6 +21,7 @@ export async function sendRun(
 	});
 
 	const data = await res.json();
+
 	console.log(data);
 
 

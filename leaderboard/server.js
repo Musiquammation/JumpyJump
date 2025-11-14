@@ -112,13 +112,12 @@ app.get('/leaderboard', async (req, res) => {
 			 [mapid]
 		)
 
-		res.json({
-			username: rows.username,
-			time: rows.time,
-			runid: rows.runid,
-			mapid: rows.mapid.toString(),
-			date: rows.date.toString(),
-		});
+		res.json(rows.map(row => {return {
+			username: row.username,
+			time: row.time,
+			runid: row.runid,
+			date: row.date.toString(),
+		}}));
 	} catch (err) {
 		console.error(err)
 		res.status(500).json({ error: 'Database error' })

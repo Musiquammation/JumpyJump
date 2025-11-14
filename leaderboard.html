@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leaderboard</title>
+    <title>Jumpy Jump - Leaderboard</title>
     <style>
         * {
             margin: 0;
@@ -19,52 +19,84 @@
         }
 
         .container {
-            max-width: 1200px;
+            max-width: 900px;
             margin: 0 auto;
         }
 
         h1 {
-            color: white;
             text-align: center;
-            margin-bottom: 30px;
-            font-size: 2.5em;
+            color: white;
+            font-size: 3em;
+            margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
-        .map-selector {
+        .subtitle {
+            text-align: center;
+            color: rgba(255,255,255,0.9);
+            margin-bottom: 30px;
+            font-size: 1.1em;
+        }
+
+        .controls {
             background: white;
             padding: 20px;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             margin-bottom: 30px;
         }
 
-        .map-selector label {
+        .control-group {
+            margin-bottom: 15px;
+        }
+
+        label {
             display: block;
-            margin-bottom: 10px;
+            margin-bottom: 5px;
             font-weight: 600;
             color: #333;
         }
 
-        .map-selector select {
+        select, input {
             width: 100%;
             padding: 12px;
             border: 2px solid #e0e0e0;
             border-radius: 8px;
             font-size: 16px;
-            cursor: pointer;
             transition: border-color 0.3s;
         }
 
-        .map-selector select:focus {
+        select:focus, input:focus {
             outline: none;
             border-color: #667eea;
         }
 
+        button {
+            width: 100%;
+            padding: 12px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
         .leaderboard-card {
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
             overflow: hidden;
         }
 
@@ -76,256 +108,294 @@
         }
 
         .leaderboard-header h2 {
-            font-size: 1.5em;
+            font-size: 1.8em;
+            margin-bottom: 5px;
         }
 
-        table {
-            width: 100%;
-            border-collapse: collapse;
+        .map-name {
+            opacity: 0.9;
+            font-size: 0.9em;
         }
 
-        thead {
+        .leaderboard-body {
+            padding: 20px;
+        }
+
+        .leaderboard-item {
+            display: flex;
+            align-items: center;
+            padding: 15px;
+            margin-bottom: 10px;
             background: #f8f9fa;
+            border-radius: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
         }
 
-        th {
-            padding: 15px;
-            text-align: left;
-            font-weight: 600;
-            color: #495057;
-            text-transform: uppercase;
-            font-size: 0.85em;
-            letter-spacing: 0.5px;
+        .leaderboard-item:hover {
+            transform: translateX(5px);
+            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
         }
 
-        th.rank {
-            width: 80px;
+        .leaderboard-item.top-1 {
+            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+        }
+
+        .leaderboard-item.top-2 {
+            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+        }
+
+        .leaderboard-item.top-3 {
+            background: linear-gradient(135deg, #cd7f32 0%, #daa06d 100%);
+        }
+
+        .rank {
+            font-size: 1.5em;
+            font-weight: bold;
+            width: 50px;
             text-align: center;
-        }
-
-        th.time {
-            width: 150px;
-        }
-
-        th.date {
-            width: 180px;
-        }
-
-        tbody tr {
-            border-bottom: 1px solid #e9ecef;
-            transition: background-color 0.2s;
-        }
-
-        tbody tr:hover {
-            background-color: #f8f9fa;
-        }
-
-        td {
-            padding: 15px;
-        }
-
-        td.rank {
-            text-align: center;
-            font-weight: 700;
-            font-size: 1.2em;
-        }
-
-        .rank-1 {
-            color: #FFD700;
-        }
-
-        .rank-2 {
-            color: #C0C0C0;
-        }
-
-        .rank-3 {
-            color: #CD7F32;
+            color: #333;
         }
 
         .username {
+            flex: 1;
+            font-size: 1.2em;
             font-weight: 600;
-            color: #495057;
+            color: #333;
         }
 
         .time {
-            font-family: 'Courier New', monospace;
-            font-weight: 600;
+            font-size: 1.3em;
+            font-weight: bold;
             color: #667eea;
-        }
-
-        .date {
-            color: #6c757d;
-            font-size: 0.9em;
+            min-width: 120px;
+            text-align: right;
         }
 
         .loading {
             text-align: center;
             padding: 40px;
-            color: #6c757d;
-            font-size: 1.1em;
+            color: #666;
+            font-size: 1.2em;
         }
 
         .error {
-            background: #f8d7da;
-            color: #721c24;
+            background: #fee;
+            border: 2px solid #fcc;
+            color: #c33;
             padding: 15px;
-            border-radius: 8px;
-            margin: 20px;
+            border-radius: 10px;
+            margin: 20px 0;
             text-align: center;
         }
 
         .empty {
             text-align: center;
             padding: 40px;
-            color: #6c757d;
+            color: #999;
+            font-size: 1.1em;
         }
 
-        @media (max-width: 768px) {
+        .date {
+            font-size: 0.8em;
+            color: #999;
+            margin-left: 10px;
+        }
+
+        @media (max-width: 600px) {
             h1 {
-                font-size: 1.8em;
+                font-size: 2em;
             }
 
-            th, td {
-                padding: 10px 5px;
-                font-size: 0.9em;
+            .leaderboard-item {
+                flex-wrap: wrap;
             }
 
-            th.date, td.date {
-                display: none;
+            .time {
+                width: 100%;
+                text-align: left;
+                margin-top: 5px;
+                margin-left: 50px;
             }
         }
     </style>
 </head>
 <body>
     <div class="container">
-        <h1>🏆 Leaderboard</h1>
-        
-        <div class="map-selector">
-            <label for="mapSelect">Sélectionner une map :</label>
-            <select id="mapSelect">
-                <option value="">Chargement...</option>
-            </select>
+        <h1>🏆 Jumpy Jump</h1>
+        <div class="subtitle">Leaderboard Global</div>
+
+        <div class="controls">
+            <div class="control-group">
+                <label for="mapSelect">Sélectionner une map:</label>
+                <select id="mapSelect">
+                    <option value="">Chargement des maps...</option>
+                </select>
+            </div>
+
+            <div class="control-group">
+                <label for="customMapName">Ou entrer un nom de map:</label>
+                <input type="text" id="customMapName" placeholder="Nom de la map personnalisée">
+            </div>
+
+            <button onclick="loadLeaderboard()">Charger le Leaderboard</button>
         </div>
 
         <div class="leaderboard-card">
             <div class="leaderboard-header">
-                <h2 id="mapTitle">Sélectionnez une map</h2>
+                <h2>Top 10</h2>
+                <div class="map-name" id="currentMapName">Sélectionnez une map</div>
             </div>
-            <div id="leaderboardContent">
-                <div class="loading">Sélectionnez une map pour voir le classement</div>
+            <div class="leaderboard-body" id="leaderboardBody">
+                <div class="loading">Sélectionnez une map pour voir le leaderboard</div>
             </div>
         </div>
     </div>
 
     <script>
-        // Configuration de l'URL du serveur
-        const URL = "https://jumpyjump-production.up.railway.app";
+        const LINK = "https://jumpyjump-production.up.railway.app";
+        let mapsCache = [];
 
-        const mapSelect = document.getElementById('mapSelect');
-        const mapTitle = document.getElementById('mapTitle');
-        const leaderboardContent = document.getElementById('leaderboardContent');
-
-        // Charger toutes les maps
+        // Charger toutes les maps au démarrage
         async function loadMaps() {
             try {
-                const response = await fetch(URL + '/allmaps');
+                const response = await fetch(`${LINK}/allmaps`);
                 const maps = await response.json();
+                mapsCache = maps;
 
-                mapSelect.innerHTML = '<option value="">-- Choisir une map --</option>';
+                const select = document.getElementById('mapSelect');
+                select.innerHTML = '<option value="">-- Choisir une map --</option>';
+                
                 maps.forEach(map => {
                     const option = document.createElement('option');
                     option.value = map.mapid;
                     option.textContent = map.mapname;
-                    mapSelect.appendChild(option);
+                    option.dataset.mapname = map.mapname;
+                    select.appendChild(option);
                 });
             } catch (error) {
                 console.error('Erreur lors du chargement des maps:', error);
-                mapSelect.innerHTML = '<option value="">Erreur de chargement</option>';
+                document.getElementById('mapSelect').innerHTML = '<option value="">Erreur de chargement</option>';
             }
         }
 
-        // Formater le temps (millisecondes -> MM:SS.mmm)
+        // Formater le temps (en millisecondes vers format lisible)
         function formatTime(ms) {
-            const minutes = Math.floor(ms / 60000);
-            const seconds = Math.floor((ms % 60000) / 1000);
+            const totalSeconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(totalSeconds / 60);
+            const seconds = totalSeconds % 60;
             const milliseconds = ms % 1000;
-            return `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+            
+            if (minutes > 0) {
+                return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+            }
+            return `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
         }
 
         // Formater la date
-        function formatDate(dateString) {
-            const date = new Date(dateString);
-            return date.toLocaleString('fr-FR', {
-                day: '2-digit',
-                month: '2-digit',
+        function formatDate(timestamp) {
+            const date = new Date(parseInt(timestamp));
+            return date.toLocaleDateString('fr-FR', { 
+                day: '2-digit', 
+                month: '2-digit', 
                 year: 'numeric',
                 hour: '2-digit',
                 minute: '2-digit'
             });
         }
 
-        // Charger le leaderboard pour une map
-        async function loadLeaderboard(mapid, mapname) {
-            leaderboardContent.innerHTML = '<div class="loading">Chargement...</div>';
-            mapTitle.textContent = mapname;
+        // Charger le leaderboard
+        async function loadLeaderboard() {
+            const select = document.getElementById('mapSelect');
+            const customInput = document.getElementById('customMapName');
+            const body = document.getElementById('leaderboardBody');
+            const mapNameDisplay = document.getElementById('currentMapName');
+
+            let mapid = select.value;
+            let mapname = customInput.value.trim();
+            let displayName = '';
+
+            // Déterminer quelle source utiliser
+            if (customInput.value.trim()) {
+                displayName = mapname;
+            } else if (mapid) {
+                const selectedOption = select.options[select.selectedIndex];
+                displayName = selectedOption.dataset.mapname || 'Map sélectionnée';
+            } else {
+                body.innerHTML = '<div class="error">Veuillez sélectionner une map ou entrer un nom</div>';
+                return;
+            }
+
+            // Afficher loading
+            body.innerHTML = '<div class="loading">Chargement...</div>';
+            mapNameDisplay.textContent = displayName;
 
             try {
-                const response = await fetch(URL + `/leaderboard?mapid=${mapid}`);
+                // Construire l'URL
+                let url = `${LINK}/leaderboard?`;
+                if (mapid) {
+                    url += `mapid=${mapid}`;
+                } else {
+                    url += `mapname=${encodeURIComponent(mapname)}`;
+                }
+
+                const response = await fetch(url);
                 const runs = await response.json();
 
-                if (runs.length === 0) {
-                    leaderboardContent.innerHTML = '<div class="empty">Aucun temps enregistré pour cette map</div>';
+                if (!response.ok || runs.error) {
+                    body.innerHTML = `<div class="error">${runs.error || 'Erreur serveur'}</div>`;
                     return;
                 }
 
-                let html = `
-                    <table>
-                        <thead>
-                            <tr>
-                                <th class="rank">Rang</th>
-                                <th>Joueur</th>
-                                <th class="time">Temps</th>
-                                <th class="date">Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                `;
+                if (runs.length === 0) {
+                    body.innerHTML = '<div class="empty">Aucun score enregistré pour cette map</div>';
+                    return;
+                }
 
-                runs.forEach((run, index) => {
+                // Afficher les résultats
+                body.innerHTML = runs.map((run, index) => {
                     const rank = index + 1;
-                    const rankClass = rank <= 3 ? `rank-${rank}` : '';
-                    html += `
-                        <tr>
-                            <td class="rank ${rankClass}">${rank}</td>
-                            <td class="username">${run.username}</td>
-                            <td class="time">${formatTime(run.time)}</td>
-                            <td class="date">${formatDate(run.date)}</td>
-                        </tr>
+                    const topClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+                    
+                    return `
+                        <div class="leaderboard-item ${topClass}">
+                            <div class="rank">${medal || rank}</div>
+                            <div class="username">${escapeHtml(run.username)}</div>
+                            <div class="time">${formatTime(run.time)}</div>
+                        </div>
                     `;
-                });
+                }).join('');
 
-                html += `
-                        </tbody>
-                    </table>
-                `;
-
-                leaderboardContent.innerHTML = html;
             } catch (error) {
-                console.error('Erreur lors du chargement du leaderboard:', error);
-                leaderboardContent.innerHTML = '<div class="error">Erreur lors du chargement du leaderboard</div>';
+                console.error('Erreur:', error);
+                body.innerHTML = '<div class="error">Erreur lors du chargement du leaderboard</div>';
             }
         }
 
-        // Événement sur le changement de map
-        mapSelect.addEventListener('change', (e) => {
-            const mapid = e.target.value;
-            const mapname = e.target.options[e.target.selectedIndex].text;
+        // Échapper le HTML pour éviter les injections
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
 
-            if (mapid) {
-                loadLeaderboard(mapid, mapname);
-            } else {
-                mapTitle.textContent = 'Sélectionnez une map';
-                leaderboardContent.innerHTML = '<div class="loading">Sélectionnez une map pour voir le classement</div>';
+        // Gérer le changement de sélection
+        document.getElementById('mapSelect').addEventListener('change', function() {
+            if (this.value) {
+                document.getElementById('customMapName').value = '';
+            }
+        });
+
+        document.getElementById('customMapName').addEventListener('input', function() {
+            if (this.value.trim()) {
+                document.getElementById('mapSelect').value = '';
+            }
+        });
+
+        // Permettre de charger avec Enter
+        document.getElementById('customMapName').addEventListener('keypress', function(e) {
+            if (e.key === 'Enter') {
+                loadLeaderboard();
             }
         });
 
