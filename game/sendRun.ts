@@ -15,7 +15,7 @@ export async function sendRun(
 		},
 		body: JSON.stringify({
 			username,
-			frames,
+			time: frames,
 			mapname
 		})
 	});

@@ -46,7 +46,7 @@ async function initDB() {
 		CREATE TABLE IF NOT EXISTS runs (
 			username TEXT NOT NULL,
 			mapid BIGINT NOT NULL REFERENCES maps(mapid),
-			time BIGINT NOT NULL,
+			time INT NOT NULL,
 			runid TEXT NOT NULL,
 			date BIGINT NOT NULL,
 			PRIMARY KEY(username, mapid)
@@ -61,6 +61,8 @@ app.post('/pushRun', async (req, res) => {
 		if (!username) return res.status(400).json({ error: 'username required' })
 
 		const now = Date.now();
+
+	
 
 		if (!mapid) {
 			if (!mapname) return res.status(400).json({ error: 'mapid or mapname required' })
@@ -85,7 +87,7 @@ app.post('/pushRun', async (req, res) => {
 			[username, mapid, time, runid, now]
 		)
 
-		res.json({ success: true, mapid })
+		res.json({ success: true, mapid: mapid.toString() })
 	} catch (err) {
 		console.error(err)
 		res.status(500).json({ error: 'Database error' })
@@ -110,7 +112,13 @@ app.get('/leaderboard', async (req, res) => {
 			 [mapid]
 		)
 
-		res.json(rows)
+		res.json({
+			username: rows.username,
+			time: rows.time,
+			runid: rows.runid,
+			mapid: rows.mapid.toString(),
+			date: rows.date.toString(),
+		});
 	} catch (err) {
 		console.error(err)
 		res.status(500).json({ error: 'Database error' })
