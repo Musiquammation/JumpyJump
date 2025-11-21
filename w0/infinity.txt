@@ -1,0 +1,136 @@
+Infinity
+room -775 -975 1625 1425
+	37.5 387.5 1525 75
+		bounce 1.1 0
+	-462.5 -475 575 50
+		couldownedAttack 1 100
+	-37.5 -475 225 100
+		heal 1
+	450 -475 700 50
+		couldownedAttack 1 100
+	-587.5 -775 25 300
+	-512.5 -912.5 125 25
+	-500 -637.5 150 25
+	-437.5 -700 25 100
+	-487.5 -737.5 75 25
+	-337.5 -775 25 300
+	-250 -637.5 150 25
+	-112.5 -775 25 300
+	-50 -787.5 100 25
+	12.5 -775 25 300
+	137.5 -775 25 300
+	225 -912.5 150 25
+	225 -812.5 150 25
+	387.5 -800 25 250
+	387.5 -637.5 25 25
+room 2575 -450 2750 900
+	3437.5 175 75 550
+		couldownedAttack 1 100
+	4012.5 -112.5 75 675
+		couldownedAttack 1 100
+	4475 112.5 100 675
+		couldownedAttack 1 100
+	4900 -100 100 675
+		couldownedAttack 1 100
+	4012.5 337.5 225 175
+		restoreJump 3
+	4475 -325 225 175
+		restoreJump 3
+	4900 350 175 175
+		restoreJump 3
+	5137.5 -150 225 500
+		restoreJump 2
+	2637.5 0 125 900
+		heal 2
+room 5325 -3275 750 3275
+	5700 -900 750 100
+		bounce 1 0.003
+		restoreJump 3
+	5700 -1150 750 100
+		restoreJump 3
+	5700 -1487.5 750 275
+		restoreJump 3
+	5925 -1275 300 150
+		restoreJump 3
+	5700 -2125 750 150
+		restoreJump 3
+	5937.5 -2550 275 700
+		restoreJump 1
+	5562.5 -2625 475 550
+		restoreJump 3
+	5700 -3150 750 250
+		restoreJump 3
+	5700 -1025 750 150
+		couldownedAttack 1 100
+	5700 -350 750 700
+		restoreJump 3
+	5700 -775 750 150
+		couldownedAttack 1 100
+	5550 -1275 450 150
+		couldownedAttack 1 100
+	5562.5 -2275 475 150
+		couldownedAttack 1 100
+	5587.5 -2962.5 175 125
+		restoreJump 3
+	5875 -2962.5 400 125
+		couldownedAttack 1 100
+	5412.5 -2962.5 175 125
+		couldownedAttack 1 100
+	5837.5 -1925 475 250
+		restoreJump 3
+	5462.5 -1837.5 275 425
+		restoreJump 3
+	5837.5 -1687.5 475 125
+		restoreJump 3
+	5837.5 -1775 475 50
+		couldownedAttack 1 100
+room 5325 -3925 2450 650
+	7050 -3400 50 250
+		kill 1
+	7337.5 -3287.5 125 25
+		kill 1
+	7700 -3287.5 150 25
+		kill 1
+	7475 -3875 600 100
+		kill 1
+	7175 -3287.5 200 25
+		kill 1
+	5700 -3600 750 650
+		heal 3
+	6612.5 -3637.5 325 175
+		couldownedAttack 1 100
+room 7300 -3275 1100 2175
+	7675 -2750 750 50
+		kill 1
+	8225 -2750 350 50
+		continuousAttack 0.05
+	7850 -2400 1100 650
+		continuousAttack 0.001
+	8037.5 -2062.5 725 25
+		kill 1
+	7487.5 -2062.5 375 25
+		restoreJump 1
+	7850 -1225 1100 250
+		continuousAttack 0.1
+room 850 -450 1725 900
+	1712.5 387.5 1625 75
+		bounce 2 0
+	2275 -150 75 425
+		couldownedAttack 1 100
+	1712.5 -412.5 1725 75
+		couldownedAttack 1 100
+	1587.5 -137.5 75 425
+		couldownedAttack 1 100
+	1937.5 -137.5 75 425
+		couldownedAttack 1 100
+room 8400 -1800 1200 700
+	8425 -1575 50 450
+		heal 2
+	9000 -1225 1200 250
+		continuousAttack 0.1
+	9562.5 -1575 75 450
+		goal 1
+	8812.5 -1475 125 250
+		continuousAttack 0.05
+	9237.5 -1675 125 250
+		continuousAttack 0.05
