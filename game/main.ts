@@ -212,6 +212,7 @@ export async function startGame() {
 	
 		if (window.running) {
 			requestAnimationFrame(runGameLoop);
+			// setTimeout(runGameLoop, 100);
 		}
 
 	}

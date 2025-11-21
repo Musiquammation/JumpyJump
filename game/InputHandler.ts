@@ -47,11 +47,12 @@ export class InputHandler {
 
 	private keyMap: Record<string, Control>;
 
-	gameFirstRecord = 0;
 	gameRecords: Uint32Array[] | null = null;
 	frameCount = 0;
 	recordCompletion = -1;
 	recordState: 'none' | 'record' | 'emulate' | 'forbid' = 'none';
+	firstRecordLine = 0;
+	firstRecordLineCount = 0;
 
 	static KEYBOARDS: Record<Mode, Record<string, Control>> = {
 		zqsd: {
@@ -212,22 +213,8 @@ export class InputHandler {
 		if (this.recordState === 'emulate' || this.recordState === 'forbid')
 			return;
 
-		this.gameFirstRecord =
-			(+this.firstPress ['left']  <<  0) |
-			(+this.firstPress ['right'] <<  1) |
-			(+this.firstPress ['up']    <<  2) |
-			(+this.firstPress ['down']  <<  3) |
-			(+this.keysDown   ['left']  <<  4) |
-			(+this.keysDown   ['right'] <<  5) |
-			(+this.keysDown   ['up']    <<  6) |
-			(+this.keysDown   ['down']  <<  7) |
-			(+this.killedPress['left']  <<  8) |
-			(+this.killedPress['right'] <<  9) |
-			(+this.killedPress['up']    << 10) |
-			(+this.killedPress['down']  << 11);
-
-		
-
+		this.firstRecordLine = 0;
+		this.firstRecordLineCount = 0;
 		this.gameRecords = [];
 		this.recordCompletion = InputHandler.CONTROL_STACK_SIZE;
 		this.frameCount = 0;
@@ -238,26 +225,53 @@ export class InputHandler {
 		if (!this.gameRecords || this.recordState !== 'record')
 			return;
 
+		const push = (line: number, gameRecords: Uint32Array<ArrayBufferLike>[]) => {
+			if (this.recordCompletion === InputHandler.CONTROL_STACK_SIZE) {
+				this.recordCompletion = 0;
+				gameRecords.push(new Uint32Array(InputHandler.CONTROL_STACK_SIZE));
+			}
+	
+			gameRecords[gameRecords.length-1][this.recordCompletion] = line;
+			this.recordCompletion++;
+		};
+
+		const line = this.createRecordLine();
 		
-
-		const line = (this.collectedKeys['left'] << 24) |
-			(this.collectedKeys['right'] << 16) |
-			(this.collectedKeys['up'] << 8) |
-			(this.collectedKeys['down']);
-			
-
-		if (this.recordCompletion === InputHandler.CONTROL_STACK_SIZE) {
-			this.recordCompletion = 0;
-			this.gameRecords.push(new Uint32Array(InputHandler.CONTROL_STACK_SIZE));
+		if (this.firstRecordLine === line) {
+			this.firstRecordLineCount++;
+		} else if (this.firstRecordLineCount === 0) {
+			push(this.firstRecordLine, this.gameRecords);
+			this.firstRecordLine = line;
+		} else {
+			push(0xffffffff, this.gameRecords);
+			push(this.firstRecordLineCount, this.gameRecords);
+			push(this.firstRecordLine, this.gameRecords);
+			this.firstRecordLine = line;
+			this.firstRecordLineCount = 0;
 		}
-
-		this.gameRecords[this.gameRecords.length-1][this.recordCompletion] = line;
-		this.recordCompletion++;
 	}
 
 	stopRecord() {
 		if (this.recordState !== 'emulate' && this.recordState !== 'forbid')
 			this.recordState = 'none';
+
+
+		const push = (line: number, gameRecords: Uint32Array<ArrayBufferLike>[]) => {
+			if (this.recordCompletion === InputHandler.CONTROL_STACK_SIZE) {
+				this.recordCompletion = 0;
+				gameRecords.push(new Uint32Array(InputHandler.CONTROL_STACK_SIZE));
+			}
+	
+			gameRecords[gameRecords.length-1][this.recordCompletion] = line;
+			this.recordCompletion++;
+		};
+
+		if (this.gameRecords && this.firstRecordLineCount > 0) {
+			push(0xffffffff, this.gameRecords);
+			push(this.firstRecordLineCount, this.gameRecords);
+			push(this.firstRecordLine!, this.gameRecords);
+			this.firstRecordLineCount = 0;
+		}
 	}
 
 	resumeRecord() {
@@ -265,16 +279,15 @@ export class InputHandler {
 			this.recordState = 'record';
 	}
 
-	async saveRecord(name: string | null) {
+	async saveRecord(name: string | null, gameChrono = 0) {
 		if (!this.gameRecords)
 			return null;
 
 		const gameRecords = this.gameRecords;
 		const recordCompletion = this.recordCompletion;
-		const gameFirstRecord = this.gameFirstRecord;
 
 		const fileHandle = await window.showSaveFilePicker!({
-			suggestedName: `record_${name ?? "jumpyJump"}.bin`,
+			suggestedName: `record_${name ?? "jumpyJump"}_${gameChrono}.bin`,
 			types: [{
 				description: 'Binary data',
 				accept: { 'application/octet-stream': ['.bin'] },
@@ -282,9 +295,7 @@ export class InputHandler {
 		});
 
 
-
 		const writable = await fileHandle.createWritable();
-		await writable.write(new Uint32Array([gameFirstRecord]).slice(0));
 
 		for (let i = 0; i < gameRecords.length; i++) {
 			const arr = gameRecords[i];
@@ -315,10 +326,11 @@ export class InputHandler {
 		this.recordState = 'emulate';
 		this.frameCount = 0;
 		this.recordCompletion = 0;
+		this.firstRecordLineCount = 0;
+	}
 
-		const first = this.gameRecords![0][0];
-		function get(n: number) {return first & (1<<n) ? true : false}
-
+	private playRecordLine(line: number) {
+		function get(n: number) {return line & (1<<n) ? true : false;}
 		this.firstPress['left'] = get(0);
 		this.firstPress['right'] = get(1);
 		this.firstPress['up'] = get(2);
@@ -333,6 +345,30 @@ export class InputHandler {
 		this.killedPress['down'] = get(11);
 	}
 
+	private createRecordLine() {
+		let ret = 0;
+		let idx = 0;
+		function mark(value: boolean) {
+			if (value) {ret |= (1<<idx);}
+			idx++;
+		}
+
+		mark(this.firstPress ['left']);
+		mark(this.firstPress ['right']);
+		mark(this.firstPress ['up']);
+		mark(this.firstPress ['down']);
+		mark(this.keysDown   ['left']);
+		mark(this.keysDown   ['right']);
+		mark(this.keysDown   ['up']);
+		mark(this.keysDown   ['down']);
+		mark(this.killedPress['left']);
+		mark(this.killedPress['right']);
+		mark(this.killedPress['up']);
+		mark(this.killedPress['down']);
+
+		return ret;
+	}
+
 
 	restartRecord() {
 		this.startRecord();
@@ -345,9 +381,10 @@ export class InputHandler {
 			window.matchMedia("(pointer: coarse)").matches
 		) {
 			this.startMobileListeners();
-		} else {
-			this.enableKeyboardListeners(target);
 		}
+
+		
+		this.enableKeyboardListeners(target);
 	}
 
 	removeListeners(target: EventTarget) {
@@ -388,14 +425,14 @@ export class InputHandler {
 	}
 
 	update() {
-		if (this.recordState === 'record') {
-			this.pushRecord();
-		}
-
 		if (this.recordState === 'record' || this.recordState === 'none') {
 			for (const control of InputHandler.CONTROLS) {
 				this.play(control, this.collectedKeys[control]);
 				this.collectedKeys[control] = Action.NONE;
+			}
+
+			if (this.recordState === 'record') {
+				this.pushRecord();
 			}
 		}
 
@@ -403,29 +440,34 @@ export class InputHandler {
 			this.frameCount++;
 		
 		} else if (this.recordState === 'emulate') {
-			if (this.frameCount <= 0) {
-				this.frameCount++;
+			const arr = this.gameRecords![0];
+
+			if (this.firstRecordLineCount > 0) {
+				this.firstRecordLineCount--;
 				return;
 			}
-			const arr = this.gameRecords![0];
-			const line = arr[this.frameCount];
 
-
-
-			this.play('left' , (line>>24)&0xff);
-			this.play('right', (line>>16)&0xff);
-			this.play('up',    (line>> 8)&0xff);
-			this.play('down',  (line>> 0)&0xff);
-
-			this.frameCount++;
-			if (this.frameCount > arr.length) {
-				this.recordState = 'none';
+			if (this.frameCount >= arr.length) {
 				// Stop emulating
+				this.recordState = 'none';
 				this.collectedKeys = new KeyboardCollector();
 				this.keysDown = new Keydown();
 				this.firstPress = new Keydown();
 				this.killedPress = new Keydown();
-			} 
+				return;
+			}
+
+			const line = arr[this.frameCount];
+			this.frameCount++;
+			if (line != 0xffffffff) {
+				this.playRecordLine(line);
+				return;
+			}
+
+			this.firstRecordLineCount = arr[this.frameCount];
+			this.frameCount++;
+			this.playRecordLine(arr[this.frameCount]);
+			this.frameCount++;
 		}
 			
 	}

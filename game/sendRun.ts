@@ -6,8 +6,8 @@ export async function sendRun(
 	mapname: string,
 	frames: number
 ) {
-	const file = await handle.getFile();
-	
+	// const file = await handle.getFile();	
+
 	const res = await fetch(URL + "/pushRun", {
 		method: "POST",
 		headers: {

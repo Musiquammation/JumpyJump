@@ -1506,12 +1506,14 @@ export class Block {
 		this.h = this.start_h;
 
 		this.module.moving?.reset();
-		this.module.rotation?.reset();
 		this.module.couldownedAttack?.reset();
+		this.module.rotation?.reset();
 		this.module.continuousAttack?.reset();
 		this.module.bounce?.reset();
 		this.module.kill?.reset();
 		this.module.heal?.reset();
+		this.module.speed?.reset();
+		this.module.acceleration?.reset();
 		this.module.touchDespawn?.reset();
 		this.module.restoreJump?.reset();
 		this.module.couldownDespawn?.reset();

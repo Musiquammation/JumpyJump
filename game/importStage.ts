@@ -129,11 +129,9 @@ export async function importStage(read: Function) {
 
 	let name: string | null = null;
 	for await (const word of read()) {
-		console.log(word);
 
 		if (name === null) {
 			name = word;
-			console.log(name);
 			continue;
 		}
 
@@ -163,9 +161,11 @@ export async function importStage(read: Function) {
 					// Pop context and create SpawnerModule
 					const finished = spawnerStack.pop()!;
 					finished.parentModule.spawner = new SpawnerModule(finished.rythm, false, finished.blocks);
+					currentMode = null;
+				} else {
+					currentMode = "spawnerBuilder";
 				}
 				
-				currentMode = null;
 			}
 			continue;
 		}

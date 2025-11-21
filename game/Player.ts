@@ -51,6 +51,9 @@ export class Player extends Entity {
 	consumeJump(cost = 1) {
 		if (this.jumps > 0) {
 			this.jumps -= cost;
+			if (this.jumps >= Player.JUMP_COUNT) {
+				this.jumps = Player.JUMP_COUNT;
+			}
 			this.jump_leveledBar.setValue(this.jumps / Player.JUMP_COUNT);
 			return; // just jump
 		}

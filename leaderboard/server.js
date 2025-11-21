@@ -54,6 +54,8 @@ async function initDB() {
 	`)
 }
 
+
+
 // POST /pushRun
 app.post('/pushRun', async (req, res) => {
 	try {
@@ -61,8 +63,6 @@ app.post('/pushRun', async (req, res) => {
 		if (!username) return res.status(400).json({ error: 'username required' })
 
 		const now = Date.now();
-
-	
 
 		if (!mapid) {
 			if (!mapname) return res.status(400).json({ error: 'mapid or mapname required' })
@@ -107,10 +107,10 @@ app.get('/leaderboard', async (req, res) => {
 			`SELECT username, time, date, runid
 			 FROM runs
 			 WHERE mapid=$1
-			 ORDER BY time ASC
+			 ORDER BY time ASC, date ASC
 			 LIMIT 10`,
 			 [mapid]
-		)
+		);
 
 		res.json(rows.map(row => {return {
 			username: row.username,
@@ -140,3 +140,4 @@ initDB().then(() => {
 	const port = process.env.PORT || 3000
 	app.listen(port, () => console.log(`Server running on port ${port}`))
 }).catch(err => console.error('Failed to initialize DB', err))
+

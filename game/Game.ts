@@ -5,6 +5,7 @@ import { Player } from "./Player";
 import { Stage, WeakStage } from "./Stage";
 import { Room } from "./Room";
 import { sendRun } from "./sendRun";
+import { Vector } from "./Vector";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
@@ -65,7 +66,7 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.3.0";
+	static GAME_VERSION = "1.4.0";
 
 	player = new Player();
 	camera = new Camera();
@@ -98,6 +99,15 @@ export class Game {
 		this.stageName = stageName;
 		this.player.respawnCouldown = 0;
 		this.resetStage();
+
+
+		const element = document.getElementById("levelName");
+		if (element) {
+			element.classList.remove("shown");
+			void element.offsetWidth; // forcer le reflow
+			element.innerText = stageName;
+			element.classList.add("shown");
+		}
 	}
 
 	startReplay(stage: Stage) {
@@ -260,7 +270,7 @@ export class Game {
 			const sendResult = confirm("Do you want to send your run?");
 			document.getElementById("savingRun")?.classList.remove("hidden");
 			
-			this.inputHandler.saveRecord(this.stageName).then(f => {
+			this.inputHandler.saveRecord(this.stageName, this.gameChrono).then(f => {
 				document.getElementById("savingRun")?.classList.add("hidden");
 
 				if (sendResult && f) {
@@ -323,7 +333,6 @@ export class Game {
 			break;
 			
 		}
-
 
 		this.frame++;
 		this.state.update();
@@ -555,7 +564,7 @@ export class Game {
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-		this.camera.update(this.player.getSpeed2());
+		this.camera.update(new Vector(this.player.x, this.player.y));
 
 
 		const followCamera = () => {

@@ -467,10 +467,135 @@ export function startEditor() {
 
 	function showBlockPanel(block: Block) {
 		panelHTML.classList.remove("hidden");
-		
 
-
-
+		// Helper function to generate spawner blocks HTML recursively
+		function generateSpawnerBlockHTML(builders: BlockBuilder[], depth: number = 0): string {
+			let html = '';
+			const indent = depth * 20;
+			
+			builders.forEach((b, idx) => {
+				const hasModule = !!b.module;
+				
+				// Extract all module properties
+				const hasSpeed = b.module?.speed ? 'checked' : '';
+				const speedVx = b.module?.speed?.vx || 0;
+				const speedVy = b.module?.speed?.vy || 0;
+				const hasAcceleration = b.module?.acceleration ? 'checked' : '';
+				const accelerationAx = b.module?.acceleration?.ax || 0;
+				const accelerationAy = b.module?.acceleration?.ay || 0;
+				const hasKill = b.module?.kill ? 'checked' : '';
+				const hasBounce = b.module?.bounce ? 'checked' : '';
+				const bounceFactor = b.module?.bounce?.factor || 1;
+				const bounceCost = b.module?.bounce?.cost || 0.003;
+				const hasRotation = b.module?.rotation ? 'checked' : '';
+				const rotationStart = b.module?.rotation?.start || 0;
+				const rotationSpeed = b.module?.rotation?.speed || 0.01;
+				const hasCouldownDespawn = b.module?.couldownDespawn ? 'checked' : '';
+				const couldownDespawnDuration = b.module?.couldownDespawn?.duration || 100;
+				const hasSpawner = b.module?.spawner ? 'checked' : '';
+				const spawnerRythm = b.module?.spawner?.rythm || 60;
+				const hasCooldownAttack = b.module?.couldownedAttack ? 'checked' : '';
+				const cooldownAttackDamages = b.module?.couldownedAttack?.damages || 1;
+				const cooldownAttackDuration = b.module?.couldownedAttack?.duration || 100;
+				const hasContinuousAttack = b.module?.continuousAttack ? 'checked' : '';
+				const continuousAttackDamages = b.module?.continuousAttack?.damages || 0.02;
+				const hasHeal = b.module?.heal ? 'checked' : '';
+				const healHp = b.module?.heal?.hp || 2;
+				const hasRestoreJump = b.module?.restoreJump ? 'checked' : '';
+				const restoreJumpGain = b.module?.restoreJump?.gain || 1;
+				const hasTouchDespawn = b.module?.touchDespawn ? 'checked' : '';
+				const hasGoal = b.module?.goal ? 'checked' : '';
+				const goalType = (b.module?.goal as any)?.type || 1;
+				
+				html += `
+					<div class="spawner-block" data-depth="${depth}" data-idx="${idx}" style="border: 1px solid #999; padding: 10px; margin-left: ${indent}px; margin-bottom: 10px; border-radius: 5px; background: ${depth % 2 === 0 ? '#f9f9f9' : '#efefef'};">
+						<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
+							<input type="number" class="spawn-dx" data-depth="${depth}" data-idx="${idx}" value="${b.dx}" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
+							<input type="number" class="spawn-dy" data-depth="${depth}" data-idx="${idx}" value="${b.dy}" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
+							<input type="number" class="spawn-w" data-depth="${depth}" data-idx="${idx}" value="${b.w}" step="1" style="width: 60px;" placeholder="w" title="Width">
+							<input type="number" class="spawn-h" data-depth="${depth}" data-idx="${idx}" value="${b.h}" step="1" style="width: 60px;" placeholder="h" title="Height">
+							<button class="spawn-remove" data-depth="${depth}" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+						</div>
+						
+						<details ${hasModule ? 'open' : ''}>
+							<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
+							<div style="padding-left: 10px; margin-top: 5px;">
+								<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="${depth}" data-idx="${idx}" ${hasSpeed}> Speed</label>
+								<div class="spawn-speed-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasSpeed ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-speedVx" data-depth="${depth}" data-idx="${idx}" value="${speedVx}" step="0.5" style="width: 60px;" placeholder="vx">
+									<input type="number" class="spawn-speedVy" data-depth="${depth}" data-idx="${idx}" value="${speedVy}" step="0.5" style="width: 60px;" placeholder="vy">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="${depth}" data-idx="${idx}" ${hasAcceleration}> Acceleration</label>
+								<div class="spawn-accel-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasAcceleration ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-accelAx" data-depth="${depth}" data-idx="${idx}" value="${accelerationAx}" step="0.01" style="width: 60px;" placeholder="ax">
+									<input type="number" class="spawn-accelAy" data-depth="${depth}" data-idx="${idx}" value="${accelerationAy}" step="0.01" style="width: 60px;" placeholder="ay">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="${depth}" data-idx="${idx}" ${hasRotation}> Rotation</label>
+								<div class="spawn-rotation-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasRotation ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-rotationStart" data-depth="${depth}" data-idx="${idx}" value="${rotationStart}" step="0.1" style="width: 60px;" placeholder="start">
+									<input type="number" class="spawn-rotationSpeed" data-depth="${depth}" data-idx="${idx}" value="${rotationSpeed}" step="0.01" style="width: 60px;" placeholder="speed">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="${depth}" data-idx="${idx}" ${hasBounce}> Bounce</label>
+								<div class="spawn-bounce-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasBounce ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-bounceFactor" data-depth="${depth}" data-idx="${idx}" value="${bounceFactor}" step="0.1" style="width: 60px;" placeholder="factor">
+									<input type="number" class="spawn-bounceCost" data-depth="${depth}" data-idx="${idx}" value="${bounceCost}" step="0.001" style="width: 60px;" placeholder="cost">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="${depth}" data-idx="${idx}" ${hasKill}> Kill</label>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasCooldownAttack" data-depth="${depth}" data-idx="${idx}" ${hasCooldownAttack}> Cooldown Attack</label>
+								<div class="spawn-cooldownattack-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasCooldownAttack ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-cooldownAttackDamages" data-depth="${depth}" data-idx="${idx}" value="${cooldownAttackDamages}" step="0.1" style="width: 60px;" placeholder="damages">
+									<input type="number" class="spawn-cooldownAttackDuration" data-depth="${depth}" data-idx="${idx}" value="${cooldownAttackDuration}" step="1" style="width: 60px;" placeholder="duration">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasContinuousAttack" data-depth="${depth}" data-idx="${idx}" ${hasContinuousAttack}> Continuous Attack</label>
+								<div class="spawn-continuousattack-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasContinuousAttack ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-continuousAttackDamages" data-depth="${depth}" data-idx="${idx}" value="${continuousAttackDamages}" step="0.01" style="width: 60px;" placeholder="damages">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasHeal" data-depth="${depth}" data-idx="${idx}" ${hasHeal}> Heal</label>
+								<div class="spawn-heal-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasHeal ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-healHp" data-depth="${depth}" data-idx="${idx}" value="${healHp}" step="0.1" style="width: 60px;" placeholder="hp">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasRestoreJump" data-depth="${depth}" data-idx="${idx}" ${hasRestoreJump}> Restore Jump</label>
+								<div class="spawn-restorejump-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasRestoreJump ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-restoreJumpGain" data-depth="${depth}" data-idx="${idx}" value="${restoreJumpGain}" step="0.1" style="width: 60px;" placeholder="gain">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasTouchDespawn" data-depth="${depth}" data-idx="${idx}" ${hasTouchDespawn}> Touch Despawn</label>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="${depth}" data-idx="${idx}" ${hasCouldownDespawn}> Cooldown Despawn</label>
+								<div class="spawn-despawn-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasCouldownDespawn ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-despawnDuration" data-depth="${depth}" data-idx="${idx}" value="${couldownDespawnDuration}" step="10" style="width: 60px;" placeholder="duration">
+								</div>
+								
+								<label style="display: block;"><input type="checkbox" class="spawn-hasGoal" data-depth="${depth}" data-idx="${idx}" ${hasGoal}> Goal</label>
+								<div class="spawn-goal-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasGoal ? 'block' : 'none'}; padding-left: 20px;">
+									<input type="number" class="spawn-goalType" data-depth="${depth}" data-idx="${idx}" value="${goalType}" step="1" style="width: 60px;" placeholder="type">
+								</div>
+								
+								<!-- NESTED SPAWNER -->
+								<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="${depth}" data-idx="${idx}" ${hasSpawner}> Spawner (nested)</label>
+								<div class="spawn-spawner-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasSpawner ? 'block' : 'none'}; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+									<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="${depth}" data-idx="${idx}" value="${spawnerRythm}" step="1" style="width: 80px;"></label><br>
+									<div class="spawn-spawner-blocks" data-depth="${depth}" data-idx="${idx}">
+										${b.module?.spawner ? generateSpawnerBlockHTML(b.module.spawner.blocks, depth + 1) : ''}
+									</div>
+									<button class="spawn-addNestedBlock" data-depth="${depth}" data-idx="${idx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+								</div>
+							</div>
+						</details>
+					</div>
+				`;
+			});
+			
+			return html;
+		}
 		
 		
 		// Build module sections HTML
@@ -580,7 +705,7 @@ export function startEditor() {
 			</div>
 		`);
 
-		// Moving module
+		// Moving module - GRAPHICAL VERSION
 		const movingChecked = block.module.moving ? "checked" : "";
 		const movingDisplay = block.module.moving ? "block" : "none";
 		const movingTimes = block.module.moving?.times || -1;
@@ -665,82 +790,11 @@ export function startEditor() {
 			</div>
 		`);
 
-		// Spawner module - GRAPHICAL VERSION
+		// Spawner module - GRAPHICAL RECURSIVE VERSION
 		const spawnerChecked = block.module.spawner ? "checked" : "";
 		const spawnerDisplay = block.module.spawner ? "block" : "none";
 		const spawnerRythm = block.module.spawner?.rythm || 60;
 		const spawnerBlocks = block.module.spawner?.blocks || [];
-
-		let spawnerBlocksHTML = '';
-		spawnerBlocks.forEach((b, idx) => {
-			const hasModule = !!b.module;
-			// const moduleDisplay = hasModule ? 'block' : 'none';
-			
-			// Extract module properties
-			const hasSpeed = b.module?.speed ? 'checked' : '';
-			const speedVx = b.module?.speed?.vx || 0;
-			const speedVy = b.module?.speed?.vy || 0;
-			const hasAcceleration = b.module?.acceleration ? 'checked' : '';
-			const accelerationAx = b.module?.acceleration?.ax || 0;
-			const accelerationAy = b.module?.acceleration?.ay || 0;
-			const hasKill = b.module?.kill ? 'checked' : '';
-			const hasBounce = b.module?.bounce ? 'checked' : '';
-			const bounceFactor = b.module?.bounce?.factor || 1;
-			const bounceCost = b.module?.bounce?.cost || 0.003;
-			const hasRotation = b.module?.rotation ? 'checked' : '';
-			const rotationStart = b.module?.rotation?.start || 0;
-			const rotationSpeed = b.module?.rotation?.speed || 0.01;
-			const hasCouldownDespawn = b.module?.couldownDespawn ? 'checked' : '';
-			const couldownDespawnDuration = b.module?.couldownDespawn?.duration || 100;
-			
-			spawnerBlocksHTML += `
-				<div class="spawner-block" style="border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;">
-					<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
-						<input type="number" class="spawn-dx" data-idx="${idx}" value="${b.dx}" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
-						<input type="number" class="spawn-dy" data-idx="${idx}" value="${b.dy}" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
-						<input type="number" class="spawn-w" data-idx="${idx}" value="${b.w}" step="1" style="width: 60px;" placeholder="w" title="Width">
-						<input type="number" class="spawn-h" data-idx="${idx}" value="${b.h}" step="1" style="width: 60px;" placeholder="h" title="Height">
-						<button class="spawn-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕ Remove</button>
-					</div>
-					
-					<details ${hasModule ? 'open' : ''}>
-						<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
-						<div style="padding-left: 10px; margin-top: 5px;">
-							<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-idx="${idx}" ${hasSpeed}> Speed</label>
-							<div class="spawn-speed-opts" data-idx="${idx}" style="display: ${hasSpeed ? 'block' : 'none'}; padding-left: 20px;">
-								<input type="number" class="spawn-speedVx" data-idx="${idx}" value="${speedVx}" step="0.5" style="width: 60px;" placeholder="vx">
-								<input type="number" class="spawn-speedVy" data-idx="${idx}" value="${speedVy}" step="0.5" style="width: 60px;" placeholder="vy">
-							</div>
-							
-							<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-idx="${idx}" ${hasAcceleration}> Acceleration</label>
-							<div class="spawn-accel-opts" data-idx="${idx}" style="display: ${hasAcceleration ? 'block' : 'none'}; padding-left: 20px;">
-								<input type="number" class="spawn-accelAx" data-idx="${idx}" value="${accelerationAx}" step="0.01" style="width: 60px;" placeholder="ax">
-								<input type="number" class="spawn-accelAy" data-idx="${idx}" value="${accelerationAy}" step="0.01" style="width: 60px;" placeholder="ay">
-							</div>
-							
-							<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-idx="${idx}" ${hasRotation}> Rotation</label>
-							<div class="spawn-rotation-opts" data-idx="${idx}" style="display: ${hasRotation ? 'block' : 'none'}; padding-left: 20px;">
-								<input type="number" class="spawn-rotationStart" data-idx="${idx}" value="${rotationStart}" step="0.1" style="width: 60px;" placeholder="start">
-								<input type="number" class="spawn-rotationSpeed" data-idx="${idx}" value="${rotationSpeed}" step="0.01" style="width: 60px;" placeholder="speed">
-							</div>
-							
-							<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-idx="${idx}" ${hasBounce}> Bounce</label>
-							<div class="spawn-bounce-opts" data-idx="${idx}" style="display: ${hasBounce ? 'block' : 'none'}; padding-left: 20px;">
-								<input type="number" class="spawn-bounceFactor" data-idx="${idx}" value="${bounceFactor}" step="0.1" style="width: 60px;" placeholder="factor">
-								<input type="number" class="spawn-bounceCost" data-idx="${idx}" value="${bounceCost}" step="0.001" style="width: 60px;" placeholder="cost">
-							</div>
-							
-							<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-idx="${idx}" ${hasKill}> Kill</label>
-							
-							<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-idx="${idx}" ${hasCouldownDespawn}> Cooldown Despawn</label>
-							<div class="spawn-despawn-opts" data-idx="${idx}" style="display: ${hasCouldownDespawn ? 'block' : 'none'}; padding-left: 20px;">
-								<input type="number" class="spawn-despawnDuration" data-idx="${idx}" value="${couldownDespawnDuration}" step="10" style="width: 60px;" placeholder="duration">
-							</div>
-						</div>
-					</details>
-				</div>
-			`;
-		});
 
 		moduleSections.push(`
 			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
@@ -750,14 +804,14 @@ export function startEditor() {
 				<div id="spawnerOptions" style="display: ${spawnerDisplay}; margin-top: 10px; padding-left: 20px;">
 					<label>Rythm (frames): <input type="number" id="spawnerRythm" value="${spawnerRythm}" step="1" style="width: 100px;"></label><br>
 					<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Blocks to spawn:</label>
-					<div id="spawnerBlocksList">
-						${spawnerBlocksHTML}
+					<div id="spawnerBlocksList" data-depth="0">
+						${generateSpawnerBlockHTML(spawnerBlocks, 0)}
 					</div>
 					<button id="addSpawnerBlock" style="background: green; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Block</button>
 				</div>
 			</div>
 		`);
-		
+
 		// Touch Despawn module
 		const touchDespawnChecked = block.module.touchDespawn ? "checked" : "";
 		moduleSections.push(`
@@ -871,25 +925,31 @@ export function startEditor() {
 			const rotationSpeed = rotation ? parseFloat((document.getElementById("rotationSpeed") as HTMLInputElement).value) : 0.01;
 			const cooldownDespawnDuration = cooldownDespawn ? parseInt((document.getElementById("cooldownDespawnDuration") as HTMLInputElement).value) : 100;
 
-			// Parse MovingModule from JSON
+			// Parse MovingModule from graphical inputs
 			let movingModule: InstanceType<typeof MovingModule> | undefined = undefined;
 			if (moving) {
 				try {
 					const movingTimes = parseInt((document.getElementById("movingTimes") as HTMLInputElement).value);
-					const patternsJson = (document.getElementById("movingPatterns") as HTMLTextAreaElement).value;
-					const patternsData = JSON.parse(patternsJson);
+					const patternRows = document.querySelectorAll(".pattern-row");
+					const patterns: InstanceType<typeof MovingPath>[] = [];
 					
-					// Create MovingPath objects from parsed data
-					const patterns = patternsData.map((p: any) => new MovingPath(p.dx, p.dy, p.duration));
-					movingModule = new MovingModule(patterns, movingTimes);
+					patternRows.forEach((row) => {
+						const dx = parseFloat((row.querySelector(".pattern-dx") as HTMLInputElement).value);
+						const dy = parseFloat((row.querySelector(".pattern-dy") as HTMLInputElement).value);
+						const duration = parseInt((row.querySelector(".pattern-duration") as HTMLInputElement).value);
+						patterns.push(new MovingPath(dx, dy, duration));
+					});
+					
+					if (patterns.length > 0) {
+						movingModule = new MovingModule(patterns, movingTimes);
+					}
 				} catch (e) {
 					console.error("Error parsing moving patterns:", e);
-					// Keep old module if parsing fails
 					movingModule = block.module.moving;
 				}
 			}
 
-			// Parse SpawnerModule from graphical inputs
+			// Parse SpawnerModule from graphical inputs (RECURSIVE)
 			let spawnerModule: InstanceType<typeof SpawnerModule> | undefined = undefined;
 			if (spawner) {
 				try {
@@ -898,83 +958,144 @@ export function startEditor() {
 						spawnerModule = block.module.spawner;
 					} else {
 						const spawnerRythm = parseInt(spawnerRythmInput.value);
-						const spawnerBlockElements = document.querySelectorAll(".spawner-block");
-						const blockBuilders: BlockBuilder[] = [];
 						
-						spawnerBlockElements.forEach((blockEl) => {
-							const dxInput = blockEl.querySelector(".spawn-dx") as HTMLInputElement;
-							const dyInput = blockEl.querySelector(".spawn-dy") as HTMLInputElement;
-							const wInput = blockEl.querySelector(".spawn-w") as HTMLInputElement;
-							const hInput = blockEl.querySelector(".spawn-h") as HTMLInputElement;
+						// Recursive function to parse spawner blocks
+						function parseSpawnerBlocks(container: Element): BlockBuilder[] {
+							const builders: BlockBuilder[] = [];
+							const directChildren = container.querySelectorAll(':scope > .spawner-block');
 							
-							// Skip if any required input is missing
-							if (!dxInput || !dyInput || !wInput || !hInput) return;
-							
-							const dx = parseFloat(dxInput.value);
-							const dy = parseFloat(dyInput.value);
-							const w = parseFloat(wInput.value);
-							const h = parseFloat(hInput.value);
-							
-							// Check which modules are enabled
-							const speedCheckbox = blockEl.querySelector(".spawn-hasSpeed") as HTMLInputElement;
-							const accelerationCheckbox = blockEl.querySelector(".spawn-hasAcceleration") as HTMLInputElement;
-							const rotationCheckbox = blockEl.querySelector(".spawn-hasRotation") as HTMLInputElement;
-							const bounceCheckbox = blockEl.querySelector(".spawn-hasBounce") as HTMLInputElement;
-							const killCheckbox = blockEl.querySelector(".spawn-hasKill") as HTMLInputElement;
-							const despawnCheckbox = blockEl.querySelector(".spawn-hasCouldownDespawn") as HTMLInputElement;
-							
-							const hasSpeed = speedCheckbox?.checked || false;
-							const hasAcceleration = accelerationCheckbox?.checked || false;
-							const hasRotation = rotationCheckbox?.checked || false;
-							const hasBounce = bounceCheckbox?.checked || false;
-							const hasKill = killCheckbox?.checked || false;
-							const hasCouldownDespawn = despawnCheckbox?.checked || false;
-							
-							let builderModule: BlockModule | undefined = undefined;
-							
-							if (hasSpeed || hasAcceleration || hasRotation || hasBounce || hasKill || hasCouldownDespawn) {
-								const speedVxInput = blockEl.querySelector(".spawn-speedVx") as HTMLInputElement;
-								const speedVyInput = blockEl.querySelector(".spawn-speedVy") as HTMLInputElement;
-								const accelAxInput = blockEl.querySelector(".spawn-accelAx") as HTMLInputElement;
-								const accelAyInput = blockEl.querySelector(".spawn-accelAy") as HTMLInputElement;
-								const rotationStartInput = blockEl.querySelector(".spawn-rotationStart") as HTMLInputElement;
-								const rotationSpeedInput = blockEl.querySelector(".spawn-rotationSpeed") as HTMLInputElement;
-								const bounceFactorInput = blockEl.querySelector(".spawn-bounceFactor") as HTMLInputElement;
-								const bounceCostInput = blockEl.querySelector(".spawn-bounceCost") as HTMLInputElement;
-								const despawnDurationInput = blockEl.querySelector(".spawn-despawnDuration") as HTMLInputElement;
+							directChildren.forEach((blockEl) => {
+								const dxInput = blockEl.querySelector(".spawn-dx") as HTMLInputElement;
+								const dyInput = blockEl.querySelector(".spawn-dy") as HTMLInputElement;
+								const wInput = blockEl.querySelector(".spawn-w") as HTMLInputElement;
+								const hInput = blockEl.querySelector(".spawn-h") as HTMLInputElement;
 								
-								builderModule = new BlockModule({
-									speed: hasSpeed && speedVxInput && speedVyInput ? new SpeedModule(
-										parseFloat(speedVxInput.value),
-										parseFloat(speedVyInput.value)
-									) : undefined,
-									acceleration: hasAcceleration && accelAxInput && accelAyInput ? new AccelerationModule(
-										parseFloat(accelAxInput.value),
-										parseFloat(accelAyInput.value)
-									) : undefined,
-									rotation: hasRotation && rotationStartInput && rotationSpeedInput ? new RotationModule(
-										parseFloat(rotationStartInput.value),
-										parseFloat(rotationSpeedInput.value)
-									) : undefined,
-									bounce: hasBounce && bounceFactorInput && bounceCostInput ? new BounceModule(
-										parseFloat(bounceFactorInput.value),
-										parseFloat(bounceCostInput.value)
-									) : undefined,
-									kill: hasKill ? new KillModule() : undefined,
-									couldownDespawn: hasCouldownDespawn && despawnDurationInput ? new CouldownDespawnModule(
-										parseInt(despawnDurationInput.value)
-									) : undefined
-								});
-							}
+								if (!dxInput || !dyInput || !wInput || !hInput) return;
+								
+								const depth = dxInput.getAttribute('data-depth');
+								const idx = dxInput.getAttribute('data-idx');
+								
+								const dx = parseFloat(dxInput.value);
+								const dy = parseFloat(dyInput.value);
+								const w = parseFloat(wInput.value);
+								const h = parseFloat(hInput.value);
+								
+								// Get checkboxes
+								const speedCheckbox = blockEl.querySelector(`.spawn-hasSpeed[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const accelerationCheckbox = blockEl.querySelector(`.spawn-hasAcceleration[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const rotationCheckbox = blockEl.querySelector(`.spawn-hasRotation[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const bounceCheckbox = blockEl.querySelector(`.spawn-hasBounce[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const killCheckbox = blockEl.querySelector(`.spawn-hasKill[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const despawnCheckbox = blockEl.querySelector(`.spawn-hasCouldownDespawn[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const spawnerCheckbox = blockEl.querySelector(`.spawn-hasSpawner[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const cooldownAttackCheckbox = blockEl.querySelector(`.spawn-hasCooldownAttack[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const continuousAttackCheckbox = blockEl.querySelector(`.spawn-hasContinuousAttack[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const healCheckbox = blockEl.querySelector(`.spawn-hasHeal[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const restoreJumpCheckbox = blockEl.querySelector(`.spawn-hasRestoreJump[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const touchDespawnCheckbox = blockEl.querySelector(`.spawn-hasTouchDespawn[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								const goalCheckbox = blockEl.querySelector(`.spawn-hasGoal[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+								
+								const hasSpeed = speedCheckbox?.checked || false;
+								const hasAcceleration = accelerationCheckbox?.checked || false;
+								const hasRotation = rotationCheckbox?.checked || false;
+								const hasBounce = bounceCheckbox?.checked || false;
+								const hasKill = killCheckbox?.checked || false;
+								const hasCouldownDespawn = despawnCheckbox?.checked || false;
+								const hasSpawner = spawnerCheckbox?.checked || false;
+								const hasCooldownAttack = cooldownAttackCheckbox?.checked || false;
+								const hasContinuousAttack = continuousAttackCheckbox?.checked || false;
+								const hasHeal = healCheckbox?.checked || false;
+								const hasRestoreJump = restoreJumpCheckbox?.checked || false;
+								const hasTouchDespawn = touchDespawnCheckbox?.checked || false;
+								const hasGoal = goalCheckbox?.checked || false;
+								
+								let builderModule: BlockModule | undefined = undefined;
+								
+								if (hasSpeed || hasAcceleration || hasRotation || hasBounce || hasKill || hasCouldownDespawn || hasSpawner || 
+									hasCooldownAttack || hasContinuousAttack || hasHeal || hasRestoreJump || hasTouchDespawn || hasGoal) {
+									const speedVxInput = blockEl.querySelector(`.spawn-speedVx[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const speedVyInput = blockEl.querySelector(`.spawn-speedVy[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const accelAxInput = blockEl.querySelector(`.spawn-accelAx[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const accelAyInput = blockEl.querySelector(`.spawn-accelAy[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const rotationStartInput = blockEl.querySelector(`.spawn-rotationStart[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const rotationSpeedInput = blockEl.querySelector(`.spawn-rotationSpeed[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const bounceFactorInput = blockEl.querySelector(`.spawn-bounceFactor[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const bounceCostInput = blockEl.querySelector(`.spawn-bounceCost[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const despawnDurationInput = blockEl.querySelector(`.spawn-despawnDuration[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const cooldownAttackDamagesInput = blockEl.querySelector(`.spawn-cooldownAttackDamages[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const cooldownAttackDurationInput = blockEl.querySelector(`.spawn-cooldownAttackDuration[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const continuousAttackDamagesInput = blockEl.querySelector(`.spawn-continuousAttackDamages[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const healHpInput = blockEl.querySelector(`.spawn-healHp[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const restoreJumpGainInput = blockEl.querySelector(`.spawn-restoreJumpGain[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									const goalTypeInput = blockEl.querySelector(`.spawn-goalType[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+									
+									// Recursive spawner handling
+									let nestedSpawner: InstanceType<typeof SpawnerModule> | undefined = undefined;
+									if (hasSpawner) {
+										const spawnerRythmInput = blockEl.querySelector(`.spawn-spawnerRythm[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLInputElement;
+										const nestedContainer = blockEl.querySelector(`.spawn-spawner-blocks[data-depth="${depth}"][data-idx="${idx}"]`);
+										
+										if (spawnerRythmInput && nestedContainer) {
+											const nestedRythm = parseInt(spawnerRythmInput.value);
+											const nestedBuilders = parseSpawnerBlocks(nestedContainer);
+											if (nestedBuilders.length > 0) {
+												nestedSpawner = new SpawnerModule(nestedRythm, false, nestedBuilders);
+											}
+										}
+									}
+									
+									builderModule = new BlockModule({
+										speed: hasSpeed && speedVxInput && speedVyInput ? new SpeedModule(
+											parseFloat(speedVxInput.value),
+											parseFloat(speedVyInput.value)
+										) : undefined,
+										acceleration: hasAcceleration && accelAxInput && accelAyInput ? new AccelerationModule(
+											parseFloat(accelAxInput.value),
+											parseFloat(accelAyInput.value)
+										) : undefined,
+										rotation: hasRotation && rotationStartInput && rotationSpeedInput ? new RotationModule(
+											parseFloat(rotationStartInput.value),
+											parseFloat(rotationSpeedInput.value)
+										) : undefined,
+										bounce: hasBounce && bounceFactorInput && bounceCostInput ? new BounceModule(
+											parseFloat(bounceFactorInput.value),
+											parseFloat(bounceCostInput.value)
+										) : undefined,
+										kill: hasKill ? new KillModule() : undefined,
+										couldownDespawn: hasCouldownDespawn && despawnDurationInput ? new CouldownDespawnModule(
+											parseInt(despawnDurationInput.value)
+										) : undefined,
+										couldownedAttack: hasCooldownAttack && cooldownAttackDamagesInput && cooldownAttackDurationInput ? new CouldownedAttackModule(
+											parseFloat(cooldownAttackDamagesInput.value),
+											parseInt(cooldownAttackDurationInput.value)
+										) : undefined,
+										continuousAttack: hasContinuousAttack && continuousAttackDamagesInput ? new ContinuousAttackModule(
+											parseFloat(continuousAttackDamagesInput.value)
+										) : undefined,
+										heal: hasHeal && healHpInput ? new HealModule(
+											parseFloat(healHpInput.value)
+										) : undefined,
+										restoreJump: hasRestoreJump && restoreJumpGainInput ? new RestoreJumpModule(
+											parseFloat(restoreJumpGainInput.value)
+										) : undefined,
+										touchDespawn: hasTouchDespawn ? new TouchDespawnModule() : undefined,
+										goal: hasGoal && goalTypeInput ? parseInt(goalTypeInput.value) : undefined,
+										spawner: nestedSpawner
+									});
+								}
+								
+								builders.push(new BlockBuilder(builderModule, { dx, dy, w, h }));
+							});
 							
-							blockBuilders.push(new BlockBuilder(builderModule, { dx, dy, w, h }));
-						});
+							return builders;
+						}
 						
-						if (blockBuilders.length > 0) {
-							spawnerModule = new SpawnerModule(spawnerRythm, false, blockBuilders);
-						} else {
-							// Keep old module if no blocks are defined
-							spawnerModule = block.module.spawner;
+						const mainContainer = document.getElementById("spawnerBlocksList");
+						if (mainContainer) {
+							const blockBuilders = parseSpawnerBlocks(mainContainer);
+							if (blockBuilders.length > 0) {
+								spawnerModule = new SpawnerModule(spawnerRythm, false, blockBuilders);
+							}
 						}
 					}
 				} catch (e) {
@@ -1039,7 +1160,21 @@ export function startEditor() {
 		setupModuleToggle("modKill", "");
 		setupModuleToggle("modTouchDespawn", "");
 
+		// Add change listeners for all parameter inputs
+		const paramInputs = [
+			"bounceFactor", "bounceCost", "healHp",
+			"cooldownAttackDamages", "cooldownAttackDuration",
+			"continuousAttackDamages", "restoreJumpGain", "goalType",
+			"speedVx", "speedVy", "accelerationAx", "accelerationAy",
+			"rotationStart", "rotationSpeed", "cooldownDespawnDuration"
+		];
 		
+		for (const inputId of paramInputs) {
+			const input = document.getElementById(inputId);
+			if (input) {
+				input.addEventListener("change", recreateBlockModule);
+			}
+		}
 
 		// Event listeners for moving patterns
 		document.getElementById("addPattern")?.addEventListener("click", () => {
@@ -1078,65 +1213,24 @@ export function startEditor() {
 			});
 		});
 
-		// Event listeners for spawner blocks
-		document.getElementById("addSpawnerBlock")?.addEventListener("click", () => {
-			const list = document.getElementById("spawnerBlocksList")!;
-			const idx = list.children.length;
-			const newBlock = document.createElement("div");
-			newBlock.className = "spawner-block";
-			newBlock.style.cssText = "border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;";
-			newBlock.innerHTML = `
-				<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
-					<input type="number" class="spawn-dx" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
-					<input type="number" class="spawn-dy" data-idx="${idx}" value="-50" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
-					<input type="number" class="spawn-w" data-idx="${idx}" value="50" step="1" style="width: 60px;" placeholder="w" title="Width">
-					<input type="number" class="spawn-h" data-idx="${idx}" value="50" step="1" style="width: 60px;" placeholder="h" title="Height">
-					<button class="spawn-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕ Remove</button>
-				</div>
-				
-				<details>
-					<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
-					<div style="padding-left: 10px; margin-top: 5px;">
-						<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-idx="${idx}"> Speed</label>
-						<div class="spawn-speed-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-speedVx" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
-							<input type="number" class="spawn-speedVy" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-idx="${idx}"> Acceleration</label>
-						<div class="spawn-accel-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-accelAx" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
-							<input type="number" class="spawn-accelAy" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-idx="${idx}"> Rotation</label>
-						<div class="spawn-rotation-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-rotationStart" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
-							<input type="number" class="spawn-rotationSpeed" data-idx="${idx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-idx="${idx}"> Bounce</label>
-						<div class="spawn-bounce-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-bounceFactor" data-idx="${idx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
-							<input type="number" class="spawn-bounceCost" data-idx="${idx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-idx="${idx}"> Kill</label>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-idx="${idx}"> Cooldown Despawn</label>
-						<div class="spawn-despawn-opts" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-despawnDuration" data-idx="${idx}" value="100" step="10" style="width: 60px;" placeholder="duration">
-						</div>
-					</div>
-				</details>
-			`;
-			list.appendChild(newBlock);
-			
-			// Add listeners to new inputs
-			attachSpawnerBlockListeners(newBlock);
-		});
+		// Add change listeners for moving and spawner parameters
+		const movingInputs = ["movingTimes"];
+		for (const inputId of movingInputs) {
+			const input = document.getElementById(inputId);
+			if (input) {
+				input.addEventListener("change", recreateBlockModule);
+			}
+		}
 
-		// Function to attach listeners to spawner block elements
+		const spawnerInputs = ["spawnerRythm"];
+		for (const inputId of spawnerInputs) {
+			const input = document.getElementById(inputId);
+			if (input) {
+				input.addEventListener("change", recreateBlockModule);
+			}
+		}
+
+		// Function to attach listeners to spawner block elements (recursive)
 		function attachSpawnerBlockListeners(blockElement: Element) {
 			blockElement.querySelectorAll("input[type='number']:not([type='checkbox'])").forEach(input => {
 				input.addEventListener("change", recreateBlockModule);
@@ -1150,7 +1244,11 @@ export function startEditor() {
 			// Toggle visibility of module options
 			const setupSpawnerToggle = (checkboxClass: string, optsClass: string) => {
 				const checkbox = blockElement.querySelector(`.${checkboxClass}`) as HTMLInputElement;
-				const opts = blockElement.querySelector(`.${optsClass}`) as HTMLElement;
+				if (!checkbox) return;
+				
+				const depth = checkbox.getAttribute('data-depth');
+				const idx = checkbox.getAttribute('data-idx');
+				const opts = blockElement.querySelector(`.${optsClass}[data-depth="${depth}"][data-idx="${idx}"]`) as HTMLElement;
 				
 				if (checkbox && opts) {
 					checkbox.addEventListener("change", () => {
@@ -1167,49 +1265,167 @@ export function startEditor() {
 			setupSpawnerToggle("spawn-hasRotation", "spawn-rotation-opts");
 			setupSpawnerToggle("spawn-hasBounce", "spawn-bounce-opts");
 			setupSpawnerToggle("spawn-hasCouldownDespawn", "spawn-despawn-opts");
-			
+			setupSpawnerToggle("spawn-hasSpawner", "spawn-spawner-opts");
+			setupSpawnerToggle("spawn-hasCooldownAttack", "spawn-cooldownattack-opts");
+			setupSpawnerToggle("spawn-hasContinuousAttack", "spawn-continuousattack-opts");
+			setupSpawnerToggle("spawn-hasHeal", "spawn-heal-opts");
+			setupSpawnerToggle("spawn-hasRestoreJump", "spawn-restorejump-opts");
+			setupSpawnerToggle("spawn-hasGoal", "spawn-goal-opts");
+
 			const killCheckbox = blockElement.querySelector(".spawn-hasKill");
 			if (killCheckbox) {
 				killCheckbox.addEventListener("change", recreateBlockModule);
 			}
+
+			const touchDespawnCheckbox = blockElement.querySelector(".spawn-hasTouchDespawn");
+			if (touchDespawnCheckbox) {
+				touchDespawnCheckbox.addEventListener("change", recreateBlockModule);
+			}
+
+			// Add nested block button
+			const addNestedBtn = blockElement.querySelector(".spawn-addNestedBlock");
+			if (addNestedBtn) {
+				addNestedBtn.addEventListener("click", (e) => {
+					e.stopPropagation();
+					const btn = e.target as HTMLElement;
+					const depth = parseInt(btn.getAttribute('data-depth') || '0');
+					const idx = btn.getAttribute('data-idx');
+					const container = blockElement.querySelector(`.spawn-spawner-blocks[data-depth="${depth}"][data-idx="${idx}"]`);
+					
+					if (container) {
+						const newDepth = depth + 1;
+						const newIdx = container.children.length;
+						const newBlock = document.createElement("div");
+						newBlock.className = "spawner-block";
+						newBlock.setAttribute("data-depth", newDepth.toString());
+						newBlock.setAttribute("data-idx", newIdx.toString());
+						newBlock.style.cssText = `border: 1px solid #999; padding: 10px; margin-left: ${newDepth * 20}px; margin-bottom: 10px; border-radius: 5px; background: ${newDepth % 2 === 0 ? '#f9f9f9' : '#efefef'};`;
+						newBlock.innerHTML = `
+							<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
+								<input type="number" class="spawn-dx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="1" style="width: 60px;" placeholder="dx">
+								<input type="number" class="spawn-dy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="1" style="width: 60px;" placeholder="dy">
+								<input type="number" class="spawn-w" data-depth="${newDepth}" data-idx="${newIdx}" value="${PIXEL_SIZE*2}" step="1" style="width: 60px;" placeholder="w">
+								<input type="number" class="spawn-h" data-depth="${newDepth}" data-idx="${newIdx}" value="${PIXEL_SIZE*2}" step="1" style="width: 60px;" placeholder="h">
+								<button class="spawn-remove" data-depth="${newDepth}" data-idx="${newIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+							</div>
+							
+							<details>
+								<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
+								<div style="padding-left: 10px; margin-top: 5px;">
+									<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="${newDepth}" data-idx="${newIdx}"> Speed</label>
+									<div class="spawn-speed-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
+										<input type="number" class="spawn-speedVx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
+										<input type="number" class="spawn-speedVy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
+									</div>
+									
+									<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="${newDepth}" data-idx="${newIdx}"> Acceleration</label>
+									<div class="spawn-accel-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
+										<input type="number" class="spawn-accelAx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
+										<input type="number" class="spawn-accelAy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
+									</div>
+									
+									<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="${newDepth}" data-idx="${newIdx}"> Rotation</label>
+									<div class="spawn-rotation-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
+										<input type="number" class="spawn-rotationStart" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
+										<input type="number" class="spawn-rotationSpeed" data-depth="${newDepth}" data-idx="${newIdx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
+									</div>
+									
+									<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="${newDepth}" data-idx="${newIdx}"> Bounce</label>
+									<div class="spawn-bounce-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
+										<input type="number" class="spawn-bounceFactor" data-depth="${newDepth}" data-idx="${newIdx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
+										<input type="number" class="spawn-bounceCost" data-depth="${newDepth}" data-idx="${newIdx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
+									</div>
+									
+									<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="${newDepth}" data-idx="${newIdx}"> Kill</label>
+									
+									<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="${newDepth}" data-idx="${newIdx}"> Cooldown Despawn</label>
+									<div class="spawn-despawn-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
+										<input type="number" class="spawn-despawnDuration" data-depth="${newDepth}" data-idx="${newIdx}" value="100" step="10" style="width: 60px;" placeholder="duration">
+									</div>
+									
+									<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="${newDepth}" data-idx="${newIdx}"> Spawner (nested)</label>
+									<div class="spawn-spawner-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+										<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="${newDepth}" data-idx="${newIdx}" value="60" step="1" style="width: 80px;"></label><br>
+										<div class="spawn-spawner-blocks" data-depth="${newDepth}" data-idx="${newIdx}"></div>
+										<button class="spawn-addNestedBlock" data-depth="${newDepth}" data-idx="${newIdx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+									</div>
+								</div>
+							</details>
+						`;
+						container.appendChild(newBlock);
+						attachSpawnerBlockListeners(newBlock);
+					}
+				});
+			}
 		}
+
+		// Event listeners for spawner blocks
+		document.getElementById("addSpawnerBlock")?.addEventListener("click", () => {
+			const list = document.getElementById("spawnerBlocksList")!;
+			const idx = list.querySelectorAll(':scope > .spawner-block').length;
+			const newBlock = document.createElement("div");
+			newBlock.className = "spawner-block";
+			newBlock.setAttribute("data-depth", "0");
+			newBlock.setAttribute("data-idx", idx.toString());
+			newBlock.style.cssText = "border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;";
+			newBlock.innerHTML = `
+				<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
+					<input type="number" class="spawn-dx" data-depth="0" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dx">
+					<input type="number" class="spawn-dy" data-depth="0" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dy">
+					<input type="number" class="spawn-w" data-depth="0" data-idx="${idx}" value="${PIXEL_SIZE*2}" step="1" style="width: 60px;" placeholder="w">
+					<input type="number" class="spawn-h" data-depth="0" data-idx="${idx}" value="${PIXEL_SIZE*2}" step="1" style="width: 60px;" placeholder="h">
+					<button class="spawn-remove" data-depth="0" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+				</div>
+				
+				<details>
+					<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
+					<div style="padding-left: 10px; margin-top: 5px;">
+						<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="0" data-idx="${idx}"> Speed</label>
+						<div class="spawn-speed-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-speedVx" data-depth="0" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
+							<input type="number" class="spawn-speedVy" data-depth="0" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="0" data-idx="${idx}"> Acceleration</label>
+						<div class="spawn-accel-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-accelAx" data-depth="0" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
+							<input type="number" class="spawn-accelAy" data-depth="0" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="0" data-idx="${idx}"> Rotation</label>
+						<div class="spawn-rotation-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-rotationStart" data-depth="0" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
+							<input type="number" class="spawn-rotationSpeed" data-depth="0" data-idx="${idx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="0" data-idx="${idx}"> Bounce</label>
+						<div class="spawn-bounce-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-bounceFactor" data-depth="0" data-idx="${idx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
+							<input type="number" class="spawn-bounceCost" data-depth="0" data-idx="${idx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
+						</div>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="0" data-idx="${idx}"> Kill</label>
+						
+						<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="0" data-idx="${idx}"> Cooldown Despawn</label>
+						<div class="spawn-despawn-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
+							<input type="number" class="spawn-despawnDuration" data-depth="0" data-idx="${idx}" value="100" step="10" style="width: 60px;" placeholder="duration">
+						</div>
+						
+						<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="0" data-idx="${idx}"> Spawner (nested)</label>
+						<div class="spawn-spawner-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+							<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="0" data-idx="${idx}" value="60" step="1" style="width: 80px;"></label><br>
+							<div class="spawn-spawner-blocks" data-depth="0" data-idx="${idx}"></div>
+							<button class="spawn-addNestedBlock" data-depth="0" data-idx="${idx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+						</div>
+					</div>
+				</details>
+			`;
+			list.appendChild(newBlock);
+			attachSpawnerBlockListeners(newBlock);
+		});
 
 		// Add listeners to existing spawner blocks
 		document.querySelectorAll(".spawner-block").forEach(attachSpawnerBlockListeners);
-
-
-		// Add change listeners for all parameter inputs
-		const paramInputs = [
-			"bounceFactor", "bounceCost", "healHp",
-			"cooldownAttackDamages", "cooldownAttackDuration",
-			"continuousAttackDamages", "restoreJumpGain", "goalType",
-			"speedVx", "speedVy", "accelerationAx", "accelerationAy",
-			"rotationStart", "rotationSpeed", "cooldownDespawnDuration"
-		];
-		
-		for (const inputId of paramInputs) {
-			const input = document.getElementById(inputId);
-			if (input) {
-				input.addEventListener("change", recreateBlockModule);
-			}
-		}
-
-		// Add change listeners for moving and spawner parameters
-		const movingInputs = ["movingTimes", "movingPatterns"];
-		for (const inputId of movingInputs) {
-			const input = document.getElementById(inputId);
-			if (input) {
-				input.addEventListener("change", recreateBlockModule);
-			}
-		}
-
-		const spawnerInputs = ["spawnerRythm", "spawnerBlocks"];
-		for (const inputId of spawnerInputs) {
-			const input = document.getElementById(inputId);
-			if (input) {
-				input.addEventListener("change", recreateBlockModule);
-			}
-		}
 
 		// Store update function for use in mousemove
 		(block as any)._updateDisplay = updateBlockDisplay;
@@ -2130,6 +2346,7 @@ export function startEditor() {
 
 
 					const {stage, name} = await importStage(read);
+					levelName = name;
 					stageContainer[0] = stage;
 				})();
 				break;
@@ -2543,6 +2760,17 @@ export function startEditor() {
 		// Draw mouse cursor (white transparent square)
 		ctx.fillStyle = "rgba(255, 255, 255, 0.3)";
 		ctx.fillRect(mouse.wx, mouse.wy, PIXEL_SIZE, PIXEL_SIZE);
+		
+		
+		// Draw editor
+		ctx.strokeStyle = "grey";
+		ctx.fillStyle = "grey";
+		ctx.beginPath();
+		ctx.arc(0, 0, PIXEL_SIZE, 0, Math.PI * 2);
+		ctx.stroke();
+		ctx.beginPath();
+		ctx.arc(0, 0, PIXEL_SIZE/2, 0, Math.PI * 2);
+		ctx.fill();
 
 		ctx.restore();
 		ctx.restore();
