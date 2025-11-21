@@ -1,413 +1,414 @@
 <!DOCTYPE html>
 <html lang="fr">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Jumpy Jump - Leaderboard</title>
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Jumpy Jump - Leaderboard</title>
+	<style>
+		* {
+			margin: 0;
+			padding: 0;
+			box-sizing: border-box;
+		}
 
-        body {
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            min-height: 100vh;
-            padding: 20px;
-        }
+		body {
+			font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			min-height: 100vh;
+			padding: 20px;
+		}
 
-        .container {
-            max-width: 900px;
-            margin: 0 auto;
-        }
+		.container {
+			max-width: 900px;
+			margin: 0 auto;
+		}
 
-        h1 {
-            text-align: center;
-            color: white;
-            font-size: 3em;
-            margin-bottom: 10px;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
-        }
+		h1 {
+			text-align: center;
+			color: white;
+			font-size: 3em;
+			margin-bottom: 10px;
+			text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+		}
 
-        .subtitle {
-            text-align: center;
-            color: rgba(255,255,255,0.9);
-            margin-bottom: 30px;
-            font-size: 1.1em;
-        }
+		.subtitle {
+			text-align: center;
+			color: rgba(255,255,255,0.9);
+			margin-bottom: 30px;
+			font-size: 1.1em;
+		}
 
-        .controls {
-            background: white;
-            padding: 20px;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            margin-bottom: 30px;
-        }
+		.controls {
+			background: white;
+			padding: 20px;
+			border-radius: 15px;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+			margin-bottom: 30px;
+		}
 
-        .control-group {
-            margin-bottom: 15px;
-        }
+		.control-group {
+			margin-bottom: 15px;
+		}
 
-        label {
-            display: block;
-            margin-bottom: 5px;
-            font-weight: 600;
-            color: #333;
-        }
+		label {
+			display: block;
+			margin-bottom: 5px;
+			font-weight: 600;
+			color: #333;
+		}
 
-        select, input {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #e0e0e0;
-            border-radius: 8px;
-            font-size: 16px;
-            transition: border-color 0.3s;
-        }
+		select, input {
+			width: 100%;
+			padding: 12px;
+			border: 2px solid #e0e0e0;
+			border-radius: 8px;
+			font-size: 16px;
+			transition: border-color 0.3s;
+		}
 
-        select:focus, input:focus {
-            outline: none;
-            border-color: #667eea;
-        }
+		select:focus, input:focus {
+			outline: none;
+			border-color: #667eea;
+		}
 
-        button {
-            width: 100%;
-            padding: 12px;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            border: none;
-            border-radius: 8px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
+		button {
+			width: 100%;
+			padding: 12px;
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			border: none;
+			border-radius: 8px;
+			font-size: 16px;
+			font-weight: 600;
+			cursor: pointer;
+			transition: transform 0.2s, box-shadow 0.2s;
+		}
 
-        button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
-        }
+		button:hover {
+			transform: translateY(-2px);
+			box-shadow: 0 5px 15px rgba(102, 126, 234, 0.4);
+		}
 
-        button:active {
-            transform: translateY(0);
-        }
+		button:active {
+			transform: translateY(0);
+		}
 
-        .leaderboard-card {
-            background: white;
-            border-radius: 15px;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.3);
-            overflow: hidden;
-        }
+		.leaderboard-card {
+			background: white;
+			border-radius: 15px;
+			box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+			overflow: hidden;
+		}
 
-        .leaderboard-header {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            color: white;
-            padding: 20px;
-            text-align: center;
-        }
+		.leaderboard-header {
+			background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+			color: white;
+			padding: 20px;
+			text-align: center;
+		}
 
-        .leaderboard-header h2 {
-            font-size: 1.8em;
-            margin-bottom: 5px;
-        }
+		.leaderboard-header h2 {
+			font-size: 1.8em;
+			margin-bottom: 5px;
+		}
 
-        .map-name {
-            opacity: 0.9;
-            font-size: 0.9em;
-        }
+		.map-name {
+			opacity: 0.9;
+			font-size: 0.9em;
+		}
 
-        .leaderboard-body {
-            padding: 20px;
-        }
+		.leaderboard-body {
+			padding: 20px;
+		}
 
-        .leaderboard-item {
-            display: flex;
-            align-items: center;
-            padding: 15px;
-            margin-bottom: 10px;
-            background: #f8f9fa;
-            border-radius: 10px;
-            transition: transform 0.2s, box-shadow 0.2s;
-        }
+		.leaderboard-item {
+			display: flex;
+			align-items: center;
+			padding: 15px;
+			margin-bottom: 10px;
+			background: #f8f9fa;
+			border-radius: 10px;
+			transition: transform 0.2s, box-shadow 0.2s;
+		}
 
-        .leaderboard-item:hover {
-            transform: translateX(5px);
-            box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-        }
+		.leaderboard-item:hover {
+			transform: translateX(5px);
+			box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+		}
 
-        .leaderboard-item.top-1 {
-            background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
-        }
+		.leaderboard-item.top-1 {
+			background: linear-gradient(135deg, #ffd700 0%, #ffed4e 100%);
+		}
 
-        .leaderboard-item.top-2 {
-            background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
-        }
+		.leaderboard-item.top-2 {
+			background: linear-gradient(135deg, #c0c0c0 0%, #e8e8e8 100%);
+		}
 
-        .leaderboard-item.top-3 {
-            background: linear-gradient(135deg, #cd7f32 0%, #daa06d 100%);
-        }
+		.leaderboard-item.top-3 {
+			background: linear-gradient(135deg, #cd7f32 0%, #daa06d 100%);
+		}
 
-        .rank {
-            font-size: 1.5em;
-            font-weight: bold;
-            width: 50px;
-            text-align: center;
-            color: #333;
-        }
+		.rank {
+			font-size: 1.5em;
+			font-weight: bold;
+			width: 50px;
+			text-align: center;
+			color: #333;
+		}
 
-        .username {
-            flex: 1;
-            font-size: 1.2em;
-            font-weight: 600;
-            color: #333;
-        }
+		.username {
+			flex: 1;
+			font-size: 1.2em;
+			font-weight: 600;
+			color: #333;
+		}
 
-        .time-container {
-            min-width: 150px;
-            text-align: right;
-        }
+		.time-container {
+			min-width: 150px;
+			text-align: right;
+		}
 
-        .time {
-            font-size: 1.3em;
-            font-weight: bold;
-            color: #667eea;
-        }
+		.time {
+			font-size: 1.3em;
+			font-weight: bold;
+			color: #667eea;
+		}
 
-        .loading {
-            text-align: center;
-            padding: 40px;
-            color: #666;
-            font-size: 1.2em;
-        }
+		.loading {
+			text-align: center;
+			padding: 40px;
+			color: #666;
+			font-size: 1.2em;
+		}
 
-        .error {
-            background: #fee;
-            border: 2px solid #fcc;
-            color: #c33;
-            padding: 15px;
-            border-radius: 10px;
-            margin: 20px 0;
-            text-align: center;
-        }
+		.error {
+			background: #fee;
+			border: 2px solid #fcc;
+			color: #c33;
+			padding: 15px;
+			border-radius: 10px;
+			margin: 20px 0;
+			text-align: center;
+		}
 
-        .empty {
-            text-align: center;
-            padding: 40px;
-            color: #999;
-            font-size: 1.1em;
-        }
+		.empty {
+			text-align: center;
+			padding: 40px;
+			color: #999;
+			font-size: 1.1em;
+		}
 
-        .date {
-            font-size: 0.75em;
-            color: #999;
-            margin-top: 3px;
-        }
+		.date {
+			font-size: 0.75em;
+			color: #999;
+			margin-top: 3px;
+		}
 
-        @media (max-width: 600px) {
-            h1 {
-                font-size: 2em;
-            }
+		@media (max-width: 600px) {
+			h1 {
+				font-size: 2em;
+			}
 
-            .leaderboard-item {
-                flex-wrap: wrap;
-            }
+			.leaderboard-item {
+				flex-wrap: wrap;
+			}
 
-            .time-container {
-                width: 100%;
-                text-align: left;
-                margin-top: 5px;
-                margin-left: 50px;
-            }
-        }
-    </style>
+			.time-container {
+				width: 100%;
+				text-align: left;
+				margin-top: 5px;
+				margin-left: 50px;
+			}
+		}
+	</style>
 </head>
 <body>
-    <div class="container">
-        <h1>🏆 Jumpy Jump</h1>
-        <div class="subtitle">Leaderboard Global</div>
+	<div class="container">
+		<h1>🏆 Jumpy Jump</h1>
+		<div class="subtitle">Leaderboard Global</div>
 
-        <div class="controls">
-            <div class="control-group">
-                <label for="mapSelect">Sélectionner une map:</label>
-                <select id="mapSelect">
-                    <option value="">Chargement des maps...</option>
-                </select>
-            </div>
+		<div class="controls">
+			<div class="control-group">
+				<label for="mapSelect">Sélectionner une map:</label>
+				<select id="mapSelect">
+					<option value="">Chargement des maps...</option>
+				</select>
+			</div>
 
-            <div class="control-group">
-                <label for="customMapName">Ou entrer un nom de map:</label>
-                <input type="text" id="customMapName" placeholder="Nom de la map personnalisée">
-            </div>
+			<div class="control-group">
+				<label for="customMapName">Ou entrer un nom de map:</label>
+				<input type="text" id="customMapName" placeholder="Nom de la map personnalisée">
+			</div>
 
-            <button onclick="loadLeaderboard()">Charger le Leaderboard</button>
-        </div>
+			<button onclick="loadLeaderboard()">Charger le Leaderboard</button>
+		</div>
 
-        <div class="leaderboard-card">
-            <div class="leaderboard-header">
-                <h2>Top 10</h2>
-                <div class="map-name" id="currentMapName">Sélectionnez une map</div>
-            </div>
-            <div class="leaderboard-body" id="leaderboardBody">
-                <div class="loading">Sélectionnez une map pour voir le leaderboard</div>
-            </div>
-        </div>
-    </div>
+		<div class="leaderboard-card">
+			<div class="leaderboard-header">
+				<h2>Top 10</h2>
+				<div class="map-name" id="currentMapName">Sélectionnez une map</div>
+			</div>
+			<div class="leaderboard-body" id="leaderboardBody">
+				<div class="loading">Sélectionnez une map pour voir le leaderboard</div>
+			</div>
+		</div>
+	</div>
 
-    <script>
-        const LINK = "https://jumpyjump-production.up.railway.app";
-        let mapsCache = [];
+	<script>
+		const LINK = "https://jumpyjump-production.up.railway.app";
+		let mapsCache = [];
 
-        // Charger toutes les maps au démarrage
-        async function loadMaps() {
-            try {
-                const response = await fetch(`${LINK}/allmaps`);
-                const maps = await response.json();
-                mapsCache = maps;
+		// Charger toutes les maps au démarrage
+		async function loadMaps() {
+			try {
+				const response = await fetch(`${LINK}/allmaps`);
+				const maps = await response.json();
+				mapsCache = maps;
 
-                const select = document.getElementById('mapSelect');
-                select.innerHTML = '<option value="">-- Choisir une map --</option>';
-                
-                maps.forEach(map => {
-                    const option = document.createElement('option');
-                    option.value = map.mapid;
-                    option.textContent = map.mapname;
-                    option.dataset.mapname = map.mapname;
-                    select.appendChild(option);
-                });
-            } catch (error) {
-                console.error('Erreur lors du chargement des maps:', error);
-                document.getElementById('mapSelect').innerHTML = '<option value="">Erreur de chargement</option>';
-            }
-        }
+				const select = document.getElementById('mapSelect');
+				select.innerHTML = '<option value="">-- Choisir une map --</option>';
+				
+				maps.forEach(map => {
+					const option = document.createElement('option');
+					option.value = map.mapid;
+					option.textContent = map.mapname;
+					option.dataset.mapname = map.mapname;
+					select.appendChild(option);
+				});
+			} catch (error) {
+				console.error('Erreur lors du chargement des maps:', error);
+				document.getElementById('mapSelect').innerHTML = '<option value="">Erreur de chargement</option>';
+			}
+		}
 
-        // Formater le temps (frames vers format lisible)
-        function formatTime(frames) {
-            const ms = Math.round(frames * 1000 / 60);
-            const totalSeconds = Math.floor(ms / 1000);
-            const minutes = Math.floor(totalSeconds / 60);
-            const seconds = totalSeconds % 60;
-            const milliseconds = ms % 1000;
-            
-            if (minutes > 0) {
-                return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
-            }
-            return `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
-        }
+		// Formater le temps (frames vers format lisible)
+		function formatTime(frames) {
+			const ms = Math.round(frames * 1000 / 60);
+			const totalSeconds = Math.floor(ms / 1000);
+			const minutes = Math.floor(totalSeconds / 60);
+			const seconds = totalSeconds % 60;
+			const milliseconds = ms % 1000;
+			
+			if (minutes > 0) {
+				return `${minutes}:${seconds.toString().padStart(2, '0')}.${milliseconds.toString().padStart(3, '0')}`;
+			}
+			return `${seconds}.${milliseconds.toString().padStart(3, '0')}s`;
+		}
 
-        // Formater la date
-        function formatDate(timestamp) {
-            const date = new Date(parseInt(timestamp));
-            return date.toLocaleDateString('fr-FR', { 
-                day: '2-digit', 
-                month: '2-digit', 
-                year: 'numeric',
-                hour: '2-digit',
-                minute: '2-digit'
-            });
-        }
+		// Formater la date
+		function formatDate(timestamp) {
+			const date = new Date(parseInt(timestamp));
+			return date.toLocaleDateString('fr-FR', { 
+				day: '2-digit', 
+				month: '2-digit', 
+				year: 'numeric',
+				hour: '2-digit',
+				minute: '2-digit'
+			});
+		}
 
-        // Charger le leaderboard
-        async function loadLeaderboard() {
-            const select = document.getElementById('mapSelect');
-            const customInput = document.getElementById('customMapName');
-            const body = document.getElementById('leaderboardBody');
-            const mapNameDisplay = document.getElementById('currentMapName');
+		// Charger le leaderboard
+		async function loadLeaderboard() {
+			const select = document.getElementById('mapSelect');
+			const customInput = document.getElementById('customMapName');
+			const body = document.getElementById('leaderboardBody');
+			const mapNameDisplay = document.getElementById('currentMapName');
 
-            let mapid = select.value;
-            let mapname = customInput.value.trim();
-            let displayName = '';
+			let mapid = select.value;
+			let mapname = customInput.value.trim();
+			let displayName = '';
 
-            // Déterminer quelle source utiliser
-            if (customInput.value.trim()) {
-                displayName = mapname;
-            } else if (mapid) {
-                const selectedOption = select.options[select.selectedIndex];
-                displayName = selectedOption.dataset.mapname || 'Map sélectionnée';
-            } else {
-                body.innerHTML = '<div class="error">Veuillez sélectionner une map ou entrer un nom</div>';
-                return;
-            }
+			// Déterminer quelle source utiliser
+			if (customInput.value.trim()) {
+				displayName = mapname;
+			} else if (mapid) {
+				const selectedOption = select.options[select.selectedIndex];
+				displayName = selectedOption.dataset.mapname || 'Map sélectionnée';
+			} else {
+				body.innerHTML = '<div class="error">Veuillez sélectionner une map ou entrer un nom</div>';
+				return;
+			}
 
-            // Afficher loading
-            body.innerHTML = '<div class="loading">Chargement...</div>';
-            mapNameDisplay.textContent = displayName;
+			// Afficher loading
+			body.innerHTML = '<div class="loading">Chargement...</div>';
+			mapNameDisplay.textContent = displayName;
 
-            try {
-                // Construire l'URL
-                let url = `${LINK}/leaderboard?`;
-                if (mapid) {
-                    url += `mapid=${mapid}`;
-                } else {
-                    url += `mapname=${encodeURIComponent(mapname)}`;
-                }
+			try {
+				// Construire l'URL
+				let url = `${LINK}/leaderboard?`;
+				if (mapid) {
+					url += `mapid=${mapid}`;
+				} else {
+					url += `mapname=${encodeURIComponent(mapname)}`;
+				}
 
-                const response = await fetch(url);
-                const runs = await response.json();
+				const response = await fetch(url);
+				const runs = await response.json();
 
-                if (!response.ok || runs.error) {
-                    body.innerHTML = `<div class="error">${runs.error || 'Erreur serveur'}</div>`;
-                    return;
-                }
+				if (!response.ok || runs.error) {
+					body.innerHTML = `<div class="error">${runs.error || 'Erreur serveur'}</div>`;
+					return;
+				}
 
-                if (runs.length === 0) {
-                    body.innerHTML = '<div class="empty">Aucun score enregistré pour cette map</div>';
-                    return;
-                }
+				if (runs.length === 0) {
+					body.innerHTML = '<div class="empty">Aucun score enregistré pour cette map</div>';
+					return;
+				}
 
-                // Afficher les résultats
-                body.innerHTML = runs.map((run, index) => {
-                    const rank = index + 1;
-                    const topClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
-                    const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
-                    
-                    return `
-                        <div class="leaderboard-item ${topClass}">
-                            <div class="rank">${medal || rank}</div>
-                            <div class="username">${escapeHtml(run.username)}</div>
-                            <div class="time-container">
-                                <div class="time">${formatTime(run.time)}</div>
-                                <div class="date">${formatDate(run.date)}</div>
-                            </div>
-                        </div>
-                    `;
-                }).join('');
+				// Afficher les résultats
+				body.innerHTML = runs.map((run, index) => {
+					const rank = index + 1;
+					const topClass = rank === 1 ? 'top-1' : rank === 2 ? 'top-2' : rank === 3 ? 'top-3' : '';
+					const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : '';
+					
+					return `
+						<div class="leaderboard-item ${topClass}">
+							<div class="rank">${medal || rank}</div>
+							<div class="username">${escapeHtml(run.username)}</div>
+							<div class="time-container">
+								<div class="time">${formatTime(run.time)}</div>
+								<div class="date">${formatDate(run.date)}</div>
+							</div>
+						</div>
+					`;
+				}).join('');
 
-            } catch (error) {
-                console.error('Erreur:', error);
-                body.innerHTML = '<div class="error">Erreur lors du chargement du leaderboard</div>';
-            }
-        }
+			} catch (error) {
+				console.error('Erreur:', error);
+				body.innerHTML = '<div class="error">Erreur lors du chargement du leaderboard</div>';
+			}
+		}
 
-        // Échapper le HTML pour éviter les injections
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text;
-            return div.innerHTML;
-        }
+		// Échapper le HTML pour éviter les injections
+		function escapeHtml(text) {
+			const div = document.createElement('div');
+			div.textContent = text;
+			return div.innerHTML;
+		}
 
-        // Gérer le changement de sélection
-        document.getElementById('mapSelect').addEventListener('change', function() {
-            if (this.value) {
-                document.getElementById('customMapName').value = '';
-            }
-        });
+		// Gérer le changement de sélection
+		document.getElementById('mapSelect').addEventListener('change', function() {
+			if (this.value) {
+				document.getElementById('customMapName').value = '';
+				loadLeaderboard(); // ⬅ Charge automatiquement la map sélectionnée
+			}
+		});
 
-        document.getElementById('customMapName').addEventListener('input', function() {
-            if (this.value.trim()) {
-                document.getElementById('mapSelect').value = '';
-            }
-        });
+		document.getElementById('customMapName').addEventListener('input', function() {
+			if (this.value.trim()) {
+				document.getElementById('mapSelect').value = '';
+			}
+		});
 
-        // Permettre de charger avec Enter
-        document.getElementById('customMapName').addEventListener('keypress', function(e) {
-            if (e.key === 'Enter') {
-                loadLeaderboard();
-            }
-        });
+		// Permettre de charger avec Enter
+		document.getElementById('customMapName').addEventListener('keypress', function(e) {
+			if (e.key === 'Enter') {
+				loadLeaderboard();
+			}
+		});
 
-        // Charger les maps au démarrage
-        loadMaps();
-    </script>
+		// Charger les maps au démarrage
+		loadMaps();
+	</script>
 </body>
 </html>
