@@ -6,6 +6,7 @@ import { Stage, WeakStage } from "./Stage";
 import { Room } from "./Room";
 import { sendRun } from "./sendRun";
 import { Vector } from "./Vector";
+import { Entity, HumanFollower } from "./Entity";
 
 
 type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
@@ -66,7 +67,7 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.4.0";
+	static GAME_VERSION = "1.5.0";
 
 	player = new Player();
 	camera = new Camera();
@@ -143,7 +144,7 @@ export class Game {
 
 
 		if (this.inputHandler.first('enter')) {
-			const special = prompt("replay");
+			const special = prompt("replay,debug");
 			if (special) {
 				this.handleSpecial(special);
 			}
@@ -366,7 +367,6 @@ export class Game {
 				
 		const gameState = this.state.get();
 		if (gameState === 'play' || gameState === 'win') {
-			console.log("respawn");
 			this.player.respawn();
 			this.camera.reset();
 			this.validRun = true;
@@ -458,14 +458,22 @@ export class Game {
 
 
 			// Draw blocks
-			this.stage!.currentRoom.draw(ctx);
+			this.stage!.currentRoom.drawBlocks(ctx);
 			for (let room of this.stage!.currentRoom.adjacentRooms!) {
-				room.draw(ctx);
+				room.drawBlocks(ctx);
 			}
 			
 			// Draw adjacence rects
 			this.stage!.drawAdjacenceRects(ctx, this.player);
+
+			// Draw entities
+			this.stage!.currentRoom.drawEntites(ctx);
+			for (let room of this.stage!.currentRoom.adjacentRooms!) {
+				room.drawEntites(ctx);
+			}
+
 			
+
 			// Draw player
 			this.player.draw(ctx);		
 
@@ -600,6 +608,11 @@ export class Game {
 				this.startReplay(this.stage);
 			}
 			break;
+		
+		case "debug":
+			this.debug();
+			break;
+
 		}
 	}
 
@@ -617,7 +630,56 @@ export class Game {
 		}
 	}
 
+	searchNearestEntity(x: number, y: number, filter: (e: Entity) => boolean, room?: Room) {
+		// For player
+		let nearest: Entity | null = null;
+		let bestDist = Infinity;
 
+		if (filter(this.player)) {
+			const dx = this.player.x - x;
+			const dy = this.player.y - y;
+			bestDist = dx * dx + dy * dy;
+			nearest = this.player;
+		}
+
+		if (!room || !room.contains(x, y)) {
+			const r = this.stage!.findRoom(x, y);
+			if (!r)
+				return null;
+			
+			room = r;
+		}
+
+
+		function apply(room: Room) {
+			for (let e of room.entites) {
+				if (!filter(e)) continue;
+		
+				const dx = e.x - x;
+				const dy = e.y - y;
+				const dist = dx * dx + dy * dy;
+		
+				if (dist < bestDist) {
+					bestDist = dist;
+					nearest = e;
+				}
+			}
+		}
+
+		apply(room);
+		
+		if (room.adjacentRooms)
+			for (let r of room.adjacentRooms)
+				apply(r);
+
+		return nearest;
+	}
+
+
+
+	debug() {
+		
+	}
 }
 
 

@@ -210,7 +210,7 @@ export function startEditor() {
 	let currentCursor = "default";
 
 	// Stage data
-	const rooms: Room[] = [new Room(-800, -450, 1600, 900, [])];
+	const rooms: Room[] = [new Room(-800, -450, 1600, 900, [], [])];
 	const stageContainer = [new Stage(rooms)];
 
 	
@@ -1758,7 +1758,7 @@ export function startEditor() {
 				const h = y2 - y1;
 
 				if (w >= PIXEL_SIZE * 4 && h >= PIXEL_SIZE * 4) {
-					const room = new Room(x1, y1, w, h, []);
+					const room = new Room(x1, y1, w, h, [], []);
 					
 					const stage = stageContainer[0];
 					let canPlace = true;
@@ -2259,7 +2259,7 @@ export function startEditor() {
 				const stageCopy = new Stage(stageContainer[0].rooms.map(room => 
 					new Room(room.x, room.y, room.w, room.h, room.blocks.map(block => 
 						new Block(block.x, block.y, block.w, block.h, block.module.copy())
-					))
+					), [])
 				));
 
 				const name = levelName ?? "edited";
@@ -2686,8 +2686,9 @@ export function startEditor() {
 
 		// Draw blocks
 		for (const room of stage.rooms) {
-			room.draw(ctx);
+			room.drawBlocks(ctx);
 		}
+		
 
 		// Draw rotation hitboxes
 		for (const room of stage.rooms) {
@@ -2700,6 +2701,12 @@ export function startEditor() {
 				}
 			}
 		}
+
+		// Draw entities
+		for (const room of stage.rooms) {
+			room.drawEntites(ctx);
+		}
+
 
 		// Draw room borders
 		ctx.strokeStyle = "white";

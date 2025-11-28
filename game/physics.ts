@@ -10,6 +10,14 @@ interface Rect {
 	r: number; // rotation (radians)
 }
 
+interface Triangle {
+	x: number; // centre X
+	y: number; // centre Y
+	w: number; // largeur
+	h: number; // hauteur
+	r: number; // rotation (radians)
+}
+
 export const physics = {
 	checkRectRectCollision(a: Rect, b: Rect): boolean {
 		const dot = (u: Vec2, v: Vec2): number => u.x * v.x + u.y * v.y;
@@ -204,6 +212,83 @@ export const physics = {
 		}
 		
 		return minDist;
-	}
+	},
 	
+
+
+
+	checkRectTriangleCollision(rect: Rect, triangle: Triangle): boolean {
+
+		// Convertit le rectangle orienté en 4 sommets
+		const rectVertices = (() => {
+			const hw = rect.w / 2, hh = rect.h / 2;
+			const cos = Math.cos(rect.r), sin = Math.sin(rect.r);
+			const corners = [
+			{ x:  hw, y:  hh },
+			{ x:  hw, y: -hh },
+			{ x: -hw, y: -hh },
+			{ x: -hw, y:  hh },
+			];
+			return corners.map(c => ({
+			x: rect.x + c.x * cos - c.y * sin,
+			y: rect.y + c.x * sin + c.y * cos,
+			}));
+		})();
+
+		// Convertit le triangle en 3 sommets
+		const triVertices = (() => {
+			const h2 = triangle.h / 2;
+			const inset = triangle.w * 0.3;
+			const local = [
+				{ x:  h2,       y: 0          }, // sommet avant
+				{ x: -h2,       y: triangle.w / 2 },
+				{ x: -h2 + inset, y: 0        },
+				{ x: -h2,       y: -triangle.w / 2 }
+			];
+			// on prend tip, coin haut et coin bas
+			const pts = [ local[0], local[1], local[3] ];
+			const cos = Math.cos(triangle.r), sin = Math.sin(triangle.r);
+			return pts.map(p => ({
+				x: triangle.x + p.x * cos - p.y * sin,
+				y: triangle.y + p.x * sin + p.y * cos,
+			}));
+		})();
+
+		// Produit le dot product
+		const dot = (a: {x:number,y:number}, b: {x:number,y:number}) => a.x*b.x + a.y*b.y;
+
+		// SAT : test sur tous les axes
+		const polygonsIntersect = (a: {x:number,y:number}[], b: {x:number,y:number}[]): boolean => {
+			const polygons = [a,b];
+			for (let i=0;i<2;i++) {
+			const poly = polygons[i];
+			for (let j=0;j<poly.length;j++) {
+				const k = (j+1)%poly.length;
+				const edge = { x: poly[k].x - poly[j].x, y: poly[k].y - poly[j].y };
+				const axis = { x: -edge.y, y: edge.x };
+				const len = Math.hypot(axis.x, axis.y);
+				const naxis = { x: axis.x/len, y: axis.y/len };
+
+				let minA = Infinity, maxA = -Infinity;
+				for (const p of a) {
+					const proj = dot(p, naxis);
+					if (proj < minA) minA = proj;
+					if (proj > maxA) maxA = proj;
+				}
+
+				let minB = Infinity, maxB = -Infinity;
+				for (const p of b) {
+					const proj = dot(p, naxis);
+					if (proj < minB) minB = proj;
+					if (proj > maxB) maxB = proj;
+				}
+
+				if (maxA < minB || maxB < minA) return false; // pas de collision
+			}
+			}
+			return true; // collision détectée
+		};
+
+		return polygonsIntersect(rectVertices, triVertices);
+	}
 };

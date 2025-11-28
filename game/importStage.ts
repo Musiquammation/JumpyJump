@@ -1,4 +1,5 @@
 import { bmodules, Block, BlockModule, BlockBuilder } from "./Block";
+import { EntityGenerator } from "./EntityGenerator";
 import { Room } from "./Room";
 import { Stage } from "./Stage";
 
@@ -22,6 +23,12 @@ const {
 
 export async function importStage(read: Function) {
 	const rooms: Room[] = [];
+
+	let entityGenerators: EntityGenerator[] = [];
+	let entityGeneratorLeft = -1;
+	let entityGeneratorCurrentName: string | null = null;
+	let entityBuffer = [];
+
 
 	const roomBuffer = [0, 0, 0, 0];
 	const blockBuffer = [0, 0, 0, 0];
@@ -109,9 +116,11 @@ export async function importStage(read: Function) {
 				roomBuffer[1],
 				roomBuffer[2],
 				roomBuffer[3],
-				blocks
+				blocks,
+				entityGenerators
 			));
 
+			entityGenerators = [];
 			blocks = [];
 		}
 	}
@@ -129,11 +138,41 @@ export async function importStage(read: Function) {
 
 	let name: string | null = null;
 	for await (const word of read()) {
-
 		if (name === null) {
 			name = word;
 			continue;
 		}
+
+		if (entityGeneratorLeft > 0) {
+			entityGeneratorLeft--;
+
+			entityBuffer.push(take(word));
+
+			if (entityGeneratorLeft === 0) {
+				entityGenerators.push(new EntityGenerator(entityGeneratorCurrentName!, entityBuffer));
+				
+				entityBuffer = [];
+				entityGeneratorLeft = -1;
+				entityGeneratorCurrentName = null;
+			}
+
+			continue;
+		}
+
+		if (entityGeneratorLeft === -2) {
+			if (entityGeneratorCurrentName === null) {
+				entityGeneratorCurrentName = word;
+			} else {
+				entityGeneratorLeft = +word;
+			}
+			continue;
+		}
+
+		if (word === 'entity') {
+			entityGeneratorLeft = -2;
+			continue;
+		}
+
 
 		// Check for endbuilder marker
 		if (word === "endbuilder") {
@@ -213,6 +252,12 @@ export async function importStage(read: Function) {
 				blockToPush = new BlockModuleArg();
 			}
 
+			break;
+		}
+
+		case "entity":
+		{
+			
 			break;
 		}
 

@@ -121,7 +121,7 @@ canvas {
 	position: absolute;
 	top: 20%;
 	left: 50%;
-	transform: translate(-50%, -50%);
+	transform: translate(-50%, -50%) scale(1);
 	color: white;
 	font-family: 'Lucida Sans', 'Lucida Sans Regular', 'Lucida Grande', 'Lucida Sans Unicode', Geneva, Verdana, sans-serif;
 	font-size: 9vmin;
@@ -137,23 +137,32 @@ canvas {
 @keyframes levelNameAnim {
 	0% {
 		opacity: 0;
-		font-size: 9vmin;
+		transform: translate(-50%, -50%) scale(1.0);
 	}
 	
 	15% {
 		opacity: 1;
-		font-size: 10vmin;
+		transform: translate(-50%, -50%) scale(1.2);
 	}
 	
-
-	0% {
+	70% {
 		opacity: 1;
-		font-size: 10vmin;
+		transform: translate(-50%, -50%) scale(1.3);
 	}
-
+	
 	100% {
 		opacity: 0;
-		font-size: 15vmin;
+		transform: translate(-50%, -50%) scale(2.2);
 
 	}
+}
+
+#fps {
+	display: block;
+	position: absolute;
+	left: 0px;
+	bottom: 0px;
+	color: green;
+	background-color: #000a;
+	font-family: 'Courier New', Courier, monospace;
 }

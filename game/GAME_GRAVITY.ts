@@ -1,0 +1,1 @@
+export const GAME_GRAVITY = .9;

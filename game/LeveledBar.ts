@@ -74,8 +74,9 @@ export class LelevedBar {
 		return 1 - Math.pow(1 - t, 3);
 	}
 
-	setValue(value: number) {
-		value = Math.max(0, Math.min(1, value));
+	setRatio(value: number) {
+		if (value < 0) {value = 0;}
+		if (value > 1) {value = 1;}
 
 		if (value === this.targetValue) {
 			return; // Pas de changement nécessaire

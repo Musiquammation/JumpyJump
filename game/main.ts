@@ -1,3 +1,4 @@
+import { HumanFollower } from "./Entity";
 import { Game } from "./Game";
 import { WeakStage } from "./Stage";
 
@@ -147,6 +148,16 @@ function generateWeakStages(worlds: World[]) {
 
 
 export async function startGame() {
+	let countedFps = 0;
+	const FPS_FREQUENCY = 4;
+	setInterval(() => {
+		const e = document.getElementById("fps");
+		if (e) {
+			e.textContent = countedFps*FPS_FREQUENCY + "fps";
+		}
+		countedFps = 0
+	}, 1000/FPS_FREQUENCY);
+
 	const canvas = document.getElementById("gameCanvas") as HTMLCanvasElement;
 	function resizeCanvas() {
 		canvas.width = window.innerWidth;
@@ -212,14 +223,15 @@ export async function startGame() {
 	
 		if (window.running) {
 			requestAnimationFrame(runGameLoop);
-			// setTimeout(runGameLoop, 100);
 		}
 
+		countedFps++;
 	}
 
 	// Share game object
 	window.game = game;
 	window.running = true;
+
 	runGameLoop();
 }	
 

@@ -1,10 +1,10 @@
 import { Entity } from "./Entity";
 import { Game } from "./Game";
+import { GAME_GRAVITY } from "./GAME_GRAVITY";
 import { LelevedBar } from "./LeveledBar";
 import { Vector } from "./Vector";
 
 export class Player extends Entity {
-	static GRAVITY = .9;
 	static DASH = 20;
 	static JUMP = 25;
 	static MAX_SPEED = 25;
@@ -21,6 +21,7 @@ export class Player extends Entity {
 	vx = 0;
 	vy = 0;
 	eternalMode = false;
+	protectFromEjection = false;
 
 	jumps = Player.JUMP_COUNT;
 	respawnCouldown = -1;
@@ -54,7 +55,7 @@ export class Player extends Entity {
 			if (this.jumps >= Player.JUMP_COUNT) {
 				this.jumps = Player.JUMP_COUNT;
 			}
-			this.jump_leveledBar.setValue(this.jumps / Player.JUMP_COUNT);
+			this.jump_leveledBar.setRatio(this.jumps / Player.JUMP_COUNT);
 			return; // just jump
 		}
 
@@ -68,10 +69,10 @@ export class Player extends Entity {
 		const realCost = cost * this.vy;
 		if (this.jumps >= realCost) {
 			this.jumps -= realCost;
-			this.jump_leveledBar.setValue(this.jumps / Player.JUMP_COUNT);
+			this.jump_leveledBar.setRatio(this.jumps / Player.JUMP_COUNT);
 		} else {
 			this.jumps = 0;
-			this.jump_leveledBar.setValue(0);
+			this.jump_leveledBar.setRatio(0);
 
 		}
 		this.vy *= -factor;
@@ -80,18 +81,18 @@ export class Player extends Entity {
 
 	restoreJumps() {
 		this.jumps = Player.JUMP_COUNT;
-		this.jump_leveledBar.setValue(1);
+		this.jump_leveledBar.setRatio(1);
 	}
 
 	restoreJumpAdd(gain: number) {
 		let j = this.jumps + gain;
 		this.jumps = j >= Player.JUMP_COUNT ? Player.JUMP_COUNT : j;
-		this.jump_leveledBar.setValue(this.jumps / Player.JUMP_COUNT);
+		this.jump_leveledBar.setRatio(this.jumps / Player.JUMP_COUNT);
 	}
 
 	restoreHp() {
 		this.hp = Player.HP;
-		this.hp_leveledBar.setValue(1);
+		this.hp_leveledBar.setRatio(1);
 	}
 
 	
@@ -101,7 +102,7 @@ export class Player extends Entity {
 
 		if (this.isAlive()) {
 			this.hp -= damages;
-			this.hp_leveledBar.setValue(this.hp / Player.HP);
+			this.hp_leveledBar.setRatio(this.hp / Player.HP);
 			if (this.hp <= 0) {
 				this.kill();
 			}
@@ -112,9 +113,9 @@ export class Player extends Entity {
 		this.hp += gain;
 		if (this.hp >= Player.HP) {
 			this.hp = Player.HP;
-			this.hp_leveledBar.setValue(1);
+			this.hp_leveledBar.setRatio(1);
 		} else {
-			this.hp_leveledBar.setValue(this.hp / Player.HP);
+			this.hp_leveledBar.setRatio(this.hp / Player.HP);
 		}
 	}
 
@@ -156,7 +157,7 @@ export class Player extends Entity {
 		return false;
 	}
 
-	frame(game: Game) {
+	override frame(game: Game): boolean {
 		const input = game.inputHandler;
 
 		// Horizontal movement
@@ -193,16 +194,43 @@ export class Player extends Entity {
 		}
 
 		// Gravity
-		this.vy += Player.GRAVITY;
+		this.vy += GAME_GRAVITY;
 
 		// Dash
 		if (input.press("down")) {
 			this.y += Player.DASH;
 		}
 
+		if (this.protectFromEjection) {
+			// Check for ceil
+			const ceiling = game.stage?.projectUp(this.x, this.y) ?? +Infinity;
+			const ceilDelta = this.vy * this.vy - 2 * GAME_GRAVITY * (this.y - ceiling);
+			if (ceilDelta >= 0 && 2*Math.sqrt(ceilDelta) - this.vy >= 0) {
+				this.y += Player.DASH;
+			}
+
+			// Check for right
+			const rlim = (game.stage?.projectRight(this.x, this.y) ?? +Infinity) - this.x;
+			if (rlim > 0) {
+				const a = .5 * this.vx * this.vx / rlim;
+				this.vx -= a;
+			}
+			
+			const llim = (game.stage?.projectLeft(this.x, this.y) ?? -Infinity) - this.x;
+			if (llim < 0) {
+				const a = .5 * this.vx * this.vx / llim;
+				this.vx -= a;
+			}
+		}
+
 		// Update position
 		this.x += this.vx * (this.eternalMode ? 3 : 1);
 		this.y += this.vy;
+		return true;
+	}
+
+	override isMonster(): boolean {
+		return false;
 	}
 
 

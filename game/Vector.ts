@@ -6,4 +6,7 @@ export class Vector {
         this.x = x;
         this.y = y;
     }
+
+
+    
 }

@@ -1,4 +1,5 @@
 import type { Block } from "./Block";
+import { Entity } from "./Entity";
 import type { Game } from "./Game";
 import { importStage } from "./importStage";
 import { physics } from "./physics";
@@ -48,7 +49,12 @@ export class WeakStage {
 			req.onsuccess = () => resolve(req.result ?? null);
 			req.onerror = () => reject(req.error);
 		})) as string;
-		
+
+		if (!file) {
+			localStorage.clear();
+			alert("An error occured. The page will restart");
+			window.location.reload();
+		}
 
 		function* words(): Generator<string> {
 			let buffer = "";
@@ -152,7 +158,7 @@ export class Stage {
 
 
 	
-	private findRoom(x: number, y: number): Room | null {
+	findRoom(x: number, y: number): Room | null {
 		for (const room of this.rooms) {
 			if (room.contains(x, y)) {
 				return room;
@@ -164,18 +170,25 @@ export class Stage {
 
 	
 	frame(game: Game) {
-		const toMoveArr: {block: Block, dest: Room}[] = [];
+		const toBlockArr: {block: Block, dest: Room}[] = [];
+		const toEntityArr: {entity: Entity, dest: Room}[] = [];
 
-		this.currentRoom.frame(game, toMoveArr);
+		this.currentRoom.frame(game, toBlockArr, toEntityArr);
 
 		for (let room of this.currentRoom.adjacentRooms!) {
-			room.frame(game, toMoveArr);
+			room.frame(game, toBlockArr, toEntityArr);
 		}
 
-		// Move rooms
-		for (let tm of toMoveArr) {
+		// Move blocks
+		for (let tm of toBlockArr) {
 			tm.dest.blocks.push(tm.block);
 		}
+
+		// Move entities
+		for (let tm of toEntityArr) {
+			tm.dest.entites.push(tm.entity);
+		}
+
 	}
 
 	drawAdjacenceRects(ctx: CanvasRenderingContext2D, player: Player) {
@@ -255,8 +268,87 @@ export class Stage {
 		for (let room of this.rooms) {
 			room.reset();
 		}
-
 	}
-}
+
+
+	projectUp(x: number, y: number) {
+		let skip = null;
+
+		while (true) {
+			let rets = true;
+			for (let i of this.rooms) {
+				if (i != skip && i.contains(x, y)) {
+					y = i.y-1;
+					rets = false;
+					skip = i;
+					break;
+				}
+			}
+
+			if (rets) {
+				return y;
+			}
+		}
+	}
+
+	projectDown(x: number, y: number) {
+		let skip = null;
+
+		while (true) {
+			let rets = true;
+			for (let i of this.rooms) {
+				if (i != skip && i.contains(x, y)) {
+					y = i.y + i.h + 1;
+					rets = false;
+					skip = i;
+					break;
+				}
+			}
+
+			if (rets) {
+				return y;
+			}
+		}
+	}
+
+	projectLeft(x: number, y: number) {
+		let skip = null;
+
+		while (true) {
+			let rets = true;
+			for (let i of this.rooms) {
+				if (i != skip && i.contains(x, y)) {
+					x = i.x - 1;
+					rets = false;
+					skip = i;
+					break;
+				}
+			}
+
+			if (rets) {
+				return x;
+			}
+		}
+	}
+
+	projectRight(x: number, y: number) {
+		let skip = null;
+
+		while (true) {
+			let rets = true;
+			for (let i of this.rooms) {
+				if (i != skip && i.contains(x, y)) {
+					x = i.x + i.w + 1;
+					rets = false;
+					skip = i;
+					break;
+				}
+			}
+
+			if (rets) {
+				return x;
+			}
+		}
+	}}
 
 

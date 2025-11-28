@@ -44,7 +44,6 @@ export class Camera {
 	getVisionRatio(x: number) {
 		const k = 10;
 		const factor =  Math.exp(-x / k);
-		console.log(Camera.VISION_RATIO_MIN + (Camera.VISION_RATIO_INIT - Camera.VISION_RATIO_MIN) * factor);
 		return Camera.VISION_RATIO_MIN + (Camera.VISION_RATIO_INIT - Camera.VISION_RATIO_MIN) * factor;
 	}
 
