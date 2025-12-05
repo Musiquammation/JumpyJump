@@ -1,6 +1,6 @@
 [
 	{"name": "w0", "levels": [
-		{"filename": "welcome.txt", 			"name": "A Welcome Word",		"author": "Musiquammation",		"version": 1},
+		{"filename": "welcome.txt", 			"name": "A Welcome Word",		"author": "Musiquammation",		"version": 2},
 		{"filename": "tutorial.txt", 			"name": "Tutorial", 			"author": "Musiquammation",		"version": 3},
 		{"filename": "fast_climb.txt", 			"name": "Fast climb", 			"author": "Musiquammation",		"version": 2},
 		{"filename": "prove_yourself.txt", 		"name": "Prove yourself", 		"author": "Musiquammation",		"version": 3},

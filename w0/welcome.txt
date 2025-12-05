@@ -1,5 +1,4 @@
 A Welcome Word
-Welcome
 room -800 -450 1600 900
 	0 425 300 50
 		bounce 0.003 1 1
