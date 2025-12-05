@@ -1155,6 +1155,23 @@
     generateAnimator(block) {
       return new CouldownedAttackAnimator(block.w, block.h);
     }
+    enumArgs() {
+      return [
+        { name: "damages", type: "number" },
+        { name: "duration", type: "number" },
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "damages") return this.damages;
+      if (name === "duration") return this.duration;
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "damages") this.damages = value;
+      if (name === "duration") this.duration = value;
+      if (name === "playerOnly") this.playerOnly = value;
+    }
   };
   var ContinousAttackParticle = class {
     x;
@@ -1249,6 +1266,24 @@
     generateAnimator(_) {
       return new ContinuousAttackAnimator();
     }
+    enumArgs() {
+      return [
+        { name: "damages", type: "number" },
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "damages") return this.damages;
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "damages") {
+        this.damages = value;
+      }
+      if (name === "playerOnly") {
+        this.playerOnly = value;
+      }
+    }
   };
   var BounceAnimator = class {
     arrows = [];
@@ -1288,7 +1323,7 @@
     factor;
     playerOnly;
     helper;
-    constructor(factor, cost, playerOnly = true, liberationCouldown = 12) {
+    constructor(cost, factor, playerOnly = true, liberationCouldown = 12) {
       this.factor = factor;
       this.cost = cost;
       this.playerOnly = playerOnly;
@@ -1304,7 +1339,7 @@
     update() {
     }
     copy() {
-      const copy = new _BounceModule(this.factor, this.cost, this.playerOnly);
+      const copy = new _BounceModule(this.cost, this.factor, this.playerOnly);
       return copy;
     }
     draw(block, ctx, animator) {
@@ -1342,6 +1377,29 @@
     }
     generateAnimator(block) {
       return new BounceAnimator(block.h);
+    }
+    enumArgs() {
+      return [
+        { name: "cost", type: "number" },
+        { name: "factor", type: "number" },
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "cost") return this.cost;
+      if (name === "factor") return this.factor;
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "cost") {
+        this.cost = value;
+      }
+      if (name === "factor") {
+        this.factor = value;
+      }
+      if (name === "playerOnly") {
+        this.playerOnly = value;
+      }
     }
   };
   var LavaBubble = class {
@@ -1419,6 +1477,19 @@
       animator.update(block.w, block.h);
       block.cancelRotation(ctx, () => animator.draw(ctx));
     }
+    enumArgs() {
+      return [
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "playerOnly") {
+        this.playerOnly = value;
+      }
+    }
     generateAnimator(_) {
       return new KillAnimator();
     }
@@ -1473,6 +1544,19 @@
     }
     generateAnimator(_) {
       return null;
+    }
+    enumArgs() {
+      return [
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "playerOnly") {
+        this.playerOnly = value;
+      }
     }
   };
   var HealAnimator = class _HealAnimator {
@@ -1596,6 +1680,24 @@
     generateAnimator(_) {
       return new HealAnimator();
     }
+    enumArgs() {
+      return [
+        { name: "hp", type: "number" },
+        { name: "playerOnly", type: "boolean" }
+      ];
+    }
+    getArg(name) {
+      if (name === "hp") return this.hp;
+      if (name === "playerOnly") return this.playerOnly;
+    }
+    setArg(name, value) {
+      if (name === "hp") {
+        this.hp = value;
+      }
+      if (name === "playerOnly") {
+        this.playerOnly = value;
+      }
+    }
   };
   var SpeedModule = class _SpeedModule {
     vx;
@@ -1635,6 +1737,24 @@
     generateAnimator(_) {
       return null;
     }
+    enumArgs() {
+      return [
+        { name: "vx", type: "number" },
+        { name: "vy", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "vx") return this.vx;
+      if (name === "vy") return this.vy;
+    }
+    setArg(name, value) {
+      if (name === "vx") {
+        this.vx = value;
+      }
+      if (name === "vy") {
+        this.vy = value;
+      }
+    }
   };
   var AccelerationModule = class _AccelerationModule {
     ax;
@@ -1661,6 +1781,24 @@
     }
     generateAnimator(_) {
       return null;
+    }
+    enumArgs() {
+      return [
+        { name: "ax", type: "number" },
+        { name: "ay", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "ax") return this.ax;
+      if (name === "ay") return this.ay;
+    }
+    setArg(name, value) {
+      if (name === "ax") {
+        this.ax = value;
+      }
+      if (name === "ay") {
+        this.ay = value;
+      }
     }
   };
   var RestoreJumpParticle = class {
@@ -1758,6 +1896,19 @@
     generateAnimator(_) {
       return new RestoreJumpAnimator();
     }
+    enumArgs() {
+      return [
+        { name: "gain", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "gain") return this.gain;
+    }
+    setArg(name, value) {
+      if (name === "gain") {
+        this.gain = value;
+      }
+    }
   };
   var RotationModule = class _RotationModule {
     start;
@@ -1783,6 +1934,24 @@
       const copy = new _RotationModule(this.start, this.speed);
       copy.angle = this.angle;
       return copy;
+    }
+    enumArgs() {
+      return [
+        { name: "start", type: "number" },
+        { name: "speed", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "start") return this.start;
+      if (name === "speed") return this.speed;
+    }
+    setArg(name, value) {
+      if (name === "start") {
+        this.start = value;
+      }
+      if (name === "speed") {
+        this.speed = value;
+      }
     }
   };
   var GoalAnimator = class {
@@ -1822,6 +1991,75 @@
     }
     generateAnimator(_) {
       return new GoalAnimator();
+    }
+    enumArgs() {
+      return [
+        { name: "type", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "type") return this.type;
+    }
+    setArg(name, value) {
+      if (name === "type") {
+        this.type = value;
+      }
+    }
+  };
+  var TextModule = class _TextModule {
+    text;
+    fontSize;
+    constructor(text = "Some text...", fontSize = 100) {
+      this.text = text;
+      this.fontSize = fontSize;
+    }
+    copy() {
+      return new _TextModule(this.text, this.fontSize);
+    }
+    generateAnimator(_) {
+    }
+    draw(block, ctx, _) {
+      ctx.font = this.fontSize + "px monospace";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      const metrics = ctx.measureText(this.text);
+      const textWidth = metrics.width;
+      const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+      ctx.fillStyle = "black";
+      ctx.fillRect(
+        -textWidth / 2 - 5,
+        -textHeight / 2 - 5,
+        textWidth + 10,
+        textHeight + 10
+      );
+      ctx.fillStyle = "white";
+      ctx.fillText(this.text, 0, 0);
+    }
+    enumArgs() {
+      return [
+        { name: "fontSize", type: "number" },
+        { name: "text", type: "text" }
+      ];
+    }
+    setArg(name, value) {
+      if (name === "fontSize") {
+        this.fontSize = value;
+      }
+      ;
+      if (name === "text") {
+        this.text = value;
+      }
+      ;
+    }
+    getArg(name) {
+      if (name === "fontSize") {
+        return this.fontSize;
+      }
+      ;
+      if (name === "text") {
+        return this.text;
+      }
+      ;
     }
   };
   var SpawnerModule = class _SpawnerModule {
@@ -1904,6 +2142,7 @@
     speed;
     acceleration;
     goal;
+    text;
     checkCollision;
     runInAdjacentRoom;
     constructor(args) {
@@ -1920,6 +2159,7 @@
       this.spawner = args.spawner;
       this.speed = args.speed;
       this.acceleration = args.acceleration;
+      this.text = args.text;
       if (this.acceleration && !this.speed) {
         this.speed = new SpeedModule(0, 0);
       }
@@ -1953,11 +2193,13 @@
         spawner: this.spawner?.copy(),
         speed: this.speed?.copy(),
         acceleration: this.acceleration?.copy(),
+        text: this.text?.copy(),
         runInAdjacentRoom: this.runInAdjacentRoom
       });
     }
     getDrawModule(level) {
       const list = [
+        this.text,
         this.goal,
         this.kill,
         this.heal,
@@ -2116,6 +2358,8 @@
     AccelerationModule,
     RestoreJumpModule,
     RotationModule,
+    TextModule,
+    GoalModule,
     SpawnerModule
   };
 
@@ -2386,29 +2630,61 @@
         window.location.reload();
       }
       function* words() {
-        let buffer = "";
         let firstLineSent = false;
-        for (let i = 0; i < file.length; i++) {
+        let buffer = "";
+        let currentWord = "";
+        let i = 0;
+        const isSep = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
+        const extractLanguageBlock = (block) => {
+          const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+          let match;
+          const map = /* @__PURE__ */ new Map();
+          const order = [];
+          while (match = regex.exec(block)) {
+            const lang = match[1].toLowerCase();
+            map.set(lang, match[2].trim());
+            order.push(lang);
+          }
+          if (order.length === 0) return "";
+          let nav = (navigator.language || "en").split("-")[0].toLowerCase();
+          if (map.has(nav)) return map.get(nav);
+          if (map.has("en")) return map.get("en");
+          return map.get(order[0]);
+        };
+        while (i < file.length) {
+          if (file.startsWith("<text>", i)) {
+            const endIdx = file.indexOf("</text>", i);
+            if (endIdx === -1) break;
+            const block = file.slice(i + 6, endIdx);
+            const extracted = extractLanguageBlock(block);
+            if (extracted) yield extracted;
+            i = endIdx + 7;
+            continue;
+          }
           const c = file[i];
           if (!firstLineSent) {
             if (c === "\n" || c === "\r") {
               yield buffer;
               buffer = "";
               firstLineSent = true;
-              continue;
             } else {
               buffer += c;
-              continue;
             }
+            i++;
+            continue;
           }
-          if (c !== " " && c !== "	" && c !== "\n" && c !== "\r") {
+          if (isSep(c)) {
+            if (buffer.length > 0) {
+              yield buffer;
+              buffer = "";
+            }
+          } else {
             buffer += c;
-          } else if (buffer.length > 0) {
-            yield buffer;
-            buffer = "";
           }
+          i++;
         }
-        if (buffer.length > 0) yield buffer;
+        if (!firstLineSent && buffer.length > 0) yield buffer;
+        else if (buffer.length > 0) yield buffer;
       }
       const { stage, name } = await importStage(words);
       this.stage = stage;
@@ -2619,8 +2895,12 @@
     AccelerationModule: AccelerationModule2,
     RestoreJumpModule: RestoreJumpModule2,
     RotationModule: RotationModule2,
+    TextModule: TextModule2,
     SpawnerModule: SpawnerModule2
   } = bmodules;
+  function toBool(n) {
+    return n ? true : false;
+  }
   async function importStage(read) {
     const rooms = [];
     let entityGenerators = [];
@@ -2647,6 +2927,7 @@
       spawner;
       speed;
       acceleration;
+      text;
       goal = 0;
       checkCollision = false;
       runInAdjacentRoom = false;
@@ -2742,7 +3023,7 @@
             dy: ctx.currentBuilderBuffer[1],
             w: ctx.currentBuilderBuffer[2],
             h: ctx.currentBuilderBuffer[3],
-            keepRotation: !!ctx.currentBuilderBuffer[4],
+            keepRotation: toBool(ctx.currentBuilderBuffer[4]),
             goal: ctx.currentBuilderBuffer[5]
           });
           ctx.blocks.push(builder);
@@ -2838,28 +3119,28 @@
           break;
         case "couldownedAttack":
           moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
+          if (moduleBuffer.length < 3) {
             break;
           }
-          getCurrentModule().couldownedAttack = new CouldownedAttackModule2(moduleBuffer[0], moduleBuffer[1]);
+          getCurrentModule().couldownedAttack = new CouldownedAttackModule2(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
         case "continuousAttack":
           moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
+          if (moduleBuffer.length < 2) {
             break;
           }
-          getCurrentModule().continuousAttack = new ContinuousAttackModule2(moduleBuffer[0]);
+          getCurrentModule().continuousAttack = new ContinuousAttackModule2(moduleBuffer[0], toBool(moduleBuffer[1]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
         case "bounce":
           moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
+          if (moduleBuffer.length < 3) {
             break;
           }
-          getCurrentModule().bounce = new BounceModule2(moduleBuffer[0], moduleBuffer[1]);
+          getCurrentModule().bounce = new BounceModule2(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
@@ -2868,16 +3149,16 @@
           if (moduleBuffer.length < 1) {
             break;
           }
-          getCurrentModule().kill = new KillModule2(!!moduleBuffer[0]);
+          getCurrentModule().kill = new KillModule2(toBool(moduleBuffer[0]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
         case "heal":
           moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
+          if (moduleBuffer.length < 2) {
             break;
           }
-          getCurrentModule().heal = new HealModule2(moduleBuffer[0]);
+          getCurrentModule().heal = new HealModule2(moduleBuffer[0], toBool(moduleBuffer[1]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
@@ -2886,7 +3167,7 @@
           if (moduleBuffer.length < 1) {
             break;
           }
-          getCurrentModule().touchDespawn = new TouchDespawnModule2(!!moduleBuffer[0]);
+          getCurrentModule().touchDespawn = new TouchDespawnModule2(toBool(moduleBuffer[0]));
           moduleBuffer.length = 0;
           currentMode = null;
           break;
@@ -2971,6 +3252,15 @@
           moduleBuffer.length = 0;
           currentMode = null;
           break;
+        case "text":
+          if (moduleBuffer.length < 1) {
+            moduleBuffer.push(take(word));
+            break;
+          }
+          getCurrentModule().text = new TextModule2(word, moduleBuffer[0]);
+          moduleBuffer.length = 0;
+          currentMode = null;
+          break;
         case null: {
           const num = +word;
           if (Number.isFinite(num)) {
@@ -2989,6 +3279,145 @@
     pushBlock();
     pushRoom();
     return { stage: new Stage(rooms), name };
+  }
+  function createImportStageGenerator(file) {
+    return async function* read() {
+      const reader = file.stream().getReader();
+      const decoder = new TextDecoder();
+      let state = "normal_firstline";
+      let stateBeforeTag = "normal_firstline";
+      let firstLineBuf = "";
+      let currentWord = "";
+      let textBuf = "";
+      let tagBuf = "";
+      const isSep = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
+      function extractLanguageBlock(block) {
+        const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+        let match;
+        const map = /* @__PURE__ */ new Map();
+        const order = [];
+        while (match = regex.exec(block)) {
+          const lang = match[1];
+          const txt = match[2].trim();
+          map.set(lang, txt);
+          order.push(lang);
+        }
+        if (order.length === 0) return "";
+        let nav = navigator.language || "en";
+        nav = nav.split("-")[0].toLowerCase();
+        if (map.has(nav)) return map.get(nav);
+        if (map.has("en")) return map.get("en");
+        return map.get(order[0]);
+      }
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done && !value) break;
+        const chunk = decoder.decode(value || new Uint8Array(), { stream: true });
+        for (let i = 0; i < chunk.length; i++) {
+          const ch = chunk[i];
+          if (state === "maybeTag") {
+            tagBuf += ch;
+            if (tagBuf === "<text>") {
+              state = "inText";
+              textBuf = "";
+              tagBuf = "";
+              continue;
+            }
+            if (!"<text>".startsWith(tagBuf)) {
+              const saved = tagBuf;
+              tagBuf = "";
+              for (let k = 0; k < saved.length; k++) {
+                const c2 = saved[k];
+                if (stateBeforeTag === "normal_firstline") {
+                  if (c2 === "\n" || c2 === "\r") {
+                    yield firstLineBuf.trim();
+                    firstLineBuf = "";
+                    state = "normal_words";
+                    continue;
+                  }
+                  firstLineBuf += c2;
+                  continue;
+                }
+                if (stateBeforeTag === "normal_words") {
+                  if (isSep(c2)) {
+                    if (currentWord.length > 0) {
+                      yield currentWord;
+                      currentWord = "";
+                    }
+                  } else {
+                    currentWord += c2;
+                  }
+                  continue;
+                }
+              }
+              state = stateBeforeTag;
+              continue;
+            }
+            continue;
+          }
+          if (state === "inText") {
+            if (ch === "<") {
+              state = "maybeEnd";
+              tagBuf = "<";
+              continue;
+            }
+            textBuf += ch;
+            continue;
+          }
+          if (state === "maybeEnd") {
+            tagBuf += ch;
+            if (tagBuf === "</text>") {
+              const extracted = extractLanguageBlock(textBuf);
+              if (extracted) yield extracted;
+              textBuf = "";
+              tagBuf = "";
+              state = "normal_words";
+              continue;
+            }
+            if (!"</text>".startsWith(tagBuf)) {
+              textBuf += tagBuf;
+              tagBuf = "";
+              state = "inText";
+              continue;
+            }
+            continue;
+          }
+          if (ch === "<") {
+            stateBeforeTag = state;
+            state = "maybeTag";
+            tagBuf = "<";
+            continue;
+          }
+          if (state === "normal_firstline") {
+            if (ch === "\n" || ch === "\r") {
+              yield firstLineBuf.trim();
+              firstLineBuf = "";
+              state = "normal_words";
+              continue;
+            }
+            firstLineBuf += ch;
+            continue;
+          }
+          if (state === "normal_words") {
+            if (isSep(ch)) {
+              if (currentWord.length > 0) {
+                yield currentWord;
+                currentWord = "";
+              }
+            } else {
+              currentWord += ch;
+            }
+            continue;
+          }
+        }
+      }
+      if (state === "normal_firstline" && firstLineBuf.trim()) {
+        yield firstLineBuf.trim();
+      }
+      if (state === "normal_words" && currentWord.length > 0) {
+        yield currentWord;
+      }
+    };
   }
 
   // game/Camera.ts
@@ -3576,7 +4005,7 @@
     static HEIGHT = 900;
     static WIDTH_2 = _Game.WIDTH / 2;
     static HEIGHT_2 = _Game.HEIGHT / 2;
-    static GAME_VERSION = "1.5.0";
+    static GAME_VERSION = "1.5.1";
     player = new Player();
     camera = new Camera();
     inputHandler;
@@ -3689,36 +4118,9 @@
           (async () => {
             const [handle] = await window.showOpenFilePicker();
             const file = await handle.getFile();
-            async function* read() {
-              const reader = file.stream().getReader();
-              const decoder = new TextDecoder();
-              let result;
-              let buffer = "";
-              let firstLineSent = false;
-              while (!(result = await reader.read()).done) {
-                buffer += decoder.decode(result.value, { stream: true });
-                if (!firstLineSent) {
-                  const newlineIndex = buffer.search(/[\r\n]/);
-                  if (newlineIndex !== -1) {
-                    const firstLine = buffer.slice(0, newlineIndex).trim();
-                    buffer = buffer.slice(newlineIndex + 1);
-                    yield firstLine;
-                    firstLineSent = true;
-                  } else {
-                    continue;
-                  }
-                }
-                let index;
-                while ((index = buffer.search(/[ \r\n]/)) !== -1) {
-                  let mot = buffer.slice(0, index).trim();
-                  buffer = buffer.slice(index + 1);
-                  if (mot) yield mot;
-                }
-              }
-              const last = buffer.trim();
-              if (last) yield last;
-            }
-            const { stage, name } = await importStage(read);
+            const { stage, name } = await importStage(
+              createImportStageGenerator(file)
+            );
             this.inputHandler.kill("debug");
             this.state.set("play");
             this.startLevel(stage, name);
@@ -3905,6 +4307,7 @@
           ctx.fillStyle = "#111";
           ctx.fillRect(0, 0, _Game.WIDTH, _Game.HEIGHT);
           ctx.textAlign = "center";
+          ctx.textBaseline = "bottom";
           ctx.font = "30px Arial";
           ctx.fillStyle = "white";
           if (this.selectWorldFile) {
@@ -3912,11 +4315,15 @@
           } else {
             ctx.fillText(`World ${this.currentWorld + 1}`, _Game.WIDTH_2, 100);
             if (this.currentWorld < this.stageList.length) {
-              for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
+              const stage = this.stageList[this.currentWorld];
+              for (let i = 0; i < stage.length; i++) {
                 ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
                 let x = 400 + 200 * (i % 5);
                 let y = 300 + Math.floor(i / 5) * 100;
+                ctx.font = "30px Arial";
                 ctx.fillText(`#${i}`, x, y);
+                ctx.font = "italic 16px Arial";
+                ctx.fillText(`${stage[i].name}`, x, y + 25);
               }
             }
           }
@@ -4135,7 +4542,7 @@
     for (let world of worlds) {
       const line = [];
       for (let level of world.levels) {
-        line.push(new WeakStage(`#${world.name}#${level.filename}`));
+        line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name));
       }
       container.push(line);
     }
@@ -4231,41 +4638,43 @@
     AccelerationModule: AccelerationModule3,
     RestoreJumpModule: RestoreJumpModule3,
     RotationModule: RotationModule3,
-    SpawnerModule: SpawnerModule3
+    GoalModule: GoalModule2,
+    SpawnerModule: SpawnerModule3,
+    TextModule: TextModule3
   } = bmodules;
+  var ModuleInfo = class {
+    id;
+    name;
+    prop;
+    // label: string;
+    default;
+    constructor(id, name, prop, _default) {
+      this.id = id;
+      this.name = name;
+      this.prop = prop;
+      this.default = _default;
+    }
+  };
+  var moduleList = [
+    new ModuleInfo("modCooldownAttack", "Cooldown Attack", "couldownedAttack", () => new CouldownedAttackModule3(1, 100)),
+    new ModuleInfo("modContinuousAttack", "Continuous Attack", "continuousAttack", () => new ContinuousAttackModule3(0.02)),
+    new ModuleInfo("modBounce", "Bounce", "bounce", () => new BounceModule3(3e-3, 1)),
+    new ModuleInfo("modKill", "Kill", "kill", () => new KillModule3()),
+    new ModuleInfo("modTouchDespawn", "Touch Despawn", "touchDespawn", () => new TouchDespawnModule3()),
+    new ModuleInfo("modHeal", "Heal", "heal", () => new HealModule3(2)),
+    new ModuleInfo("modSpeed", "Speed", "speed", () => new SpeedModule3(0, 0)),
+    new ModuleInfo("modAcceleration", "Acceleration", "acceleration", () => new AccelerationModule3(0, 0)),
+    new ModuleInfo("modRestoreJump", "Restore Jump", "restoreJump", () => new RestoreJumpModule3(1)),
+    new ModuleInfo("modRotation", "Rotation", "rotation", () => new RotationModule3(0, 0.01)),
+    new ModuleInfo("modGoal", "Goal", "goal", () => 1),
+    new ModuleInfo("modText", "Text", "text", () => new TextModule3())
+  ];
   async function exportBlockModule(m, writeln, indent) {
     if (m.moving) {
       await writeln(`${indent}moving ${m.moving.times} ${m.moving.patterns.length}`);
       for (const pattern of m.moving.patterns) {
         await writeln(`${indent}	${pattern.dx} ${pattern.dy} ${pattern.duration}`);
       }
-    }
-    if (m.rotation) {
-      await writeln(`${indent}rotation ${m.rotation.start ?? 0} ${m.rotation.speed ?? 0}`);
-    }
-    if (m.couldownedAttack) {
-      await writeln(`${indent}couldownedAttack ${m.couldownedAttack.damages ?? 0} ${m.couldownedAttack.duration ?? 0}`);
-    }
-    if (m.continuousAttack) {
-      await writeln(`${indent}continuousAttack ${m.continuousAttack.damages ?? 0}`);
-    }
-    if (m.bounce) {
-      await writeln(`${indent}bounce ${m.bounce.factor ?? 0} ${m.bounce.cost ?? 0}`);
-    }
-    if (m.kill) {
-      await writeln(`${indent}kill ${m.kill.playerOnly ? 1 : 0}`);
-    }
-    if (m.heal) {
-      await writeln(`${indent}heal ${m.heal.hp ?? 0}`);
-    }
-    if (m.touchDespawn) {
-      await writeln(`${indent}touchDespawn ${m.touchDespawn.playerOnly ? 1 : 0}`);
-    }
-    if (m.restoreJump) {
-      await writeln(`${indent}restoreJump ${m.restoreJump.gain ?? 0}`);
-    }
-    if (m.couldownDespawn) {
-      await writeln(`${indent}couldownDespawn ${m.couldownDespawn.duration ?? 0}`);
     }
     if (m.spawner) {
       await writeln(`${indent}spawner ${m.spawner.rythm} ${m.spawner.blocks.length}`);
@@ -4277,6 +4686,32 @@
         await writeln(`${indent}	endbuilder`);
       }
     }
+    if (m.couldownDespawn) {
+      await writeln(`${indent}couldownDespawn ${m.couldownDespawn.duration ?? 0}`);
+    }
+    for (let i of moduleList) {
+      if (i.prop === "goal")
+        continue;
+      const line = [indent + i.prop];
+      const obj = m[i.prop];
+      if (!obj)
+        continue;
+      for (let arg of obj.enumArgs()) {
+        const value = obj.getArg(arg.name);
+        switch (arg.type) {
+          case "boolean":
+            line.push(value ? "1" : "0");
+            break;
+          case "number":
+            line.push(value);
+            break;
+          case "text":
+            line.push(`<text><en>${value}</en></text>`);
+            break;
+        }
+      }
+      await writeln(line.join(" "));
+    }
     if (m.speed) {
       await writeln(`${indent}speed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
     }
@@ -4284,7 +4719,12 @@
       await writeln(`${indent}acceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
     }
     if (m.goal) {
-      await writeln(`${indent}goal ${m.goal.type ?? 0}`);
+      const t = m.goal.type;
+      if (t instanceof GoalModule2) {
+        await writeln(`${indent}goal ${t.type}`);
+      } else {
+        await writeln(`${indent}goal ${t}`);
+      }
     }
   }
   async function exportStage(stage, writeln) {
@@ -4522,6 +4962,29 @@
       panelHTML.classList.add("hidden");
       selectedObject = null;
     }
+    function generateArgInputsHTML(moduleInstance, idPrefix, dataAttributes = "") {
+      let html = "";
+      if (typeof moduleInstance === "object" && moduleInstance !== null && "enumArgs" in moduleInstance) {
+        const args = moduleInstance.enumArgs();
+        for (const arg of args) {
+          const inputId = `${idPrefix}-${arg.name}`;
+          const currentValue = moduleInstance.getArg(arg.name);
+          const className = `${idPrefix}-arg-input`;
+          html += `<div style="margin-top: 5px;">`;
+          if (arg.type === "number") {
+            const step = arg.step ?? 1;
+            html += `<label>${arg.name}: <input type="number" class="${className}" id="${inputId}" value="${currentValue}" step="${step}" style="width: 80px;" ${dataAttributes}></label>`;
+          } else if (arg.type === "boolean") {
+            const checked = currentValue ? "checked" : "";
+            html += `<label><input type="checkbox" class="${className}" id="${inputId}" ${checked} ${dataAttributes}> ${arg.name}</label>`;
+          } else if (arg.type === "text") {
+            html += `<label>${arg.name}: <input type="text" class="${className}" id="${inputId}" value="${currentValue}" style="width: 150px;" ${dataAttributes}></label>`;
+          }
+          html += `</div>`;
+        }
+      }
+      return html;
+    }
     function showBlockPanel(block) {
       panelHTML.classList.remove("hidden");
       function generateSpawnerBlockHTML(builders, depth = 0) {
@@ -4529,116 +4992,102 @@
         const indent = depth * 20;
         builders.forEach((b, idx) => {
           const hasModule = !!b.module;
-          const hasSpeed = b.module?.speed ? "checked" : "";
-          const speedVx2 = b.module?.speed?.vx || 0;
-          const speedVy2 = b.module?.speed?.vy || 0;
-          const hasAcceleration = b.module?.acceleration ? "checked" : "";
-          const accelerationAx2 = b.module?.acceleration?.ax || 0;
-          const accelerationAy2 = b.module?.acceleration?.ay || 0;
-          const hasKill = b.module?.kill ? "checked" : "";
-          const hasBounce = b.module?.bounce ? "checked" : "";
-          const bounceFactor2 = b.module?.bounce?.factor || 1;
-          const bounceCost2 = b.module?.bounce?.cost || 3e-3;
-          const hasRotation = b.module?.rotation ? "checked" : "";
-          const rotationStart2 = b.module?.rotation?.start || 0;
-          const rotationSpeed2 = b.module?.rotation?.speed || 0.01;
-          const hasCouldownDespawn = b.module?.couldownDespawn ? "checked" : "";
-          const couldownDespawnDuration = b.module?.couldownDespawn?.duration || 100;
+          const dataAttrs = `data-depth="${depth}" data-idx="${idx}"`;
+          const dx = b.dx;
+          const dy = b.dy;
+          const w = b.w;
+          const h = b.h;
+          let moduleOptionsHTML = "";
+          for (const moduleInfo of moduleList) {
+            const propName = moduleInfo.prop;
+            const currentModule = b.module?.[propName];
+            const isChecked = !!currentModule ? "checked" : "";
+            const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
+            let moduleHtml = `
+						<label style="display: block;">
+							<input type="checkbox" class="${moduleInfo.id} spawn-module-toggle" data-prop="${propName}" ${dataAttrs} ${isChecked}> ${moduleInfo.name}
+						</label>
+					`;
+            let argsHtml = "";
+            if (propName === "goal" && typeof currentModule === "number") {
+              const value = currentModule;
+              argsHtml = `<label>Type: <input type="number" class="${idPrefix}-arg-input spawn-goal-type" value="${value}" step="1" style="width: 60px;" ${dataAttrs}></label>`;
+            } else if (currentModule && typeof currentModule === "object" && "enumArgs" in currentModule) {
+              argsHtml = generateArgInputsHTML(currentModule, idPrefix, dataAttrs);
+            } else if (!currentModule) {
+              const defaultInstance = moduleInfo.default();
+              if (typeof defaultInstance === "object" && "enumArgs" in defaultInstance) {
+                argsHtml = generateArgInputsHTML(defaultInstance, idPrefix, dataAttrs);
+              }
+            }
+            if (argsHtml) {
+              const displayStyle = !!currentModule ? "block" : "none";
+              moduleHtml += `
+							<div id="${idPrefix}-opts" class="spawn-module-opts" style="display: ${displayStyle}; padding-left: 20px;">
+								${argsHtml}
+							</div>
+						`;
+            }
+            moduleOptionsHTML += moduleHtml;
+          }
+          const movingChecked2 = b.module?.moving ? "checked" : "";
+          const movingDisplay2 = b.module?.moving ? "block" : "none";
+          const movingTimes2 = b.module?.moving?.times || -1;
+          const movingPatterns2 = b.module?.moving?.patterns || [];
+          const movingIdPrefix = `modMoving-${depth}-${idx}`;
+          let movingPatternsHTML2 = "";
+          movingPatterns2.forEach((p, pIdx) => {
+            const patternIdPrefix = `${movingIdPrefix}-pat-${pIdx}`;
+            movingPatternsHTML2 += `
+						<div class="pattern-row spawn-pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
+							<input type="number" class="spawn-pattern-dx" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
+							<input type="number" class="spawn-pattern-dy" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
+							<input type="number" class="spawn-pattern-duration" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
+							<button class="spawn-pattern-remove" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+						</div>
+					`;
+          });
+          moduleOptionsHTML += `
+					<label style="display: block; font-weight: bold; color: #cc6600;">
+						<input type="checkbox" class="spawn-modMoving" ${dataAttrs} ${movingChecked2}> Moving
+					</label>
+					<div class="spawn-moving-opts" ${dataAttrs} style="display: ${movingDisplay2}; padding-left: 20px; border-left: 2px solid #cc6600; margin-top: 5px;">
+						<label>Times (-1 = infinite): <input type="number" class="spawn-movingTimes" ${dataAttrs} value="${movingTimes2}" step="1" style="width: 80px;"></label><br>
+						<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Patterns:</label>
+						<div class="spawn-movingPatternsList" ${dataAttrs}>
+							${movingPatternsHTML2}
+						</div>
+						<button class="spawn-addPattern" ${dataAttrs} style="background: #cc6600; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
+					</div>
+				`;
           const hasSpawner = b.module?.spawner ? "checked" : "";
           const spawnerRythm2 = b.module?.spawner?.rythm || 60;
-          const hasCooldownAttack = b.module?.couldownedAttack ? "checked" : "";
-          const cooldownAttackDamages2 = b.module?.couldownedAttack?.damages || 1;
-          const cooldownAttackDuration2 = b.module?.couldownedAttack?.duration || 100;
-          const hasContinuousAttack = b.module?.continuousAttack ? "checked" : "";
-          const continuousAttackDamages2 = b.module?.continuousAttack?.damages || 0.02;
-          const hasHeal = b.module?.heal ? "checked" : "";
-          const healHp2 = b.module?.heal?.hp || 2;
-          const hasRestoreJump = b.module?.restoreJump ? "checked" : "";
-          const restoreJumpGain2 = b.module?.restoreJump?.gain || 1;
-          const hasTouchDespawn = b.module?.touchDespawn ? "checked" : "";
-          const hasGoal = b.module?.goal ? "checked" : "";
-          const goalType2 = b.module?.goal?.type || 1;
+          moduleOptionsHTML += `
+					<label style="display: block; font-weight: bold; color: #6600cc;">
+						<input type="checkbox" class="spawn-hasSpawner" ${dataAttrs} ${hasSpawner}> Spawner (nested)
+					</label>
+					<div class="spawn-spawner-opts" ${dataAttrs} style="display: ${hasSpawner ? "block" : "none"}; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+						<label>Rythm: <input type="number" class="spawn-spawnerRythm" ${dataAttrs} value="${spawnerRythm2}" step="1" style="width: 80px;"></label><br>
+						<div class="spawn-spawner-blocks" ${dataAttrs}>
+							${b.module?.spawner ? generateSpawnerBlockHTML(b.module.spawner.blocks, depth + 1) : ""}
+						</div>
+						<button class="spawn-addNestedBlock" ${dataAttrs} style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+					</div>
+				`;
           html += `
-					<div class="spawner-block" data-depth="${depth}" data-idx="${idx}" style="border: 1px solid #999; padding: 10px; margin-left: ${indent}px; margin-bottom: 10px; border-radius: 5px; background: ${depth % 2 === 0 ? "#f9f9f9" : "#efefef"};">
+					<div class="spawner-block" ${dataAttrs} style="border: 1px solid #999; padding: 10px; margin-left: ${indent}px; margin-bottom: 10px; border-radius: 5px; background: ${depth % 2 === 0 ? "#f9f9f9" : "#efefef"};">
 						<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
-							<input type="number" class="spawn-dx" data-depth="${depth}" data-idx="${idx}" value="${b.dx}" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
-							<input type="number" class="spawn-dy" data-depth="${depth}" data-idx="${idx}" value="${b.dy}" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
-							<input type="number" class="spawn-w" data-depth="${depth}" data-idx="${idx}" value="${b.w}" step="1" style="width: 60px;" placeholder="w" title="Width">
-							<input type="number" class="spawn-h" data-depth="${depth}" data-idx="${idx}" value="${b.h}" step="1" style="width: 60px;" placeholder="h" title="Height">
-							<button class="spawn-remove" data-depth="${depth}" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+							<input type="number" class="spawn-dx" ${dataAttrs} value="${dx}" step="1" style="width: 60px;" placeholder="dx" title="Offset X">
+							<input type="number" class="spawn-dy" ${dataAttrs} value="${dy}" step="1" style="width: 60px;" placeholder="dy" title="Offset Y">
+							<input type="number" class="spawn-w" ${dataAttrs} value="${w}" step="1" style="width: 60px;" placeholder="w" title="Width">
+							<input type="number" class="spawn-h" ${dataAttrs} value="${h}" step="1" style="width: 60px;" placeholder="h" title="Height">
+							<button class="spawn-remove" ${dataAttrs} style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
 						</div>
 						
 						<details ${hasModule ? "open" : ""}>
 							<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
 							<div style="padding-left: 10px; margin-top: 5px;">
-								<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="${depth}" data-idx="${idx}" ${hasSpeed}> Speed</label>
-								<div class="spawn-speed-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasSpeed ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-speedVx" data-depth="${depth}" data-idx="${idx}" value="${speedVx2}" step="0.5" style="width: 60px;" placeholder="vx">
-									<input type="number" class="spawn-speedVy" data-depth="${depth}" data-idx="${idx}" value="${speedVy2}" step="0.5" style="width: 60px;" placeholder="vy">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="${depth}" data-idx="${idx}" ${hasAcceleration}> Acceleration</label>
-								<div class="spawn-accel-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasAcceleration ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-accelAx" data-depth="${depth}" data-idx="${idx}" value="${accelerationAx2}" step="0.01" style="width: 60px;" placeholder="ax">
-									<input type="number" class="spawn-accelAy" data-depth="${depth}" data-idx="${idx}" value="${accelerationAy2}" step="0.01" style="width: 60px;" placeholder="ay">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="${depth}" data-idx="${idx}" ${hasRotation}> Rotation</label>
-								<div class="spawn-rotation-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasRotation ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-rotationStart" data-depth="${depth}" data-idx="${idx}" value="${rotationStart2}" step="0.1" style="width: 60px;" placeholder="start">
-									<input type="number" class="spawn-rotationSpeed" data-depth="${depth}" data-idx="${idx}" value="${rotationSpeed2}" step="0.01" style="width: 60px;" placeholder="speed">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="${depth}" data-idx="${idx}" ${hasBounce}> Bounce</label>
-								<div class="spawn-bounce-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasBounce ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-bounceFactor" data-depth="${depth}" data-idx="${idx}" value="${bounceFactor2}" step="0.1" style="width: 60px;" placeholder="factor">
-									<input type="number" class="spawn-bounceCost" data-depth="${depth}" data-idx="${idx}" value="${bounceCost2}" step="0.001" style="width: 60px;" placeholder="cost">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="${depth}" data-idx="${idx}" ${hasKill}> Kill</label>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasCooldownAttack" data-depth="${depth}" data-idx="${idx}" ${hasCooldownAttack}> Cooldown Attack</label>
-								<div class="spawn-cooldownattack-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasCooldownAttack ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-cooldownAttackDamages" data-depth="${depth}" data-idx="${idx}" value="${cooldownAttackDamages2}" step="0.1" style="width: 60px;" placeholder="damages">
-									<input type="number" class="spawn-cooldownAttackDuration" data-depth="${depth}" data-idx="${idx}" value="${cooldownAttackDuration2}" step="1" style="width: 60px;" placeholder="duration">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasContinuousAttack" data-depth="${depth}" data-idx="${idx}" ${hasContinuousAttack}> Continuous Attack</label>
-								<div class="spawn-continuousattack-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasContinuousAttack ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-continuousAttackDamages" data-depth="${depth}" data-idx="${idx}" value="${continuousAttackDamages2}" step="0.01" style="width: 60px;" placeholder="damages">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasHeal" data-depth="${depth}" data-idx="${idx}" ${hasHeal}> Heal</label>
-								<div class="spawn-heal-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasHeal ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-healHp" data-depth="${depth}" data-idx="${idx}" value="${healHp2}" step="0.1" style="width: 60px;" placeholder="hp">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasRestoreJump" data-depth="${depth}" data-idx="${idx}" ${hasRestoreJump}> Restore Jump</label>
-								<div class="spawn-restorejump-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasRestoreJump ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-restoreJumpGain" data-depth="${depth}" data-idx="${idx}" value="${restoreJumpGain2}" step="0.1" style="width: 60px;" placeholder="gain">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasTouchDespawn" data-depth="${depth}" data-idx="${idx}" ${hasTouchDespawn}> Touch Despawn</label>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="${depth}" data-idx="${idx}" ${hasCouldownDespawn}> Cooldown Despawn</label>
-								<div class="spawn-despawn-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasCouldownDespawn ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-despawnDuration" data-depth="${depth}" data-idx="${idx}" value="${couldownDespawnDuration}" step="10" style="width: 60px;" placeholder="duration">
-								</div>
-								
-								<label style="display: block;"><input type="checkbox" class="spawn-hasGoal" data-depth="${depth}" data-idx="${idx}" ${hasGoal}> Goal</label>
-								<div class="spawn-goal-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasGoal ? "block" : "none"}; padding-left: 20px;">
-									<input type="number" class="spawn-goalType" data-depth="${depth}" data-idx="${idx}" value="${goalType2}" step="1" style="width: 60px;" placeholder="type">
-								</div>
-								
-								<!-- NESTED SPAWNER -->
-								<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="${depth}" data-idx="${idx}" ${hasSpawner}> Spawner (nested)</label>
-								<div class="spawn-spawner-opts" data-depth="${depth}" data-idx="${idx}" style="display: ${hasSpawner ? "block" : "none"}; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
-									<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="${depth}" data-idx="${idx}" value="${spawnerRythm2}" step="1" style="width: 80px;"></label><br>
-									<div class="spawn-spawner-blocks" data-depth="${depth}" data-idx="${idx}">
-										${b.module?.spawner ? generateSpawnerBlockHTML(b.module.spawner.blocks, depth + 1) : ""}
-									</div>
-									<button class="spawn-addNestedBlock" data-depth="${depth}" data-idx="${idx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
-								</div>
+								${moduleOptionsHTML}
 							</div>
 						</details>
 					</div>
@@ -4647,96 +5096,33 @@
         return html;
       }
       const moduleSections = [];
-      const bounceChecked = block.module.bounce ? "checked" : "";
-      const bounceDisplay = block.module.bounce ? "block" : "none";
-      const bounceFactor = block.module.bounce?.factor || 1;
-      const bounceCost = block.module.bounce?.cost || 3e-3;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modBounce" ${bounceChecked}> Bounce
-				</label>
-				<div id="bounceOptions" style="display: ${bounceDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Factor: <input type="number" id="bounceFactor" value="${bounceFactor}" step="0.1" style="width: 80px;"></label><br>
-					<label>Cost: <input type="number" id="bounceCost" value="${bounceCost}" step="0.001" style="width: 80px;"></label>
+      for (const moduleInfo of moduleList) {
+        const propName = moduleInfo.prop;
+        const currentModule = block.module[propName];
+        const isChecked = !!currentModule ? "checked" : "";
+        const displayStyle = !!currentModule ? "block" : "none";
+        let optionsHTML = "";
+        let instanceToInspect = currentModule ?? moduleInfo.default();
+        if (typeof instanceToInspect === "object" && "enumArgs" in instanceToInspect && instanceToInspect.enumArgs().length > 0) {
+          optionsHTML += `<div id="${moduleInfo.id}Options" style="display: ${displayStyle}; margin-top: 10px; padding-left: 20px;">`;
+          optionsHTML += generateArgInputsHTML(instanceToInspect, moduleInfo.id);
+          optionsHTML += `</div>`;
+        } else if (propName === "goal" && typeof instanceToInspect === "number") {
+          optionsHTML += `
+					<div id="${moduleInfo.id}Options" style="display: ${displayStyle}; margin-top: 10px; padding-left: 20px;">
+						<label>Type: <input type="number" class="${moduleInfo.id}-arg-input" id="${moduleInfo.id}-Type" value="${instanceToInspect}" step="1" style="width: 80px;"></label>
+					</div>
+				`;
+        }
+        moduleSections.push(`
+				<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+					<label style="font-weight: bold;">
+						<input type="checkbox" id="${moduleInfo.id}" ${isChecked}> ${moduleInfo.name}
+					</label>
+					${optionsHTML}
 				</div>
-			</div>
-		`);
-      const killChecked = block.module.kill ? "checked" : "";
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modKill" ${killChecked}> Kill
-				</label>
-			</div>
-		`);
-      const healChecked = block.module.heal ? "checked" : "";
-      const healDisplay = block.module.heal ? "block" : "none";
-      const healHp = block.module.heal?.hp || 2;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modHeal" ${healChecked}> Heal
-				</label>
-				<div id="healOptions" style="display: ${healDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>HP: <input type="number" id="healHp" value="${healHp}" step="0.1" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const cooldownAttackChecked = block.module.couldownedAttack ? "checked" : "";
-      const cooldownAttackDisplay = block.module.couldownedAttack ? "block" : "none";
-      const cooldownAttackDamages = block.module.couldownedAttack?.damages || 1;
-      const cooldownAttackDuration = block.module.couldownedAttack?.duration || 100;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modCooldownAttack" ${cooldownAttackChecked}> Cooldown Attack
-				</label>
-				<div id="cooldownAttackOptions" style="display: ${cooldownAttackDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Damages: <input type="number" id="cooldownAttackDamages" value="${cooldownAttackDamages}" step="0.1" style="width: 80px;"></label><br>
-					<label>Duration: <input type="number" id="cooldownAttackDuration" value="${cooldownAttackDuration}" step="1" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const continuousAttackChecked = block.module.continuousAttack ? "checked" : "";
-      const continuousAttackDisplay = block.module.continuousAttack ? "block" : "none";
-      const continuousAttackDamages = block.module.continuousAttack?.damages || 0.02;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modContinuousAttack" ${continuousAttackChecked}> Continuous Attack
-				</label>
-				<div id="continuousAttackOptions" style="display: ${continuousAttackDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Damages: <input type="number" id="continuousAttackDamages" value="${continuousAttackDamages}" step="0.01" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const restoreJumpChecked = block.module.restoreJump ? "checked" : "";
-      const restoreJumpDisplay = block.module.restoreJump ? "block" : "none";
-      const restoreJumpGain = block.module.restoreJump?.gain || 1;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modRestoreJump" ${restoreJumpChecked}> Restore Jump
-				</label>
-				<div id="restoreJumpOptions" style="display: ${restoreJumpDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Gain: <input type="number" id="restoreJumpGain" value="${restoreJumpGain}" step="0.1" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const goalChecked = block.module.goal !== void 0 ? "checked" : "";
-      const goalDisplay = block.module.goal !== void 0 ? "block" : "none";
-      const goalType = block.module.goal?.type || 1;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modGoal" ${goalChecked}> Goal
-				</label>
-				<div id="goalOptions" style="display: ${goalDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Type: <input type="number" id="goalType" value="${goalType}" step="1" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
+			`);
+      }
       const movingChecked = block.module.moving ? "checked" : "";
       const movingDisplay = block.module.moving ? "block" : "none";
       const movingTimes = block.module.moving?.times || -1;
@@ -4763,52 +5149,7 @@
 					<div id="movingPatternsList">
 						${movingPatternsHTML}
 					</div>
-					<button id="addPattern" style="background: green; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
-				</div>
-			</div>
-		`);
-      const speedChecked = block.module.speed ? "checked" : "";
-      const speedDisplay = block.module.speed ? "block" : "none";
-      const speedVx = block.module.speed?.vx || 0;
-      const speedVy = block.module.speed?.vy || 0;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modSpeed" ${speedChecked}> Speed
-				</label>
-				<div id="speedOptions" style="display: ${speedDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>VX: <input type="number" id="speedVx" value="${speedVx}" step="0.5" style="width: 80px;"></label><br>
-					<label>VY: <input type="number" id="speedVy" value="${speedVy}" step="0.5" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const accelerationChecked = block.module.acceleration ? "checked" : "";
-      const accelerationDisplay = block.module.acceleration ? "block" : "none";
-      const accelerationAx = block.module.acceleration?.ax || 0;
-      const accelerationAy = block.module.acceleration?.ay || 0;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modAcceleration" ${accelerationChecked}> Acceleration
-				</label>
-				<div id="accelerationOptions" style="display: ${accelerationDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>AX: <input type="number" id="accelerationAx" value="${accelerationAx}" step="0.01" style="width: 80px;"></label><br>
-					<label>AY: <input type="number" id="accelerationAy" value="${accelerationAy}" step="0.01" style="width: 80px;"></label>
-				</div>
-			</div>
-		`);
-      const rotationChecked = block.module.rotation ? "checked" : "";
-      const rotationDisplay = block.module.rotation ? "block" : "none";
-      const rotationStart = block.module.rotation?.start || 0;
-      const rotationSpeed = block.module.rotation?.speed || 0.01;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modRotation" ${rotationChecked}> Rotation
-				</label>
-				<div id="rotationOptions" style="display: ${rotationDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Start: <input type="number" id="rotationStart" value="${rotationStart}" step="0.1" style="width: 80px;"></label><br>
-					<label>Speed: <input type="number" id="rotationSpeed" value="${rotationSpeed}" step="0.01" style="width: 80px;"></label>
+					<button id="addPattern" style="background: #cc6600; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
 				</div>
 			</div>
 		`);
@@ -4828,27 +5169,6 @@
 						${generateSpawnerBlockHTML(spawnerBlocks, 0)}
 					</div>
 					<button id="addSpawnerBlock" style="background: green; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Block</button>
-				</div>
-			</div>
-		`);
-      const touchDespawnChecked = block.module.touchDespawn ? "checked" : "";
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modTouchDespawn" ${touchDespawnChecked}> Touch Despawn
-				</label>
-			</div>
-		`);
-      const cooldownDespawnChecked = block.module.couldownDespawn ? "checked" : "";
-      const cooldownDespawnDisplay = block.module.couldownDespawn ? "block" : "none";
-      const cooldownDespawnDuration = block.module.couldownDespawn?.duration || 100;
-      moduleSections.push(`
-			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
-				<label style="font-weight: bold;">
-					<input type="checkbox" id="modCooldownDespawn" ${cooldownDespawnChecked}> Cooldown Despawn
-				</label>
-				<div id="cooldownDespawnOptions" style="display: ${cooldownDespawnDisplay}; margin-top: 10px; padding-left: 20px;">
-					<label>Duration: <input type="number" id="cooldownDespawnDuration" value="${cooldownDespawnDuration}" step="10" style="width: 80px;"></label>
 				</div>
 			</div>
 		`);
@@ -4898,40 +5218,44 @@
       document.getElementById("blockW").addEventListener("change", updateBlock);
       document.getElementById("blockH").addEventListener("change", updateBlock);
       const recreateBlockModule = () => {
-        const bounce = document.getElementById("modBounce").checked;
-        const kill = document.getElementById("modKill").checked;
-        const heal = document.getElementById("modHeal").checked;
-        const cooldownAttack = document.getElementById("modCooldownAttack").checked;
-        const continuousAttack = document.getElementById("modContinuousAttack").checked;
-        const restoreJump = document.getElementById("modRestoreJump").checked;
-        const goal = document.getElementById("modGoal").checked;
-        const moving = document.getElementById("modMoving").checked;
-        const speed = document.getElementById("modSpeed").checked;
-        const acceleration = document.getElementById("modAcceleration").checked;
-        const rotation = document.getElementById("modRotation").checked;
-        const spawner = document.getElementById("modSpawner").checked;
-        const touchDespawn = document.getElementById("modTouchDespawn").checked;
-        const cooldownDespawn = document.getElementById("modCooldownDespawn").checked;
-        const bounceFactor2 = bounce ? parseFloat(document.getElementById("bounceFactor").value) : 1;
-        const bounceCost2 = bounce ? parseFloat(document.getElementById("bounceCost").value) : 3e-3;
-        const healHp2 = heal ? parseFloat(document.getElementById("healHp").value) : 2;
-        const cooldownAttackDamages2 = cooldownAttack ? parseFloat(document.getElementById("cooldownAttackDamages").value) : 1;
-        const cooldownAttackDuration2 = cooldownAttack ? parseInt(document.getElementById("cooldownAttackDuration").value) : 100;
-        const continuousAttackDamages2 = continuousAttack ? parseFloat(document.getElementById("continuousAttackDamages").value) : 0.02;
-        const restoreJumpGain2 = restoreJump ? parseFloat(document.getElementById("restoreJumpGain").value) : 1;
-        const goalType2 = goal ? parseInt(document.getElementById("goalType").value) : 1;
-        const speedVx2 = speed ? parseFloat(document.getElementById("speedVx").value) : 0;
-        const speedVy2 = speed ? parseFloat(document.getElementById("speedVy").value) : 0;
-        const accelerationAx2 = acceleration ? parseFloat(document.getElementById("accelerationAx").value) : 0;
-        const accelerationAy2 = acceleration ? parseFloat(document.getElementById("accelerationAy").value) : 0;
-        const rotationStart2 = rotation ? parseFloat(document.getElementById("rotationStart").value) : 0;
-        const rotationSpeed2 = rotation ? parseFloat(document.getElementById("rotationSpeed").value) : 0.01;
-        const cooldownDespawnDuration2 = cooldownDespawn ? parseInt(document.getElementById("cooldownDespawnDuration").value) : 100;
+        let newBlockModule = {};
+        for (const moduleInfo of moduleList) {
+          const propName = moduleInfo.prop;
+          const checkbox = document.getElementById(moduleInfo.id);
+          if (checkbox && checkbox.checked) {
+            let moduleInstanceOrValue = moduleInfo.default();
+            if (propName === "goal") {
+              const input = document.getElementById(`${moduleInfo.id}-Type`);
+              if (input) {
+                newBlockModule[propName] = new GoalModule2(parseFloat(input.value));
+              }
+            } else {
+              const moduleInstance = moduleInstanceOrValue;
+              const argInputs = document.querySelectorAll(`#${moduleInfo.id}Options .${moduleInfo.id}-arg-input`);
+              argInputs.forEach((input) => {
+                const argName = input.id.split("-")[1];
+                let value;
+                if (input.type === "checkbox") {
+                  value = input.checked;
+                } else if (input.type === "number") {
+                  value = parseFloat(input.value);
+                } else {
+                  value = input.value;
+                }
+                moduleInstance.setArg(argName, value);
+              });
+              newBlockModule[propName] = moduleInstance;
+            }
+          } else {
+            newBlockModule[propName] = void 0;
+          }
+        }
         let movingModule = void 0;
-        if (moving) {
+        const movingCheckbox2 = document.getElementById("modMoving");
+        if (movingCheckbox2 && movingCheckbox2.checked) {
           try {
             const movingTimes2 = parseInt(document.getElementById("movingTimes").value);
-            const patternRows = document.querySelectorAll(".pattern-row");
+            const patternRows = document.querySelectorAll("#movingPatternsList .pattern-row");
             const patterns = [];
             patternRows.forEach((row) => {
               const dx = parseFloat(row.querySelector(".pattern-dx").value);
@@ -4947,13 +5271,13 @@
             movingModule = block.module.moving;
           }
         }
+        newBlockModule.moving = movingModule;
         let spawnerModule = void 0;
-        if (spawner) {
+        const spawnerCheckbox = document.getElementById("modSpawner");
+        if (spawnerCheckbox && spawnerCheckbox.checked) {
           try {
             const spawnerRythmInput = document.getElementById("spawnerRythm");
-            if (!spawnerRythmInput) {
-              spawnerModule = block.module.spawner;
-            } else {
+            if (spawnerRythmInput) {
               let parseSpawnerBlocks = function(container) {
                 const builders = [];
                 const directChildren = container.querySelectorAll(":scope > .spawner-block");
@@ -4963,105 +5287,83 @@
                   const wInput = blockEl.querySelector(".spawn-w");
                   const hInput = blockEl.querySelector(".spawn-h");
                   if (!dxInput || !dyInput || !wInput || !hInput) return;
-                  const depth = dxInput.getAttribute("data-depth");
-                  const idx = dxInput.getAttribute("data-idx");
+                  const depth = parseInt(dxInput.getAttribute("data-depth") || "0");
+                  const idx = parseInt(dxInput.getAttribute("data-idx") || "0");
+                  const dataAttrsSelector = `[data-depth="${depth}"][data-idx="${idx}"]`;
                   const dx = parseFloat(dxInput.value);
                   const dy = parseFloat(dyInput.value);
                   const w = parseFloat(wInput.value);
                   const h = parseFloat(hInput.value);
-                  const speedCheckbox = blockEl.querySelector(`.spawn-hasSpeed[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const accelerationCheckbox = blockEl.querySelector(`.spawn-hasAcceleration[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const rotationCheckbox = blockEl.querySelector(`.spawn-hasRotation[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const bounceCheckbox = blockEl.querySelector(`.spawn-hasBounce[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const killCheckbox = blockEl.querySelector(`.spawn-hasKill[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const despawnCheckbox = blockEl.querySelector(`.spawn-hasCouldownDespawn[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const spawnerCheckbox = blockEl.querySelector(`.spawn-hasSpawner[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const cooldownAttackCheckbox = blockEl.querySelector(`.spawn-hasCooldownAttack[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const continuousAttackCheckbox = blockEl.querySelector(`.spawn-hasContinuousAttack[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const healCheckbox = blockEl.querySelector(`.spawn-hasHeal[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const restoreJumpCheckbox = blockEl.querySelector(`.spawn-hasRestoreJump[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const touchDespawnCheckbox = blockEl.querySelector(`.spawn-hasTouchDespawn[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const goalCheckbox = blockEl.querySelector(`.spawn-hasGoal[data-depth="${depth}"][data-idx="${idx}"]`);
-                  const hasSpeed = speedCheckbox?.checked || false;
-                  const hasAcceleration = accelerationCheckbox?.checked || false;
-                  const hasRotation = rotationCheckbox?.checked || false;
-                  const hasBounce = bounceCheckbox?.checked || false;
-                  const hasKill = killCheckbox?.checked || false;
-                  const hasCouldownDespawn = despawnCheckbox?.checked || false;
-                  const hasSpawner = spawnerCheckbox?.checked || false;
-                  const hasCooldownAttack = cooldownAttackCheckbox?.checked || false;
-                  const hasContinuousAttack = continuousAttackCheckbox?.checked || false;
-                  const hasHeal = healCheckbox?.checked || false;
-                  const hasRestoreJump = restoreJumpCheckbox?.checked || false;
-                  const hasTouchDespawn = touchDespawnCheckbox?.checked || false;
-                  const hasGoal = goalCheckbox?.checked || false;
                   let builderModule = void 0;
-                  if (hasSpeed || hasAcceleration || hasRotation || hasBounce || hasKill || hasCouldownDespawn || hasSpawner || hasCooldownAttack || hasContinuousAttack || hasHeal || hasRestoreJump || hasTouchDespawn || hasGoal) {
-                    const speedVxInput = blockEl.querySelector(`.spawn-speedVx[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const speedVyInput = blockEl.querySelector(`.spawn-speedVy[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const accelAxInput = blockEl.querySelector(`.spawn-accelAx[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const accelAyInput = blockEl.querySelector(`.spawn-accelAy[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const rotationStartInput = blockEl.querySelector(`.spawn-rotationStart[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const rotationSpeedInput = blockEl.querySelector(`.spawn-rotationSpeed[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const bounceFactorInput = blockEl.querySelector(`.spawn-bounceFactor[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const bounceCostInput = blockEl.querySelector(`.spawn-bounceCost[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const despawnDurationInput = blockEl.querySelector(`.spawn-despawnDuration[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const cooldownAttackDamagesInput = blockEl.querySelector(`.spawn-cooldownAttackDamages[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const cooldownAttackDurationInput = blockEl.querySelector(`.spawn-cooldownAttackDuration[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const continuousAttackDamagesInput = blockEl.querySelector(`.spawn-continuousAttackDamages[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const healHpInput = blockEl.querySelector(`.spawn-healHp[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const restoreJumpGainInput = blockEl.querySelector(`.spawn-restoreJumpGain[data-depth="${depth}"][data-idx="${idx}"]`);
-                    const goalTypeInput = blockEl.querySelector(`.spawn-goalType[data-depth="${depth}"][data-idx="${idx}"]`);
-                    let nestedSpawner = void 0;
-                    if (hasSpawner) {
-                      const spawnerRythmInput2 = blockEl.querySelector(`.spawn-spawnerRythm[data-depth="${depth}"][data-idx="${idx}"]`);
-                      const nestedContainer = blockEl.querySelector(`.spawn-spawner-blocks[data-depth="${depth}"][data-idx="${idx}"]`);
-                      if (spawnerRythmInput2 && nestedContainer) {
-                        const nestedRythm = parseInt(spawnerRythmInput2.value);
-                        const nestedBuilders = parseSpawnerBlocks(nestedContainer);
-                        if (nestedBuilders.length > 0) {
-                          nestedSpawner = new SpawnerModule3(nestedRythm, false, nestedBuilders);
+                  let moduleIsPresent = false;
+                  let collectedNestedModules = {};
+                  for (const moduleInfo of moduleList) {
+                    const propName = moduleInfo.prop;
+                    const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
+                    const checkbox = blockEl.querySelector(`.${moduleInfo.id}.spawn-module-toggle${dataAttrsSelector}`);
+                    if (checkbox && checkbox.checked) {
+                      moduleIsPresent = true;
+                      let moduleInstanceOrValue = moduleInfo.default();
+                      if (propName === "goal") {
+                        const input = blockEl.querySelector(`.spawn-goal-type${dataAttrsSelector}`);
+                        if (input) {
+                          collectedNestedModules[propName] = parseFloat(input.value);
                         }
+                      } else {
+                        const moduleInstance = moduleInstanceOrValue;
+                        const argInputs = blockEl.querySelectorAll(`.${idPrefix}-arg-input${dataAttrsSelector}`);
+                        argInputs.forEach((input) => {
+                          const argName = input.id.split("-")[2];
+                          let value;
+                          if (input.type === "checkbox") {
+                            value = input.checked;
+                          } else if (input.type === "number") {
+                            value = parseFloat(input.value);
+                          } else {
+                            value = input.value;
+                          }
+                          moduleInstance.setArg(argName, value);
+                        });
+                        collectedNestedModules[propName] = moduleInstance;
                       }
                     }
-                    builderModule = new BlockModule({
-                      speed: hasSpeed && speedVxInput && speedVyInput ? new SpeedModule3(
-                        parseFloat(speedVxInput.value),
-                        parseFloat(speedVyInput.value)
-                      ) : void 0,
-                      acceleration: hasAcceleration && accelAxInput && accelAyInput ? new AccelerationModule3(
-                        parseFloat(accelAxInput.value),
-                        parseFloat(accelAyInput.value)
-                      ) : void 0,
-                      rotation: hasRotation && rotationStartInput && rotationSpeedInput ? new RotationModule3(
-                        parseFloat(rotationStartInput.value),
-                        parseFloat(rotationSpeedInput.value)
-                      ) : void 0,
-                      bounce: hasBounce && bounceFactorInput && bounceCostInput ? new BounceModule3(
-                        parseFloat(bounceFactorInput.value),
-                        parseFloat(bounceCostInput.value)
-                      ) : void 0,
-                      kill: hasKill ? new KillModule3() : void 0,
-                      couldownDespawn: hasCouldownDespawn && despawnDurationInput ? new CouldownDespawnModule3(
-                        parseInt(despawnDurationInput.value)
-                      ) : void 0,
-                      couldownedAttack: hasCooldownAttack && cooldownAttackDamagesInput && cooldownAttackDurationInput ? new CouldownedAttackModule3(
-                        parseFloat(cooldownAttackDamagesInput.value),
-                        parseInt(cooldownAttackDurationInput.value)
-                      ) : void 0,
-                      continuousAttack: hasContinuousAttack && continuousAttackDamagesInput ? new ContinuousAttackModule3(
-                        parseFloat(continuousAttackDamagesInput.value)
-                      ) : void 0,
-                      heal: hasHeal && healHpInput ? new HealModule3(
-                        parseFloat(healHpInput.value)
-                      ) : void 0,
-                      restoreJump: hasRestoreJump && restoreJumpGainInput ? new RestoreJumpModule3(
-                        parseFloat(restoreJumpGainInput.value)
-                      ) : void 0,
-                      touchDespawn: hasTouchDespawn ? new TouchDespawnModule3() : void 0,
-                      goal: hasGoal && goalTypeInput ? parseInt(goalTypeInput.value) : void 0,
-                      spawner: nestedSpawner
-                    });
+                  }
+                  const movingCheckbox3 = blockEl.querySelector(`.spawn-modMoving${dataAttrsSelector}`);
+                  if (movingCheckbox3 && movingCheckbox3.checked) {
+                    moduleIsPresent = true;
+                    try {
+                      const movingTimesInput = blockEl.querySelector(`.spawn-movingTimes${dataAttrsSelector}`);
+                      const patternRows = blockEl.querySelectorAll(`.spawn-movingPatternsList${dataAttrsSelector} .spawn-pattern-row`);
+                      const patterns = [];
+                      patternRows.forEach((row) => {
+                        const dx2 = parseFloat(row.querySelector(".spawn-pattern-dx").value);
+                        const dy2 = parseFloat(row.querySelector(".spawn-pattern-dy").value);
+                        const duration = parseInt(row.querySelector(".spawn-pattern-duration").value);
+                        patterns.push(new MovingPath3(dx2, dy2, duration));
+                      });
+                      if (patterns.length > 0) {
+                        const movingTimes2 = parseInt(movingTimesInput?.value || "-1");
+                        collectedNestedModules.moving = new MovingModule3(patterns, movingTimes2);
+                      }
+                    } catch (e) {
+                      console.error("Error parsing nested moving patterns:", e);
+                    }
+                  }
+                  const spawnerCheckbox2 = blockEl.querySelector(`.spawn-hasSpawner${dataAttrsSelector}`);
+                  if (spawnerCheckbox2 && spawnerCheckbox2.checked) {
+                    moduleIsPresent = true;
+                    const spawnerRythmInput2 = blockEl.querySelector(`.spawn-spawnerRythm${dataAttrsSelector}`);
+                    const nestedContainer = blockEl.querySelector(`.spawn-spawner-blocks${dataAttrsSelector}`);
+                    if (spawnerRythmInput2 && nestedContainer) {
+                      const nestedRythm = parseInt(spawnerRythmInput2.value);
+                      const nestedBuilders = parseSpawnerBlocks(nestedContainer);
+                      if (nestedBuilders.length > 0) {
+                        collectedNestedModules.spawner = new SpawnerModule3(nestedRythm, false, nestedBuilders);
+                      }
+                    }
+                  }
+                  if (moduleIsPresent) {
+                    builderModule = new BlockModule(collectedNestedModules);
                   }
                   builders.push(new BlockBuilder(builderModule, { dx, dy, w, h }));
                 });
@@ -5081,77 +5383,46 @@
             spawnerModule = block.module.spawner;
           }
         }
-        const newModule = new BlockModule({
-          bounce: bounce ? new BounceModule3(bounceFactor2, bounceCost2) : void 0,
-          kill: kill ? new KillModule3() : void 0,
-          heal: heal ? new HealModule3(healHp2) : void 0,
-          couldownedAttack: cooldownAttack ? new CouldownedAttackModule3(cooldownAttackDamages2, cooldownAttackDuration2) : void 0,
-          continuousAttack: continuousAttack ? new ContinuousAttackModule3(continuousAttackDamages2) : void 0,
-          restoreJump: restoreJump ? new RestoreJumpModule3(restoreJumpGain2) : void 0,
-          goal: goal ? goalType2 : void 0,
-          moving: movingModule,
-          speed: speed ? new SpeedModule3(speedVx2, speedVy2) : void 0,
-          acceleration: acceleration ? new AccelerationModule3(accelerationAx2, accelerationAy2) : void 0,
-          rotation: rotation ? new RotationModule3(rotationStart2, rotationSpeed2) : void 0,
-          spawner: spawnerModule,
-          touchDespawn: touchDespawn ? new TouchDespawnModule3() : void 0,
-          couldownDespawn: cooldownDespawn ? new CouldownDespawnModule3(cooldownDespawnDuration2) : void 0
-        });
+        newBlockModule.spawner = spawnerModule;
+        const newModule = new BlockModule(newBlockModule);
         block.module = newModule;
         block.drawMode = newModule.getDrawModule(0);
         if (block.drawMode) {
           block.drawAnimator = block.drawMode.generateAnimator(block);
         }
       };
-      const setupModuleToggle = (checkboxId, optionsId) => {
-        const checkbox = document.getElementById(checkboxId);
-        const options = document.getElementById(optionsId);
-        if (checkbox && options) {
+      for (const moduleInfo of moduleList) {
+        const checkbox = document.getElementById(moduleInfo.id);
+        const optionsContainer = document.getElementById(`${moduleInfo.id}Options`);
+        if (checkbox) {
           checkbox.addEventListener("change", () => {
-            options.style.display = checkbox.checked ? "block" : "none";
+            if (optionsContainer) {
+              optionsContainer.style.display = checkbox.checked ? "block" : "none";
+            }
             recreateBlockModule();
           });
-        } else if (checkbox) {
-          checkbox.addEventListener("change", recreateBlockModule);
         }
-      };
-      setupModuleToggle("modBounce", "bounceOptions");
-      setupModuleToggle("modHeal", "healOptions");
-      setupModuleToggle("modCooldownAttack", "cooldownAttackOptions");
-      setupModuleToggle("modContinuousAttack", "continuousAttackOptions");
-      setupModuleToggle("modRestoreJump", "restoreJumpOptions");
-      setupModuleToggle("modGoal", "goalOptions");
-      setupModuleToggle("modMoving", "movingOptions");
-      setupModuleToggle("modSpeed", "speedOptions");
-      setupModuleToggle("modAcceleration", "accelerationOptions");
-      setupModuleToggle("modRotation", "rotationOptions");
-      setupModuleToggle("modSpawner", "spawnerOptions");
-      setupModuleToggle("modCooldownDespawn", "cooldownDespawnOptions");
-      setupModuleToggle("modKill", "");
-      setupModuleToggle("modTouchDespawn", "");
-      const paramInputs = [
-        "bounceFactor",
-        "bounceCost",
-        "healHp",
-        "cooldownAttackDamages",
-        "cooldownAttackDuration",
-        "continuousAttackDamages",
-        "restoreJumpGain",
-        "goalType",
-        "speedVx",
-        "speedVy",
-        "accelerationAx",
-        "accelerationAy",
-        "rotationStart",
-        "rotationSpeed",
-        "cooldownDespawnDuration"
-      ];
-      for (const inputId of paramInputs) {
-        const input = document.getElementById(inputId);
-        if (input) {
+        document.querySelectorAll(`#${moduleInfo.id}Options .${moduleInfo.id}-arg-input`).forEach((input) => {
           input.addEventListener("change", recreateBlockModule);
-        }
+        });
       }
+      const movingCheckbox = document.getElementById("modMoving");
+      const movingOptions = document.getElementById("movingOptions");
+      if (movingCheckbox) {
+        movingCheckbox.addEventListener("change", () => {
+          movingOptions.style.display = movingCheckbox.checked ? "block" : "none";
+          recreateBlockModule();
+        });
+      }
+      const attachMainPatternListeners = (row) => {
+        row.querySelectorAll("input").forEach((input) => {
+          input.addEventListener("change", recreateBlockModule);
+        });
+        row.querySelector(".pattern-remove")?.addEventListener("click", (e) => {
+          e.target.closest(".pattern-row")?.remove();
+          recreateBlockModule();
+        });
+      };
       document.getElementById("addPattern")?.addEventListener("click", () => {
         const list = document.getElementById("movingPatternsList");
         const idx = list.children.length;
@@ -5165,149 +5436,171 @@
 				<button class="pattern-remove" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
 			`;
         list.appendChild(newRow);
-        newRow.querySelectorAll("input").forEach((input) => {
-          input.addEventListener("change", recreateBlockModule);
-        });
-        newRow.querySelector(".pattern-remove")?.addEventListener("click", (e) => {
-          newRow.remove();
+        attachMainPatternListeners(newRow);
+        recreateBlockModule();
+      });
+      document.querySelectorAll("#movingPatternsList .pattern-row").forEach(attachMainPatternListeners);
+      document.getElementById("movingTimes")?.addEventListener("change", recreateBlockModule);
+      document.getElementById("spawnerRythm")?.addEventListener("change", recreateBlockModule);
+      const spawnerCheckboxMain = document.getElementById("modSpawner");
+      const spawnerOptions = document.getElementById("spawnerOptions");
+      if (spawnerCheckboxMain) {
+        spawnerCheckboxMain.addEventListener("change", () => {
+          spawnerOptions.style.display = spawnerCheckboxMain.checked ? "block" : "none";
           recreateBlockModule();
         });
-      });
-      document.querySelectorAll(".pattern-dx, .pattern-dy, .pattern-duration").forEach((input) => {
-        input.addEventListener("change", recreateBlockModule);
-      });
-      document.querySelectorAll(".pattern-remove").forEach((btn) => {
-        btn.addEventListener("click", (e) => {
-          e.target.closest(".pattern-row")?.remove();
-          recreateBlockModule();
-        });
-      });
-      const movingInputs = ["movingTimes"];
-      for (const inputId of movingInputs) {
-        const input = document.getElementById(inputId);
-        if (input) {
-          input.addEventListener("change", recreateBlockModule);
-        }
       }
-      const spawnerInputs = ["spawnerRythm"];
-      for (const inputId of spawnerInputs) {
-        const input = document.getElementById(inputId);
-        if (input) {
+      function attachNestedPatternListeners(row) {
+        row.querySelectorAll("input").forEach((input) => {
           input.addEventListener("change", recreateBlockModule);
-        }
+        });
+        row.querySelector(".spawn-pattern-remove")?.addEventListener("click", (e) => {
+          e.target.closest(".spawn-pattern-row")?.remove();
+          recreateBlockModule();
+        });
       }
       function attachSpawnerBlockListeners(blockElement) {
-        blockElement.querySelectorAll("input[type='number']:not([type='checkbox'])").forEach((input) => {
+        const depth = blockElement.getAttribute("data-depth");
+        const idx = blockElement.getAttribute("data-idx");
+        const dataAttrsSelector = `[data-depth="${depth}"][data-idx="${idx}"]`;
+        blockElement.querySelectorAll("input[type='number'].spawn-dx, input[type='number'].spawn-dy, input[type='number'].spawn-w, input[type='number'].spawn-h").forEach((input) => {
           input.addEventListener("change", recreateBlockModule);
         });
         blockElement.querySelector(".spawn-remove")?.addEventListener("click", () => {
           blockElement.remove();
           recreateBlockModule();
         });
-        const setupSpawnerToggle = (checkboxClass, optsClass) => {
-          const checkbox = blockElement.querySelector(`.${checkboxClass}`);
-          if (!checkbox) return;
-          const depth = checkbox.getAttribute("data-depth");
-          const idx = checkbox.getAttribute("data-idx");
-          const opts = blockElement.querySelector(`.${optsClass}[data-depth="${depth}"][data-idx="${idx}"]`);
-          if (checkbox && opts) {
+        for (const moduleInfo of moduleList) {
+          const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
+          const checkbox = blockElement.querySelector(`.${moduleInfo.id}.spawn-module-toggle${dataAttrsSelector}`);
+          const optionsContainer = blockElement.querySelector(`#${idPrefix}-opts`);
+          if (checkbox) {
             checkbox.addEventListener("change", () => {
-              opts.style.display = checkbox.checked ? "block" : "none";
+              if (optionsContainer) {
+                optionsContainer.style.display = checkbox.checked ? "block" : "none";
+              }
               recreateBlockModule();
             });
-          } else if (checkbox) {
-            checkbox.addEventListener("change", recreateBlockModule);
           }
-        };
-        setupSpawnerToggle("spawn-hasSpeed", "spawn-speed-opts");
-        setupSpawnerToggle("spawn-hasAcceleration", "spawn-accel-opts");
-        setupSpawnerToggle("spawn-hasRotation", "spawn-rotation-opts");
-        setupSpawnerToggle("spawn-hasBounce", "spawn-bounce-opts");
-        setupSpawnerToggle("spawn-hasCouldownDespawn", "spawn-despawn-opts");
-        setupSpawnerToggle("spawn-hasSpawner", "spawn-spawner-opts");
-        setupSpawnerToggle("spawn-hasCooldownAttack", "spawn-cooldownattack-opts");
-        setupSpawnerToggle("spawn-hasContinuousAttack", "spawn-continuousattack-opts");
-        setupSpawnerToggle("spawn-hasHeal", "spawn-heal-opts");
-        setupSpawnerToggle("spawn-hasRestoreJump", "spawn-restorejump-opts");
-        setupSpawnerToggle("spawn-hasGoal", "spawn-goal-opts");
-        const killCheckbox = blockElement.querySelector(".spawn-hasKill");
-        if (killCheckbox) {
-          killCheckbox.addEventListener("change", recreateBlockModule);
+          blockElement.querySelectorAll(`.${idPrefix}-arg-input${dataAttrsSelector}`).forEach((input) => {
+            input.addEventListener("change", recreateBlockModule);
+          });
         }
-        const touchDespawnCheckbox = blockElement.querySelector(".spawn-hasTouchDespawn");
-        if (touchDespawnCheckbox) {
-          touchDespawnCheckbox.addEventListener("change", recreateBlockModule);
+        const movingCheckbox2 = blockElement.querySelector(`.spawn-modMoving${dataAttrsSelector}`);
+        const movingOpts = blockElement.querySelector(`.spawn-moving-opts${dataAttrsSelector}`);
+        const movingPatternsList = blockElement.querySelector(`.spawn-movingPatternsList${dataAttrsSelector}`);
+        if (movingCheckbox2 && movingOpts) {
+          movingCheckbox2.addEventListener("change", () => {
+            movingOpts.style.display = movingCheckbox2.checked ? "block" : "none";
+            recreateBlockModule();
+          });
         }
+        blockElement.querySelector(`.spawn-movingTimes${dataAttrsSelector}`)?.addEventListener("change", recreateBlockModule);
+        blockElement.querySelector(".spawn-addPattern")?.addEventListener("click", (e) => {
+          e.stopPropagation();
+          const list = movingPatternsList;
+          const pIdx = list.children.length;
+          const newRow = document.createElement("div");
+          newRow.className = "pattern-row spawn-pattern-row";
+          newRow.style.cssText = "display: flex; gap: 5px; margin-bottom: 5px; align-items: center;";
+          const newAttrs = `data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}"`;
+          newRow.innerHTML = `
+					<input type="number" class="spawn-pattern-dx" ${newAttrs} value="0" step="0.1" style="width: 60px;" placeholder="dx">
+					<input type="number" class="spawn-pattern-dy" ${newAttrs} value="0" step="0.1" style="width: 60px;" placeholder="dy">
+					<input type="number" class="spawn-pattern-duration" ${newAttrs} value="100" step="1" style="width: 60px;" placeholder="dur">
+					<button class="spawn-pattern-remove" ${newAttrs} style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+				`;
+          list.appendChild(newRow);
+          attachNestedPatternListeners(newRow);
+          recreateBlockModule();
+        });
+        blockElement.querySelectorAll(".spawn-movingPatternsList .spawn-pattern-row").forEach(attachNestedPatternListeners);
+        const spawnerCheckbox = blockElement.querySelector(`.spawn-hasSpawner${dataAttrsSelector}`);
+        const spawnerOpts = blockElement.querySelector(`.spawn-spawner-opts${dataAttrsSelector}`);
+        if (spawnerCheckbox && spawnerOpts) {
+          spawnerCheckbox.addEventListener("change", () => {
+            spawnerOpts.style.display = spawnerCheckbox.checked ? "block" : "none";
+            recreateBlockModule();
+          });
+        }
+        blockElement.querySelector(".spawn-spawnerRythm")?.addEventListener("change", recreateBlockModule);
         const addNestedBtn = blockElement.querySelector(".spawn-addNestedBlock");
         if (addNestedBtn) {
           addNestedBtn.addEventListener("click", (e) => {
             e.stopPropagation();
             const btn = e.target;
-            const depth = parseInt(btn.getAttribute("data-depth") || "0");
-            const idx = btn.getAttribute("data-idx");
-            const container = blockElement.querySelector(`.spawn-spawner-blocks[data-depth="${depth}"][data-idx="${idx}"]`);
+            const depth2 = parseInt(btn.getAttribute("data-depth") || "0");
+            const idx2 = btn.getAttribute("data-idx");
+            const container = blockElement.querySelector(`.spawn-spawner-blocks${dataAttrsSelector}`);
             if (container) {
-              const newDepth = depth + 1;
-              const newIdx = container.children.length;
+              const newDepth = depth2 + 1;
+              const newIdx = container.querySelectorAll(":scope > .spawner-block").length;
               const newBlock = document.createElement("div");
               newBlock.className = "spawner-block";
               newBlock.setAttribute("data-depth", newDepth.toString());
               newBlock.setAttribute("data-idx", newIdx.toString());
+              const newAttrs = `data-depth="${newDepth}" data-idx="${newIdx}"`;
+              let newModuleOptionsHTML = "";
+              for (const moduleInfo of moduleList) {
+                const defaultInstance = moduleInfo.default();
+                const idPrefix = `${moduleInfo.id}-${newDepth}-${newIdx}`;
+                let argsHtml = "";
+                if (moduleInfo.prop === "goal" && typeof defaultInstance === "number") {
+                  argsHtml = `<label>Type: <input type="number" class="${idPrefix}-arg-input spawn-goal-type" value="${defaultInstance}" step="1" style="width: 60px;" ${newAttrs}></label>`;
+                } else if (typeof defaultInstance === "object" && "enumArgs" in defaultInstance) {
+                  argsHtml = generateArgInputsHTML(defaultInstance, idPrefix, newAttrs);
+                }
+                let moduleHtml = `
+								<label style="display: block;">
+									<input type="checkbox" class="${moduleInfo.id} spawn-module-toggle" data-prop="${moduleInfo.prop}" ${newAttrs}> ${moduleInfo.name}
+								</label>
+							`;
+                if (argsHtml) {
+                  moduleHtml += `
+									<div id="${idPrefix}-opts" class="spawn-module-opts" style="display: none; padding-left: 20px;">
+										${argsHtml}
+									</div>
+								`;
+                }
+                newModuleOptionsHTML += moduleHtml;
+              }
+              newModuleOptionsHTML += `
+							<label style="display: block; font-weight: bold; color: #cc6600;"><input type="checkbox" class="spawn-modMoving" ${newAttrs}> Moving</label>
+							<div class="spawn-moving-opts" ${newAttrs} style="display: none; padding-left: 20px; border-left: 2px solid #cc6600; margin-top: 5px;">
+								<label>Times (-1 = infinite): <input type="number" class="spawn-movingTimes" ${newAttrs} value="-1" step="1" style="width: 80px;"></label><br>
+								<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Patterns:</label>
+								<div class="spawn-movingPatternsList" ${newAttrs}></div>
+								<button class="spawn-addPattern" ${newAttrs} style="background: #cc6600; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
+							</div>
+						`;
+              newModuleOptionsHTML += `
+							<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" ${newAttrs}> Spawner (nested)</label>
+							<div class="spawn-spawner-opts" ${newAttrs} style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+								<label>Rythm: <input type="number" class="spawn-spawnerRythm" ${newAttrs} value="60" step="1" style="width: 80px;"></label><br>
+								<div class="spawn-spawner-blocks" ${newAttrs}></div>
+								<button class="spawn-addNestedBlock" ${newAttrs} style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+							</div>
+						`;
               newBlock.style.cssText = `border: 1px solid #999; padding: 10px; margin-left: ${newDepth * 20}px; margin-bottom: 10px; border-radius: 5px; background: ${newDepth % 2 === 0 ? "#f9f9f9" : "#efefef"};`;
               newBlock.innerHTML = `
 							<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
-								<input type="number" class="spawn-dx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="1" style="width: 60px;" placeholder="dx">
-								<input type="number" class="spawn-dy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="1" style="width: 60px;" placeholder="dy">
-								<input type="number" class="spawn-w" data-depth="${newDepth}" data-idx="${newIdx}" value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="w">
-								<input type="number" class="spawn-h" data-depth="${newDepth}" data-idx="${newIdx}" value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="h">
-								<button class="spawn-remove" data-depth="${newDepth}" data-idx="${newIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+								<input type="number" class="spawn-dx" ${newAttrs} value="0" step="1" style="width: 60px;" placeholder="dx">
+								<input type="number" class="spawn-dy" ${newAttrs} value="0" step="1" style="width: 60px;" placeholder="dy">
+								<input type="number" class="spawn-w" ${newAttrs} value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="w">
+								<input type="number" class="spawn-h" ${newAttrs} value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="h">
+								<button class="spawn-remove" ${newAttrs} style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
 							</div>
 							
 							<details>
 								<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
 								<div style="padding-left: 10px; margin-top: 5px;">
-									<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="${newDepth}" data-idx="${newIdx}"> Speed</label>
-									<div class="spawn-speed-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
-										<input type="number" class="spawn-speedVx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
-										<input type="number" class="spawn-speedVy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
-									</div>
-									
-									<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="${newDepth}" data-idx="${newIdx}"> Acceleration</label>
-									<div class="spawn-accel-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
-										<input type="number" class="spawn-accelAx" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
-										<input type="number" class="spawn-accelAy" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
-									</div>
-									
-									<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="${newDepth}" data-idx="${newIdx}"> Rotation</label>
-									<div class="spawn-rotation-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
-										<input type="number" class="spawn-rotationStart" data-depth="${newDepth}" data-idx="${newIdx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
-										<input type="number" class="spawn-rotationSpeed" data-depth="${newDepth}" data-idx="${newIdx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
-									</div>
-									
-									<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="${newDepth}" data-idx="${newIdx}"> Bounce</label>
-									<div class="spawn-bounce-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
-										<input type="number" class="spawn-bounceFactor" data-depth="${newDepth}" data-idx="${newIdx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
-										<input type="number" class="spawn-bounceCost" data-depth="${newDepth}" data-idx="${newIdx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
-									</div>
-									
-									<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="${newDepth}" data-idx="${newIdx}"> Kill</label>
-									
-									<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="${newDepth}" data-idx="${newIdx}"> Cooldown Despawn</label>
-									<div class="spawn-despawn-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px;">
-										<input type="number" class="spawn-despawnDuration" data-depth="${newDepth}" data-idx="${newIdx}" value="100" step="10" style="width: 60px;" placeholder="duration">
-									</div>
-									
-									<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="${newDepth}" data-idx="${newIdx}"> Spawner (nested)</label>
-									<div class="spawn-spawner-opts" data-depth="${newDepth}" data-idx="${newIdx}" style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
-										<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="${newDepth}" data-idx="${newIdx}" value="60" step="1" style="width: 80px;"></label><br>
-										<div class="spawn-spawner-blocks" data-depth="${newDepth}" data-idx="${newIdx}"></div>
-										<button class="spawn-addNestedBlock" data-depth="${newDepth}" data-idx="${newIdx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
-									</div>
+									${newModuleOptionsHTML}
 								</div>
 							</details>
 						`;
               container.appendChild(newBlock);
               attachSpawnerBlockListeners(newBlock);
+              recreateBlockModule();
             }
           });
         }
@@ -5319,61 +5612,68 @@
         newBlock.className = "spawner-block";
         newBlock.setAttribute("data-depth", "0");
         newBlock.setAttribute("data-idx", idx.toString());
+        const newAttrs = `data-depth="0" data-idx="${idx}"`;
+        let newModuleOptionsHTML = "";
+        for (const moduleInfo of moduleList) {
+          const defaultInstance = moduleInfo.default();
+          const idPrefix = `${moduleInfo.id}-0-${idx}`;
+          let argsHtml = "";
+          if (moduleInfo.prop === "goal" && typeof defaultInstance === "number") {
+            argsHtml = `<label>Type: <input type="number" class="${idPrefix}-arg-input spawn-goal-type" value="${defaultInstance}" step="1" style="width: 60px;" ${newAttrs}></label>`;
+          } else if (typeof defaultInstance === "object" && "enumArgs" in defaultInstance) {
+            argsHtml = generateArgInputsHTML(defaultInstance, idPrefix, newAttrs);
+          }
+          let moduleHtml = `
+					<label style="display: block;">
+						<input type="checkbox" class="${moduleInfo.id} spawn-module-toggle" data-prop="${moduleInfo.prop}" ${newAttrs}> ${moduleInfo.name}
+					</label>
+				`;
+          if (argsHtml) {
+            moduleHtml += `
+						<div id="${idPrefix}-opts" class="spawn-module-opts" style="display: none; padding-left: 20px;">
+							${argsHtml}
+						</div>
+					`;
+          }
+          newModuleOptionsHTML += moduleHtml;
+        }
+        newModuleOptionsHTML += `
+				<label style="display: block; font-weight: bold; color: #cc6600;"><input type="checkbox" class="spawn-modMoving" ${newAttrs}> Moving</label>
+				<div class="spawn-moving-opts" ${newAttrs} style="display: none; padding-left: 20px; border-left: 2px solid #cc6600; margin-top: 5px;">
+					<label>Times (-1 = infinite): <input type="number" class="spawn-movingTimes" ${newAttrs} value="-1" step="1" style="width: 80px;"></label><br>
+					<label style="display: block; margin-top: 10px; margin-bottom: 5px; font-weight: bold;">Patterns:</label>
+					<div class="spawn-movingPatternsList" ${newAttrs}></div>
+					<button class="spawn-addPattern" ${newAttrs} style="background: #cc6600; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
+				</div>
+			`;
+        newModuleOptionsHTML += `
+				<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" ${newAttrs}> Spawner (nested)</label>
+				<div class="spawn-spawner-opts" ${newAttrs} style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
+					<label>Rythm: <input type="number" class="spawn-spawnerRythm" ${newAttrs} value="60" step="1" style="width: 80px;"></label><br>
+					<div class="spawn-spawner-blocks" ${newAttrs}></div>
+					<button class="spawn-addNestedBlock" ${newAttrs} style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
+				</div>
+			`;
         newBlock.style.cssText = "border: 1px solid #999; padding: 10px; margin-bottom: 10px; border-radius: 5px; background: #f9f9f9;";
         newBlock.innerHTML = `
 				<div style="display: flex; gap: 5px; margin-bottom: 5px; flex-wrap: wrap;">
-					<input type="number" class="spawn-dx" data-depth="0" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dx">
-					<input type="number" class="spawn-dy" data-depth="0" data-idx="${idx}" value="0" step="1" style="width: 60px;" placeholder="dy">
-					<input type="number" class="spawn-w" data-depth="0" data-idx="${idx}" value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="w">
-					<input type="number" class="spawn-h" data-depth="0" data-idx="${idx}" value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="h">
-					<button class="spawn-remove" data-depth="0" data-idx="${idx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+					<input type="number" class="spawn-dx" ${newAttrs} value="0" step="1" style="width: 60px;" placeholder="dx">
+					<input type="number" class="spawn-dy" ${newAttrs} value="0" step="1" style="width: 60px;" placeholder="dy">
+					<input type="number" class="spawn-w" ${newAttrs} value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="w">
+					<input type="number" class="spawn-h" ${newAttrs} value="${PIXEL_SIZE * 2}" step="1" style="width: 60px;" placeholder="h">
+					<button class="spawn-remove" ${newAttrs} style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
 				</div>
 				
 				<details>
 					<summary style="cursor: pointer; font-weight: bold; margin: 5px 0;">Module Options</summary>
 					<div style="padding-left: 10px; margin-top: 5px;">
-						<label style="display: block;"><input type="checkbox" class="spawn-hasSpeed" data-depth="0" data-idx="${idx}"> Speed</label>
-						<div class="spawn-speed-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-speedVx" data-depth="0" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vx">
-							<input type="number" class="spawn-speedVy" data-depth="0" data-idx="${idx}" value="0" step="0.5" style="width: 60px;" placeholder="vy">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasAcceleration" data-depth="0" data-idx="${idx}"> Acceleration</label>
-						<div class="spawn-accel-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-accelAx" data-depth="0" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ax">
-							<input type="number" class="spawn-accelAy" data-depth="0" data-idx="${idx}" value="0" step="0.01" style="width: 60px;" placeholder="ay">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasRotation" data-depth="0" data-idx="${idx}"> Rotation</label>
-						<div class="spawn-rotation-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-rotationStart" data-depth="0" data-idx="${idx}" value="0" step="0.1" style="width: 60px;" placeholder="start">
-							<input type="number" class="spawn-rotationSpeed" data-depth="0" data-idx="${idx}" value="0.01" step="0.01" style="width: 60px;" placeholder="speed">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasBounce" data-depth="0" data-idx="${idx}"> Bounce</label>
-						<div class="spawn-bounce-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-bounceFactor" data-depth="0" data-idx="${idx}" value="1" step="0.1" style="width: 60px;" placeholder="factor">
-							<input type="number" class="spawn-bounceCost" data-depth="0" data-idx="${idx}" value="0.003" step="0.001" style="width: 60px;" placeholder="cost">
-						</div>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasKill" data-depth="0" data-idx="${idx}"> Kill</label>
-						
-						<label style="display: block;"><input type="checkbox" class="spawn-hasCouldownDespawn" data-depth="0" data-idx="${idx}"> Cooldown Despawn</label>
-						<div class="spawn-despawn-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px;">
-							<input type="number" class="spawn-despawnDuration" data-depth="0" data-idx="${idx}" value="100" step="10" style="width: 60px;" placeholder="duration">
-						</div>
-						
-						<label style="display: block; font-weight: bold; color: #6600cc;"><input type="checkbox" class="spawn-hasSpawner" data-depth="0" data-idx="${idx}"> Spawner (nested)</label>
-						<div class="spawn-spawner-opts" data-depth="0" data-idx="${idx}" style="display: none; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
-							<label>Rythm: <input type="number" class="spawn-spawnerRythm" data-depth="0" data-idx="${idx}" value="60" step="1" style="width: 80px;"></label><br>
-							<div class="spawn-spawner-blocks" data-depth="0" data-idx="${idx}"></div>
-							<button class="spawn-addNestedBlock" data-depth="0" data-idx="${idx}" style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
-						</div>
+						${newModuleOptionsHTML}
 					</div>
 				</details>
 			`;
         list.appendChild(newBlock);
         attachSpawnerBlockListeners(newBlock);
+        recreateBlockModule();
       });
       document.querySelectorAll(".spawner-block").forEach(attachSpawnerBlockListeners);
       block._updateDisplay = updateBlockDisplay;
@@ -6115,36 +6415,9 @@
           (async () => {
             const [handle] = await window.showOpenFilePicker();
             const file = await handle.getFile();
-            async function* read() {
-              const reader = file.stream().getReader();
-              const decoder = new TextDecoder();
-              let result;
-              let buffer = "";
-              let firstLineSent = false;
-              while (!(result = await reader.read()).done) {
-                buffer += decoder.decode(result.value, { stream: true });
-                if (!firstLineSent) {
-                  const newlineIndex = buffer.search(/[\r\n]/);
-                  if (newlineIndex !== -1) {
-                    const firstLine = buffer.slice(0, newlineIndex).trim();
-                    buffer = buffer.slice(newlineIndex + 1);
-                    yield firstLine;
-                    firstLineSent = true;
-                  } else {
-                    continue;
-                  }
-                }
-                let index;
-                while ((index = buffer.search(/[ \r\n]/)) !== -1) {
-                  let mot = buffer.slice(0, index).trim();
-                  buffer = buffer.slice(index + 1);
-                  if (mot) yield mot;
-                }
-              }
-              const last = buffer.trim();
-              if (last) yield last;
-            }
-            const { stage, name } = await importStage(read);
+            const { stage, name } = await importStage(
+              createImportStageGenerator(file)
+            );
             levelName = name;
             stageContainer[0] = stage;
           })();
