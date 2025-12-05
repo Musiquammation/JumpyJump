@@ -7,41 +7,41 @@ room -800 -450 1600 900
 	-112.5 287.5 75 75
 		kill 1
 	12.5 400.5 225 75
-		bounce 0.9 0.001
+		bounce 0.001 0.9 1
 	-37.5 287.5 75 75
-		heal 2
+		heal 2 1
 		speed 0.5 0
 		acceleration 0.04 0
 	-287.5 37.5 75 75
-		heal 2
+		heal 2 1
 		speed 0.5 0
 		acceleration 0.06 0
 	-162.5 163.5 75 75
-		heal 2
+		heal 2 1
 		speed 0.5 0
 		acceleration 0.05 0
 room 800 -450 4000 900
 	1625 0 50 450
-		couldownedAttack 1 100
+		couldownedAttack 1 100 1
 	2200 425 400 50
-		bounce 1 0.003
+		bounce 0.003 1 1
 	3400 0 400 450
 		restoreJump 2
 	4650 -112.5 300 675
 		kill 1
 	4350 400 100 100
-		heal 2
+		heal 2 1
 		speed 0 -1
 room 4000 450 1600 900
 	4400 1300 800 100
-		bounce 0.8 0.003
+		bounce 0.003 0.8 1
 emptyroom 5200 1350 1600 675
 emptyroom 6400 0 800 1350
 room 7200 -900 800 1350
 	7250 -500 100 100
-		heal 2
+		heal 2 1
 	7400 0 400 300
-		continuousAttack 0.015
+		continuousAttack 0.015 1
 emptyroom 6400 -1800 800 1350
 room 6800 -2700 1600 900
 	7225 -2025 50 450

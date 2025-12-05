@@ -1,0 +1,100 @@
+A Welcome Word
+Welcome
+room -800 -450 1600 900
+	0 425 300 50
+		bounce 0.003 1 1
+		touchDespawn 1
+	0 350 300 50
+		bounce 0.003 1 1
+		touchDespawn 1
+	0 275 300 50
+		bounce 0.003 1 1
+		touchDespawn 1
+	0 -262.5 200 75
+		text 50 <text><en>Jump with space</en></text>
+	-725 -125 100 250
+		speed 0 0
+		acceleration 0.1 0
+		text 50 <text><en>Go to the right >>></en></text>
+		speed 0 0
+		acceleration 0.1 0
+	650 175 75 75
+		text 50 <text><en>>></en></text>
+	650 -175 75 75
+		text 50 <text><en>>></en></text>
+room 800 -450 1600 900
+	16001525 -275 175 50
+	1600 -125 200 75
+		text 30 <text><en>Continue to the right</en></text>
+	1600 -225 200 75
+		text 50 <text><en>You can jump in the airs</en></text>
+	2325 175 75 75
+		text 50 <text><en>>></en></text>
+	2325 -175 75 75
+		text 50 <text><en>>></en></text>
+room 2400 -450 1600 900
+	3200 -225 800 100
+		text 50 <text><en>You cannot go to the white borders</en></text>
+	3200 225 800 100
+		text 30 <text><en>To know where to go</en></text>
+	3200 312.5 800 75
+		text 80 <text><en>Search non-white borders</en></text>
+room 2400 450 1600 900
+	2600 1225 400 50
+		bounce 0.003 0.5 1
+	3000 1325 400 50
+		bounce 0.003 0.5 1
+	3400 1225 400 50
+		bounce 0.003 0.5 1
+	3800 1325 400 50
+		bounce 0.003 0.5 1
+room 4000 450 1600 900
+	4800 675 450 100
+		text 100 <text><en>Nice!</en></text>
+room 5600 450 1600 900
+	6800 512.5 100 75
+		text 100 <text><en>up</en></text>
+room 6400 -450 1600 900
+	7200 225 100 450
+		kill 1
+	7600 -225 100 450
+		kill 1
+room 8000 -225 1600 1125
+	8800 162.5 150 75
+		text 100 <text><en>WARN!</en></text>
+	8800 262.5 550 75
+		text 50 <text><en>You only 3 jumps per room</en></text>
+	8550 400 300 100
+		text 30 <text><en>it's the yellow bar</en></text>
+	8962.5 475 275 100
+		text 30 <text><en>A 4th jump hits you by 1hp</en></text>
+room 9600 0 1600 900
+	10400 300 350 150
+		text 50 <text><en>But changing room resets your jump bar</en></text>
+emptyroom 10400 -1350 800 1350
+room 11200 -1800 800 900
+	11600 -1350 100 100
+		heal 1.5 1
+room 12000 -1800 1600 900
+	12425 -1200 50 600
+		couldownedAttack 1 100 1
+	12825 -1512.5 50 575
+		couldownedAttack 1 100 1
+room 13600 -1800 1600 900
+	14400 -1525 100 550
+		kill 1
+	14000 -1125 50 450
+		kill 1
+	14412.5 -1075 775 350
+		restoreJump 1
+	13975 -1762.5 450 75
+		text 50 <text><en>Take your time!</en></text>
+	13975 -1687.5 450 75
+		text 30 <text><en>The yellow block restores your jump bar</en></text>
+	14825 -1125 50 450
+		kill 1
+room 15200 -1800 1600 900
+	16000 -1612.5 800 75
+		text 100 <text><en>Congratulations!</en></text>
+	16000 -1350 100 100
+		goal 1

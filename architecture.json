@@ -1,11 +1,12 @@
 [
 	{"name": "w0", "levels": [
-		{"filename": "tutorial.txt", 			"name": "Tutorial", 			"author": "Musiquammation",		"version": 2},
-		{"filename": "fast_climb.txt", 			"name": "Fast climb", 			"author": "Musiquammation",		"version": 1},
-		{"filename": "prove_yourself.txt", 		"name": "Prove yourself", 		"author": "Musiquammation",		"version": 2},
-		{"filename": "extreme_climb.txt", 		"name": "Extreme climb", 		"author": "Bastidou", 			"version": 2},
-		{"filename": "infested_tutorial.txt", 	"name": "Infested tutorial", 	"author": "Musiquammation", 	"version": 1},
-		{"filename": "bounce_to_sky.txt", 		"name": "Bounce to sky", 		"author": "Musiquammation",		"version": 1},
-		{"filename": "infinity.txt",	 		"name": "Infinity", 			"author": "Cafki", 				"version": 1}
+		{"filename": "welcome.txt", 			"name": "A Welcome Word",		"author": "Musiquammation",		"version": 1},
+		{"filename": "tutorial.txt", 			"name": "Tutorial", 			"author": "Musiquammation",		"version": 3},
+		{"filename": "fast_climb.txt", 			"name": "Fast climb", 			"author": "Musiquammation",		"version": 2},
+		{"filename": "prove_yourself.txt", 		"name": "Prove yourself", 		"author": "Musiquammation",		"version": 3},
+		{"filename": "extreme_climb.txt", 		"name": "Extreme climb", 		"author": "Bastidou", 			"version": 3},
+		{"filename": "infested_tutorial.txt", 	"name": "Infested tutorial", 	"author": "Musiquammation", 	"version": 2},
+		{"filename": "bounce_to_sky.txt", 		"name": "Bounce to sky", 		"author": "Musiquammation",		"version": 2},
+		{"filename": "infinity.txt",	 		"name": "Infinity", 			"author": "Cafki", 				"version": 2}
 	]}
 ]

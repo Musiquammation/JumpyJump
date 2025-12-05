@@ -1,36 +1,36 @@
 Bounce to sky
 room -800 -450 4400 900
 	1250 -112.5 50 675
-		couldownedAttack 1 100
+		couldownedAttack 1 100 1
 	2050 175 50 550
-		couldownedAttack 1 100
+		couldownedAttack 1 100 1
 	2825 112.5 50 675
-		couldownedAttack 1 100
+		couldownedAttack 1 100 1
 room 4400 -1800 1200 4500
 	5400 37.5 400 75
-		couldownedAttack 1.9 100
+		couldownedAttack 1.9 100 1
 	5000 2662.5 1200 75
-		bounce 0.9 0
+		bounce 0 0.9 1
 	5200 500 800 100
 		kill 1
 	4600 1400 400 100
-		couldownedAttack 2 100
+		couldownedAttack 2 100 1
 	4600 37.5 400 75
-		couldownedAttack 1.9 100
+		couldownedAttack 1.9 100 1
 	4587.5 1150 325 50
-		bounce 3 1
+		bounce 1 3 1
 	4825 987.5 50 475
-		couldownedAttack 1 100
+		couldownedAttack 1 100 1
 emptyroom 5600 -2700 2000 1350
 room 7200 -900 4800 900
 	8025 -450 50 700
 		rotation 0 0.03
-		couldownedAttack 1.5 100
+		couldownedAttack 1.5 100 1
 	9225 -450 50 700
 		rotation 1.2 0.03
-		couldownedAttack 1.5 100
+		couldownedAttack 1.5 100 1
 	9787.5 -125 175 100
-		heal 1.522
+		heal 1.522 1
 	11575 -675 50 450
 		kill 1
 	7250 -50 50 50
@@ -43,7 +43,7 @@ room 7200 -900 4800 900
 			endbuilder
 	10425 -450 50 700
 		rotation 1.2 -0.03
-		couldownedAttack 1.5 100
+		couldownedAttack 1.5 100 1
 	8600 -737.5 150 225
 		restoreJump 0.918
 	7600 -725 150 225
@@ -69,7 +69,7 @@ room 7200 -900 4800 900
 				acceleration 0 0.5
 			endbuilder
 	11775 -225 450 450
-		bounce 1.5 0.003
+		bounce 1.5 0.003 1
 	11800 -562.5 400 225
 		restoreJump 1.3
 room 12000 -1325 1600 900
@@ -107,4 +107,4 @@ room 3600 -450 800 3150
 		kill 1
 room 6400 -1350 800 900
 	7400 -2150 250 150
-		heal 2.5
+		heal 2.5 1
