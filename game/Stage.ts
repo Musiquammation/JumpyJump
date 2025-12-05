@@ -57,36 +57,75 @@ export class WeakStage {
 		}
 
 		function* words(): Generator<string> {
-			let buffer = "";
 			let firstLineSent = false;
+			let buffer = "";
+			let currentWord = "";
 
-			for (let i = 0; i < file.length; i++) {
+			let i = 0;
+			const isSep = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
+
+			const extractLanguageBlock = (block: string): string => {
+				const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+				let match;
+				const map = new Map<string, string>();
+				const order: string[] = [];
+				while ((match = regex.exec(block))) {
+					const lang = match[1].toLowerCase();
+					map.set(lang, match[2].trim());
+					order.push(lang);
+				}
+				if (order.length === 0) return "";
+
+				let nav = (navigator.language || "en").split("-")[0].toLowerCase();
+				if (map.has(nav)) return map.get(nav)!;
+				if (map.has("en")) return map.get("en")!;
+				return map.get(order[0])!;
+			};
+
+			while (i < file.length) {
+				// Gestion du bloc <text>...</text>
+				if (file.startsWith("<text>", i)) {
+					const endIdx = file.indexOf("</text>", i);
+					if (endIdx === -1) break; // bloc malformé → on ignore
+					const block = file.slice(i + 6, endIdx);
+					const extracted = extractLanguageBlock(block);
+					if (extracted) yield extracted;
+					i = endIdx + 7;
+					continue;
+				}
+
 				const c = file[i];
 
-				// Si on n'a pas encore envoyé la première ligne
+				// Première ligne entière
 				if (!firstLineSent) {
 					if (c === "\n" || c === "\r") {
-						yield buffer;   // envoie la ligne complète
+						yield buffer;
 						buffer = "";
 						firstLineSent = true;
-						continue;
 					} else {
 						buffer += c;
-						continue;
 					}
+					i++;
+					continue;
 				}
 
-				// Comportement normal mot par mot après la première ligne
-				if (c !== " " && c !== "\t" && c !== "\n" && c !== "\r") {
+				// Découpage mot par mot
+				if (isSep(c)) {
+					if (buffer.length > 0) {
+						yield buffer;
+						buffer = "";
+					}
+				} else {
 					buffer += c;
-				} else if (buffer.length > 0) {
-					yield buffer;
-					buffer = "";
 				}
+
+				i++;
 			}
 
-			if (buffer.length > 0) yield buffer;
+			if (!firstLineSent && buffer.length > 0) yield buffer;
+			else if (buffer.length > 0) yield buffer;
 		}
+
 
 
 		const {stage, name} = await importStage(words);

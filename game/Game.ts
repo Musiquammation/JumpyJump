@@ -1,4 +1,4 @@
-import { importStage } from "./importStage";
+import { createImportStageGenerator, importStage } from "./importStage";
 import { Camera } from "./Camera";
 import { InputHandler } from "./InputHandler";
 import { Player } from "./Player";
@@ -67,7 +67,7 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.5.0";
+	static GAME_VERSION = "1.5.1";
 
 	player = new Player();
 	camera = new Camera();
@@ -211,42 +211,10 @@ export class Game {
 				(async ()=>{
 					const [handle] = await window.showOpenFilePicker!();
 					const file = await handle.getFile();
-					
-					async function* read() {
-						const reader = file.stream().getReader();
-						const decoder = new TextDecoder();
-						let result;
-						let buffer = "";
-						let firstLineSent = false;
 
-						while (!(result = await reader.read()).done) {
-							buffer += decoder.decode(result.value, { stream: true });
-
-							if (!firstLineSent) {
-								const newlineIndex = buffer.search(/[\r\n]/);
-								if (newlineIndex !== -1) {
-									const firstLine = buffer.slice(0, newlineIndex).trim();
-									buffer = buffer.slice(newlineIndex + 1);
-									yield firstLine;
-									firstLineSent = true;
-								} else {
-									continue;
-								}
-							}
-
-							let index;
-							while ((index = buffer.search(/[ \r\n]/)) !== -1) {
-								let mot = buffer.slice(0, index).trim();
-								buffer = buffer.slice(index + 1);
-								if (mot) yield mot;
-							}
-						}
-
-						const last = buffer.trim();
-						if (last) yield last;
-					}
-
-					const {stage, name} = await importStage(read);
+					const {stage, name} = await importStage(
+						createImportStageGenerator(file)
+					);
 					this.inputHandler.kill('debug');
 					this.state.set('play');
 					this.startLevel(stage, name);
@@ -505,20 +473,26 @@ export class Game {
 			ctx.fillStyle = "#111";
 			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 			ctx.textAlign = "center";
-
-
+			ctx.textBaseline = "bottom";
 			ctx.font = "30px Arial";
+
 			ctx.fillStyle = "white";
 			if (this.selectWorldFile) {
 				ctx.fillText(`Select file (press P)`, Game.WIDTH_2, 100);
 			} else {
 				ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
 				if (this.currentWorld < this.stageList.length) {
-					for (let i = 0; i < this.stageList[this.currentWorld].length; i++) {
+					const stage = this.stageList[this.currentWorld];
+					for (let i = 0; i < stage.length; i++) {
 						ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
 						let x = 400 + 200 * (i%5);
 						let y = 300 + Math.floor(i/5) * 100;
+						ctx.font = "30px Arial";
 						ctx.fillText(`#${i}`, x, y);
+
+						ctx.font = "italic 16px Arial";
+						ctx.fillText(`${stage[i].name}`, x, y+25);
+
 					}
 				}
 			}

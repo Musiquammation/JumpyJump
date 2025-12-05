@@ -137,7 +137,7 @@ function generateWeakStages(worlds: World[]) {
 	for (let world of worlds) {
 		const line: WeakStage[] = [];
 		for (let level of world.levels) {
-			line.push(new WeakStage(`#${world.name}#${level.filename}`));
+			line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name));
 		}
 		container.push(line);
 	}

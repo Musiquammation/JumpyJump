@@ -17,9 +17,15 @@ const {
 	AccelerationModule,
 	RestoreJumpModule,
 	RotationModule,
+	TextModule,
+
 	SpawnerModule,
 } = bmodules;
 
+
+function toBool(n: number) {
+	return n ? true : false;
+}
 
 export async function importStage(read: Function) {
 	const rooms: Room[] = [];
@@ -52,6 +58,7 @@ export async function importStage(read: Function) {
 		spawner?: InstanceType<typeof SpawnerModule>;
 		speed?: InstanceType<typeof SpeedModule>;
 		acceleration?: InstanceType<typeof AccelerationModule>;
+		text?: InstanceType<typeof TextModule>;
 		
 		goal: number = 0;
 		checkCollision: boolean = false;
@@ -186,7 +193,7 @@ export async function importStage(read: Function) {
 					dy: ctx.currentBuilderBuffer[1],
 					w: ctx.currentBuilderBuffer[2],
 					h: ctx.currentBuilderBuffer[3],
-					keepRotation: !!ctx.currentBuilderBuffer[4],
+					keepRotation: toBool(ctx.currentBuilderBuffer[4]),
 					goal: ctx.currentBuilderBuffer[5]
 				});
 				ctx.blocks.push(builder);
@@ -310,24 +317,24 @@ export async function importStage(read: Function) {
 
 		case "couldownedAttack":
 			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().couldownedAttack = new CouldownedAttackModule(moduleBuffer[0], moduleBuffer[1]);
+			if (moduleBuffer.length < 3) { break; }
+			getCurrentModule().couldownedAttack = new CouldownedAttackModule(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
 
 		case "continuousAttack":
 			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().continuousAttack = new ContinuousAttackModule(moduleBuffer[0]);
+			if (moduleBuffer.length < 2) { break; }
+			getCurrentModule().continuousAttack = new ContinuousAttackModule(moduleBuffer[0], toBool(moduleBuffer[1]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
 
 		case "bounce":
 			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().bounce = new BounceModule(moduleBuffer[0], moduleBuffer[1]);
+			if (moduleBuffer.length < 3) { break; }
+			getCurrentModule().bounce = new BounceModule(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
@@ -335,15 +342,15 @@ export async function importStage(read: Function) {
 		case "kill":
 			moduleBuffer.push(take(word));
 			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().kill = new KillModule(!!(moduleBuffer[0]));
+			getCurrentModule().kill = new KillModule(toBool(moduleBuffer[0]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
 
 		case "heal":
 			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().heal = new HealModule(moduleBuffer[0]);
+			if (moduleBuffer.length < 2) { break; }
+			getCurrentModule().heal = new HealModule(moduleBuffer[0], toBool(moduleBuffer[1]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
@@ -351,7 +358,7 @@ export async function importStage(read: Function) {
 		case "touchDespawn":
 			moduleBuffer.push(take(word));
 			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().touchDespawn = new TouchDespawnModule(!!(moduleBuffer[0]));
+			getCurrentModule().touchDespawn = new TouchDespawnModule(toBool(moduleBuffer[0]));
 			moduleBuffer.length = 0;
 			currentMode = null;
 			break;
@@ -443,6 +450,17 @@ export async function importStage(read: Function) {
 			currentMode = null;
 			break;
 
+		case "text":
+			if (moduleBuffer.length < 1) {
+				moduleBuffer.push(take(word));
+				break;
+			}
+			getCurrentModule().text = new TextModule(word, moduleBuffer[0]);
+			moduleBuffer.length = 0;
+			currentMode = null;
+			break;
+
+
 		case null:
 		{
 			const num = +word;
@@ -466,4 +484,207 @@ export async function importStage(read: Function) {
 	pushBlock();
 	pushRoom();
 	return {stage: new Stage(rooms), name: name!};
+}
+
+
+
+
+export function createImportStageGenerator(file: File) {
+	return async function* read() {
+		const reader = file.stream().getReader();
+		const decoder = new TextDecoder();
+
+		let state = "normal_firstline";   // États du parseur
+		let stateBeforeTag = "normal_firstline";
+
+		let firstLineBuf = "";
+		let currentWord = "";
+
+		let textBuf = "";  // Contenu entre <text> et </text>
+		let tagBuf = "";   // Accumulations de balises partiellement reçues
+
+		const isSep = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
+
+		// ============== Extraction de la langue ==============
+		function extractLanguageBlock(block: string) {
+			// Détecte toutes les langues présentes dans le bloc
+			const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+			let match;
+
+			const map = new Map();  // map.set("fr", "texte…")
+			const order = [];       // pour fallback premier trouvé
+
+			while ((match = regex.exec(block))) {
+				const lang = match[1];
+				const txt = match[2].trim();
+				map.set(lang, txt);
+				order.push(lang);
+			}
+
+			if (order.length === 0) return ""; // bloc vide
+
+			// Langue du navigateur
+			let nav = navigator.language || "en";
+			nav = nav.split("-")[0].toLowerCase();
+
+			// 1) On essaie la langue du navigateur
+			if (map.has(nav)) return map.get(nav);
+
+			// 2) fallback anglais
+			if (map.has("en")) return map.get("en");
+
+			// 3) fallback première langue rencontrée
+			return map.get(order[0]);
+		}
+
+		// ======================================================
+		//                  PARSEUR STREAMING
+		// ======================================================
+
+		while (true) {
+			const { done, value } = await reader.read();
+			if (done && !value) break;
+
+			const chunk = decoder.decode(value || new Uint8Array(), { stream: true });
+
+			for (let i = 0; i < chunk.length; i++) {
+				const ch = chunk[i];
+
+				// ==========================================
+				//  Gestion <text> ... </text> EN STREAMING
+				// ==========================================
+
+				if (state === "maybeTag") {
+					tagBuf += ch;
+
+					if (tagBuf === "<text>") {
+						state = "inText";
+						textBuf = "";
+						tagBuf = "";
+						continue;
+					}
+
+					if (!"<text>".startsWith(tagBuf)) {
+						// Ce n’était pas une balise <text>
+						const saved = tagBuf;
+						tagBuf = "";
+
+						// Rejouer dans l'état précédent
+						for (let k = 0; k < saved.length; k++) {
+							const c2 = saved[k];
+
+							if (stateBeforeTag === "normal_firstline") {
+								if (c2 === "\n" || c2 === "\r") {
+									yield firstLineBuf.trim();
+									firstLineBuf = "";
+									state = "normal_words";
+									continue;
+								}
+								firstLineBuf += c2;
+								continue;
+							}
+
+							if (stateBeforeTag === "normal_words") {
+								if (isSep(c2)) {
+									if (currentWord.length > 0) {
+										yield currentWord;
+										currentWord = "";
+									}
+								} else {
+									currentWord += c2;
+								}
+								continue;
+							}
+						}
+
+						state = stateBeforeTag;
+						continue;
+					}
+
+					continue;
+				}
+
+				if (state === "inText") {
+					if (ch === "<") {
+						state = "maybeEnd";
+						tagBuf = "<";
+						continue;
+					}
+
+					textBuf += ch;
+					continue;
+				}
+
+				if (state === "maybeEnd") {
+					tagBuf += ch;
+
+					if (tagBuf === "</text>") {
+						const extracted = extractLanguageBlock(textBuf);
+						if (extracted) yield extracted;
+
+						textBuf = "";
+						tagBuf = "";
+						state = "normal_words";
+						continue;
+					}
+
+					if (!"</text>".startsWith(tagBuf)) {
+						// faux positif → c'est du texte normal
+						textBuf += tagBuf;
+						tagBuf = "";
+						state = "inText";
+						continue;
+					}
+
+					continue;
+				}
+
+				// ==========================================
+				//           LOGIQUE NORMALE STREAMING
+				// ==========================================
+
+				// Détection début de balise
+				if (ch === "<") {
+					stateBeforeTag = state;
+					state = "maybeTag";
+					tagBuf = "<";
+					continue;
+				}
+
+				// --- 1ère ligne entière ---
+				if (state === "normal_firstline") {
+					if (ch === "\n" || ch === "\r") {
+						yield firstLineBuf.trim();
+						firstLineBuf = "";
+						state = "normal_words";
+						continue;
+					}
+					firstLineBuf += ch;
+					continue;
+				}
+
+				// --- Découpage en mots ---
+				if (state === "normal_words") {
+					if (isSep(ch)) {
+						if (currentWord.length > 0) {
+							yield currentWord;
+							currentWord = "";
+						}
+					} else {
+						currentWord += ch;
+					}
+					continue;
+				}
+			}
+		}
+
+		// Fin du fichier
+		if (state === "normal_firstline" && firstLineBuf.trim()) {
+			yield firstLineBuf.trim();
+		}
+
+		if (state === "normal_words" && currentWord.length > 0) {
+			yield currentWord;
+		}
+	}
 }

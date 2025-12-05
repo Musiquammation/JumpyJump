@@ -6,6 +6,12 @@ import type { Room } from "./Room";
 
 
 
+export interface ArgumentModule {
+	enumArgs(): {name: string, type: 'number' | 'boolean' | 'text', step?: number}[]
+	getArg(name: string): any;
+	setArg(name: string, value: any): void;
+}
+
 class MovingPath {
 	dx: number;
 	dy: number;
@@ -157,7 +163,7 @@ class CouldownedAttackAnimator {
 }
 
 
-class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator> {
+class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator>, ArgumentModule {
 	damages: number;
 	duration: number;
 	playerOnly: boolean;
@@ -199,6 +205,8 @@ class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator>
 		copy.couldowns = new Map(this.couldowns);
 		return copy;
 	}
+
+
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: CouldownedAttackAnimator) {
 		ctx.fillStyle = "#9B59B6";
@@ -300,6 +308,29 @@ class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator>
 	generateAnimator(block: Block) {
 		return new CouldownedAttackAnimator(block.w, block.h);
 	}
+
+
+
+
+	enumArgs() {
+		return [
+			{ name: 'damages', type: 'number' as const },
+			{ name: 'duration', type: 'number' as const },
+			{ name: 'playerOnly', type: 'boolean' as const }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === 'damages') return this.damages;
+		if (name === 'duration') return this.duration;
+		if (name === 'playerOnly') return this.playerOnly;
+	}
+
+	setArg(name: string, value: any) {
+		if (name === 'damages') this.damages = value;
+		if (name === 'duration') this.duration = value;
+		if (name === 'playerOnly') this.playerOnly = value;
+	}
 }
 
 
@@ -382,7 +413,7 @@ class ContinuousAttackAnimator {
 	
 }
 
-class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator> {
+class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator>, ArgumentModule {
 	damages: number;
 	playerOnly: boolean;
 
@@ -423,6 +454,25 @@ class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator>
 	generateAnimator(_: Block) {
 		return new ContinuousAttackAnimator();
 	}
+
+	
+	enumArgs() {
+		return [
+			{ name: "damages", type: 'number' as const },
+			{ name: "playerOnly", type: 'boolean' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "damages") return this.damages;
+		if (name === "playerOnly") return this.playerOnly;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "damages") {this.damages = value;}
+		if (name === "playerOnly") {this.playerOnly = value;}
+	}
+
 }
 
 
@@ -474,13 +524,13 @@ class BounceAnimator {
 }
 
 
-class BounceModule implements DrawableModule<BounceAnimator> {
+class BounceModule implements DrawableModule<BounceAnimator>, ArgumentModule {
 	cost: number;
 	factor: number;
 	playerOnly: boolean;
 	helper: EntityCouldownHelper;
 
-	constructor(factor: number, cost: number, playerOnly = true, liberationCouldown = 12) {
+	constructor(cost: number, factor: number, playerOnly = true, liberationCouldown = 12) {
 		this.factor = factor;
 		this.cost = cost;
 		this.playerOnly = playerOnly;
@@ -497,7 +547,7 @@ class BounceModule implements DrawableModule<BounceAnimator> {
 	update() {}
 
 	copy() {
-		const copy = new BounceModule(this.factor, this.cost, this.playerOnly);
+		const copy = new BounceModule(this.cost, this.factor, this.playerOnly);
 		return copy;
 	}
 
@@ -547,6 +597,26 @@ class BounceModule implements DrawableModule<BounceAnimator> {
 
 	generateAnimator(block: Block) {
 		return new BounceAnimator(block.h);
+	}
+
+	enumArgs() {
+		return [
+			{ name: "cost", type: 'number' as const },
+			{ name: "factor", type: 'number' as const },
+			{ name: "playerOnly", type: 'boolean' as const }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "cost") return this.cost;
+		if (name === "factor") return this.factor;
+		if (name === "playerOnly") return this.playerOnly;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "cost") {this.cost = value;}
+		if (name === "factor") {this.factor = value;}
+		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 }
 
@@ -613,7 +683,7 @@ class KillAnimator {
 	}
 }
 
-class KillModule implements DrawableModule<KillAnimator> {
+class KillModule implements DrawableModule<KillAnimator>, ArgumentModule {
 	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
@@ -643,6 +713,20 @@ class KillModule implements DrawableModule<KillAnimator> {
 
 		animator.update(block.w, block.h);
 		block.cancelRotation(ctx, () => animator.draw(ctx));
+	}
+
+	enumArgs() {
+		return [
+			{ name: "playerOnly", type: 'boolean' as const }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "playerOnly") return this.playerOnly;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 
 	generateAnimator(_: Block) {
@@ -685,9 +769,9 @@ class CouldownDespawnModule implements DrawableModule<null> {
 	generateAnimator(_: Block) {
 		return null;
 	}
- }
+}
 
-class TouchDespawnModule implements DrawableModule<null> {
+class TouchDespawnModule implements DrawableModule<null>, ArgumentModule {
 	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
@@ -715,6 +799,20 @@ class TouchDespawnModule implements DrawableModule<null> {
 
 	generateAnimator(_: Block) {
 		return null;
+	}
+
+	enumArgs() {
+		return [
+			{ name: "playerOnly", type: 'boolean' as const }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "playerOnly") return this.playerOnly;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 }
 
@@ -797,7 +895,7 @@ class HealAnimator {
 
 
 
-class HealModule implements DrawableModule<HealAnimator> {
+class HealModule implements DrawableModule<HealAnimator>, ArgumentModule {
 	hp: number;
 	playerOnly: boolean;
 	touched = new Set<Entity>();
@@ -872,16 +970,32 @@ class HealModule implements DrawableModule<HealAnimator> {
 				ctx.restore();
 			}
 		});
-
 	}
 
 
 	generateAnimator(_: Block) {
 		return new HealAnimator();
 	}
+
+	enumArgs() {
+		return [
+			{ name: "hp", type: 'number' as const },
+			{ name: "playerOnly", type: 'boolean' as const }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "hp") return this.hp;
+		if (name === "playerOnly") return this.playerOnly;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "hp") {this.hp = value;}
+		if (name === "playerOnly") {this.playerOnly = value;}
+	}
 }
 
-class SpeedModule implements DrawableModule<null> {
+class SpeedModule implements DrawableModule<null>, ArgumentModule {
 	vx: number;
 	vy: number;
 
@@ -928,9 +1042,26 @@ class SpeedModule implements DrawableModule<null> {
 	generateAnimator(_: Block) {
 		return null;
 	}
+
+	enumArgs() {
+		return [
+			{ name: "vx", type: 'number' as const },
+			{ name: "vy", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "vx") return this.vx;
+		if (name === "vy") return this.vy;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "vx") {this.vx = value;}
+		if (name === "vy") {this.vy = value;}
+	}
  }
 
-class AccelerationModule implements DrawableModule<null> {
+class AccelerationModule implements DrawableModule<null>, ArgumentModule {
 	ax: number;
 	ay: number;
 
@@ -961,6 +1092,23 @@ class AccelerationModule implements DrawableModule<null> {
 
 	generateAnimator(_: Block) {
 		return null;
+	}
+
+	enumArgs() {
+		return [
+			{ name: "ax", type: 'number' as const },
+			{ name: "ay", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "ax") return this.ax;
+		if (name === "ay") return this.ay;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "ax") {this.ax = value;}
+		if (name === "ay") {this.ay = value;}
 	}
 }
 
@@ -1042,7 +1190,7 @@ class RestoreJumpAnimator {
 	}
 }
 
-class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator> {
+class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator>, ArgumentModule {
 	gain: number;
 	helper: EntityCouldownHelper;
 
@@ -1082,10 +1230,24 @@ class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator> {
 	generateAnimator(_: Block) {
 		return new RestoreJumpAnimator();
 	}
+
+	enumArgs() {
+		return [
+			{ name: "gain", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "gain") return this.gain;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "gain") {this.gain = value;}
+	}
 }
 
 
-class RotationModule {
+class RotationModule implements ArgumentModule {
 	start: number;
 	speed: number;
 	angle: number;
@@ -1115,6 +1277,23 @@ class RotationModule {
 		copy.angle = this.angle;
 		return copy;
 	}
+
+	enumArgs() {
+		return [
+			{ name: "start", type: 'number' as const },
+			{ name: "speed", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "start") return this.start;
+		if (name === "speed") return this.speed;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "start") {this.start = value;}
+		if (name === "speed") {this.speed = value;}
+	}
 }
 
 
@@ -1138,7 +1317,7 @@ class GoalAnimator {
 	}
 }
 
-class GoalModule implements DrawableModule<GoalAnimator> {
+class GoalModule implements DrawableModule<GoalAnimator>, ArgumentModule {
 	type: number;
 
 	constructor(type: number) {
@@ -1173,12 +1352,88 @@ class GoalModule implements DrawableModule<GoalAnimator> {
 	generateAnimator(_: Block): GoalAnimator {
 		return new GoalAnimator();
 	}
+
+	enumArgs() {
+		return [
+			{ name: "type", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "type") return this.type;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "type") {this.type = value;}
+	}
 }
 
 
 
 
+class TextModule implements DrawableModule<void>, ArgumentModule {
+	text: string;
+	fontSize: number;
 
+
+	constructor(text = "Some text...", fontSize = 100) {
+		this.text = text;
+		this.fontSize = fontSize;
+	}
+
+	copy() {
+		return new TextModule(this.text, this.fontSize);
+	}
+
+	
+
+	generateAnimator(_: Block): void {}
+	
+	draw(block: Block, ctx: CanvasRenderingContext2D, _: void) {
+		ctx.font = this.fontSize + "px monospace";
+		ctx.textAlign = "center";
+		ctx.textBaseline = "middle";
+
+		const metrics = ctx.measureText(this.text);
+		const textWidth = metrics.width;
+		const textHeight = metrics.actualBoundingBoxAscent + metrics.actualBoundingBoxDescent;
+
+		// Dessiner le fond
+		ctx.fillStyle = "black";
+		ctx.fillRect(
+			-textWidth / 2 - 5,
+			-textHeight / 2 - 5,
+			textWidth + 10,
+			textHeight + 10
+		);
+
+		// Dessiner le texte
+		ctx.fillStyle = "white";
+		ctx.fillText(this.text, 0, 0);
+	}
+
+
+
+
+
+	enumArgs() {
+		return [
+			{name: "fontSize", type: "number" as const},
+			{name: "text", type: "text" as const}
+		];
+	}
+
+	setArg(name: string, value: any): void {
+		if (name === "fontSize") {this.fontSize = value};
+		if (name === "text") {this.text = value};
+	}
+	
+	getArg(name: string) {
+		if (name === "fontSize") {return this.fontSize};
+		if (name === "text") {return this.text};
+	}
+
+}
 
 
 
@@ -1294,6 +1549,7 @@ export class BlockModule {
 	speed?: SpeedModule;
 	acceleration?: AccelerationModule;
 	goal?: GoalModule;
+	text?: TextModule;
 
 	checkCollision: boolean;
 	runInAdjacentRoom: boolean;
@@ -1314,6 +1570,7 @@ export class BlockModule {
 		acceleration?: AccelerationModule,
 		runInAdjacentRoom?: boolean,
 		goal?: number,
+		text?: TextModule
 	}) {
 		this.moving = args.moving;
 		this.rotation = args.rotation;
@@ -1328,6 +1585,7 @@ export class BlockModule {
 		this.spawner = args.spawner;
 		this.speed = args.speed;
 		this.acceleration = args.acceleration;
+		this.text = args.text;
 
 		if (this.acceleration && !this.speed) {
 			this.speed = new SpeedModule(0, 0);
@@ -1365,6 +1623,7 @@ export class BlockModule {
 			spawner: this.spawner?.copy(),
 			speed: this.speed?.copy(),
 			acceleration: this.acceleration?.copy(),
+			text: this.text?.copy(),
 			runInAdjacentRoom: this.runInAdjacentRoom
 		});
 	}
@@ -1372,6 +1631,7 @@ export class BlockModule {
 
 	getDrawModule(level: number): DrawableModule<any> | null {
 		const list = [
+			this.text,
 			this.goal,
 			this.kill,
 			this.heal,
@@ -1571,6 +1831,9 @@ export const bmodules = {
 	AccelerationModule,
 	RestoreJumpModule,
 	RotationModule,
+	TextModule,
+
+	GoalModule,
 	SpawnerModule
 };
 
