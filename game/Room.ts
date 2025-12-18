@@ -1,4 +1,5 @@
 import type { Block } from "./Block";
+import { BlockLifeHandler } from "./BlockLifeHandler";
 import { Entity } from "./Entity";
 import { EntityGenerator } from "./EntityGenerator";
 import type { Game } from "./Game";
@@ -150,13 +151,24 @@ export class Room {
 			this.blocks[i].init(this);
 	}
 
-	frame(game: Game, toBlockOut: {block: Block, dest: Room}[], toEntityOut: {entity: Entity, dest: Room}[]) {
+	frame(
+		game: Game,
+		toBlockOut: {block: Block, dest: Room}[],
+		toEntityOut: {entity: Entity, dest: Room}[],
+		blf: BlockLifeHandler
+	) {
 		// Run blocks
 		for (let i = this.blocks.length - 1; i >= 0; i--) {
 			const block = this.blocks[i];
-			block.frame(game, this);
+			block.frame(game, this, blf);
 
 			if (block.toRemove) {
+				if (block.fromSpawner) {
+					blf.fullRemove(block.id);
+				} else {
+					blf.remove(block.id);
+				}
+				
 				this.blocks.splice(i, 1);
 				block.toRemove = false;
 				block.toMove = null;
@@ -217,6 +229,15 @@ export class Room {
 		}
 	}
 
+
+
+	deepCopy() {
+		return new Room(
+			this.x, this.y, this.w, this.h,
+			this.blocks.map(block => block.deepCopy()),
+			this.entityGenerators
+		)
+	}
 
 	drawAdjacenceRects(ctx: CanvasRenderingContext2D, player: Player, drawTouch: boolean) {
 		const playerSize = player.getSize();

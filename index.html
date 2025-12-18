@@ -51,6 +51,7 @@
 		<div id="fps"></div>
 
 		<script>
+			window.NETWORK_ADDRESS = "ws://localhost:8034";
 			import("/game/main.ts").then(m => m.startGame());
 		</script>
 	</body>

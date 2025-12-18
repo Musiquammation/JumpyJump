@@ -1,7 +1,11 @@
+import { Camera } from "./Camera";
 import { Entity } from "./Entity";
 import { Game } from "./Game";
 import { GAME_GRAVITY } from "./GAME_GRAVITY";
+import { InputHandler } from "./InputHandler";
 import { LelevedBar } from "./LeveledBar";
+import { Room } from "./Room";
+import { Stage } from "./Stage";
 import { Vector } from "./Vector";
 
 export class Player extends Entity {
@@ -25,6 +29,8 @@ export class Player extends Entity {
 
 	jumps = Player.JUMP_COUNT;
 	respawnCouldown = -1;
+	visualRespawnCouldown = -1;
+	inputHandler: InputHandler | null = null;
 
 	jump_leveledBar = new LelevedBar(
 		"vertical", 1.0,
@@ -42,7 +48,7 @@ export class Player extends Entity {
 
 	constructor() {
 		super(0, 0, Player.HP);
-		this.respawn();
+		this.respawn(null);
 	}
 
 	getSize(): Vector {
@@ -120,23 +126,28 @@ export class Player extends Entity {
 	}
 
 	isAlive() {
-		return this.respawnCouldown <= Player.RESPAWN_COULDOWN;
+		return this.respawnCouldown < Player.RESPAWN_COULDOWN;
 	}
 
 	kill() {
 		if (this.eternalMode)
 			return;
 
+		if (!this.isAlive())
+			return;
+
 		this.respawnCouldown = Player.DEATH_ANIM_COULDOWN;
+		this.visualRespawnCouldown = Player.DEATH_ANIM_COULDOWN;
 	}
 
 
 
-	respawn() {
+	respawn(room: Room | null) {
 		this.x = 0;
 		this.y = 0;
 		this.vx = 0;
 		this.vy = -Player.JUMP;
+		this.currentRoom = room;
 		this.restoreHp();
 		this.restoreJumps();
 	}
@@ -149,37 +160,114 @@ export class Player extends Entity {
 	reduceCouldown() {
 		if (this.respawnCouldown >= 0) {
 			this.respawnCouldown--;
+			this.visualRespawnCouldown = this.respawnCouldown;
 			if (this.respawnCouldown == Player.RESPAWN_COULDOWN)
 				return true;
 	
 		}
 
+		this.visualRespawnCouldown = this.respawnCouldown;
 		return false;
 	}
 
-	override frame(game: Game): boolean {
-		const input = game.inputHandler;
 
-		// Horizontal movement
-		if (input.press("left")) {
-			if (this.vx > 0) {
-				this.vx -= Player.SPEED_DEC;
+
+	handleRoom(stage: Stage, camera: Camera | null) {
+		const size = this.getSize();
+		
+
+		const getCamera = (room: Room) => {
+			let camX: number;
+			let camY: number;
+
+			if (room.w <= Game.WIDTH) {
+				camX = room.x + room.w/2;
+			} else if (this.x - Game.WIDTH_2 <= room.x) {
+				camX = room.x + Game.WIDTH_2;
+			} else if (this.x + Game.WIDTH_2 >= room.x + room.w) {
+				camX = room.x + room.w - Game.WIDTH_2;
 			} else {
-				this.vx -= Player.SPEED_INC;
+				camX = this.x;
 			}
-		} else if (input.press("right")) {
-			if (this.vx < 0) {
-				this.vx += Player.SPEED_DEC;
+
+
+			if (room.h <= Game.HEIGHT) {
+				camY = room.y + room.h/2;
+			} else if (this.y - Game.HEIGHT_2 <= room.y) {
+				camY = room.y + Game.HEIGHT_2;
+			} else if (this.y + Game.HEIGHT_2 >= room.y + room.h) {
+				camY = room.y + room.h - Game.HEIGHT_2;
 			} else {
-				this.vx += Player.SPEED_INC;
+				camY = this.y;
 			}
-		} else {
-			if (this.vx > 0) {
-				this.vx -= Player.SPEED_DEC;
-				if (this.vx < 0) this.vx = 0;
-			} else if (this.vx < 0) {
-				this.vx += Player.SPEED_DEC;
-				if (this.vx > 0) this.vx = 0;
+
+
+			return {camX, camY};
+		}
+		
+		// Place camera
+		const update = stage.update(this.x, this.y, size.x, size.y, this.currentRoom!);
+		switch (update.code) {
+		case "same":
+		{
+			const cam = getCamera(update.room);
+			camera?.move(cam.camX, cam.camY);
+			break; // nothing to do
+		}
+		
+		case "new":
+		{
+			const cam = getCamera(update.room);
+			camera?.startTracker(cam.camX, cam.camY);
+			this.restoreJumps();
+			break;
+		}
+
+		case "out":
+			this.kill();
+			break;
+		}
+
+		this.currentRoom = update.room;
+	}
+
+
+	override frame(game: Game): boolean {
+		const input = this.inputHandler;
+
+		if (input) {
+			// Horizontal movement
+			if (input.press("left")) {
+				if (this.vx > 0) {
+					this.vx -= Player.SPEED_DEC;
+				} else {
+					this.vx -= Player.SPEED_INC;
+				}
+			} else if (input.press("right")) {
+				if (this.vx < 0) {
+					this.vx += Player.SPEED_DEC;
+				} else {
+					this.vx += Player.SPEED_INC;
+				}
+			} else {
+				if (this.vx > 0) {
+					this.vx -= Player.SPEED_DEC;
+					if (this.vx < 0) this.vx = 0;
+				} else if (this.vx < 0) {
+					this.vx += Player.SPEED_DEC;
+					if (this.vx > 0) this.vx = 0;
+				}
+			}
+		
+			// Jump
+			if (input.first("up")) {
+				this.consumeJump();
+				this.vy = -Player.JUMP;
+			}
+
+			// Dash
+			if (input.press("down")) {
+				this.y += Player.DASH;
 			}
 		}
 
@@ -187,19 +275,10 @@ export class Player extends Entity {
 		if (this.vx > Player.MAX_SPEED) this.vx = Player.MAX_SPEED;
 		if (this.vx < -Player.MAX_SPEED) this.vx = -Player.MAX_SPEED;
 
-		// Jump
-		if (input.first("up")) {
-			this.consumeJump();
-			this.vy = -Player.JUMP;
-		}
 
 		// Gravity
 		this.vy += GAME_GRAVITY;
 
-		// Dash
-		if (input.press("down")) {
-			this.y += Player.DASH;
-		}
 
 		if (this.protectFromEjection) {
 			// Check for ceil
@@ -226,6 +305,7 @@ export class Player extends Entity {
 		// Update position
 		this.x += this.vx * (this.eternalMode ? 3 : 1);
 		this.y += this.vy;
+
 		return true;
 	}
 
@@ -234,15 +314,34 @@ export class Player extends Entity {
 	}
 
 
-	draw(ctx: CanvasRenderingContext2D) {
-		ctx.fillStyle = "white";
-		ctx.strokeStyle = "black";
-		ctx.lineWidth = 5;
 
+
+
+	draw(ctx: CanvasRenderingContext2D) {
 		const radius = 4;
 		const x = this.x - Player.SIZE_2;
 		const y = this.y - Player.SIZE_2;
 		const size = Player.SIZE;
+
+		// draw border
+		ctx.strokeStyle = "white";
+		ctx.lineWidth = 3;
+		ctx.strokeRect(x, y, size, size);
+
+		// draw real player
+
+		let opacity;
+		if (this.visualRespawnCouldown < Player.RESPAWN_COULDOWN) {
+			opacity = 1;
+		} else {
+			opacity = (this.visualRespawnCouldown - Player.RESPAWN_COULDOWN) /
+				(Player.DEATH_ANIM_COULDOWN - Player.RESPAWN_COULDOWN);
+		}
+
+		ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+		ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+		ctx.lineWidth = 5;
+
 
 		ctx.fillRect(x, y, size, size);
 

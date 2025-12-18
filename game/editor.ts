@@ -265,7 +265,7 @@ export function startEditor() {
 
 	// Stage data
 	const rooms: Room[] = [new Room(-800, -450, 1600, 900, [], [])];
-	const stageContainer = [new Stage(rooms)];
+	const stageContainer = [new Stage(rooms, new Map(), Date.now())];
 
 	
 
@@ -2284,7 +2284,13 @@ export function startEditor() {
 				));
 
 				const name = levelName ?? "edited";
-				playGame = new Game(realKeyboardMode, document, [[new WeakStage("", stageCopy, name)]]);
+				playGame = new Game({
+					keyboardMode: realKeyboardMode,
+					eventTarget: document,
+					stageList: [[new WeakStage("", stageCopy, name)]],
+					networkAddress: null,
+					architecture: null
+				}, 'GameClassicContructor');
 				window.game = playGame;
 				playGame.state.set('play');
 				playGame.startLevel(stageCopy, name);

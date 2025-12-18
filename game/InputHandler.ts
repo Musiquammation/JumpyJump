@@ -1,4 +1,5 @@
 import type { Control } from "./Control";
+import { getElementById } from "./getElementById";
 
 type Mode = "zqsd" | "wasd";
 
@@ -35,7 +36,7 @@ export class InputHandler {
 	static CONTROL_STACK_SIZE = 256;
 
 	private keyboardUsed = false;
-	private mobileUsed = false;
+	mobileUsed = false;
 
 	private collectedKeys: Record<Control, Action> = new KeyboardCollector();
 
@@ -45,7 +46,11 @@ export class InputHandler {
 
 	private killedPress: Record<Control, boolean> = new Keydown();
 
+	firstPressCapture: Record<Control, boolean> = new Keydown();
+	killedPressCapture: Record<Control, boolean> = new Keydown();
+
 	private keyMap: Record<string, Control>;
+
 
 	gameRecords: Uint32Array[] | null = null;
 	frameCount = 0;
@@ -89,31 +94,59 @@ export class InputHandler {
 		this.keyMap = InputHandler.KEYBOARDS[mode];
 	}
 
+	applyKeydown(control: Control) {
+		switch (this.collectedKeys[control]) {
+			case Action.NONE:
+			this.collectedKeys[control] = Action.DOWN;
+			break;
+			
+		case Action.DOWN:
+			break;
+			
+		case Action.UP:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
+
+		case Action.DOWN_THEN_UP:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
+
+		case Action.UP_THEN_DOWN:
+			this.collectedKeys[control] = Action.UP_THEN_DOWN;
+			break;
+
+		}
+	}
+
+	applyKeyup(control: Control) {
+		switch (this.collectedKeys[control]) {
+		case Action.NONE:
+			this.collectedKeys[control] = Action.UP;
+			break;
+			
+		case Action.DOWN:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+			
+		case Action.UP:
+			break;
+
+		case Action.DOWN_THEN_UP:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+
+		case Action.UP_THEN_DOWN:
+			this.collectedKeys[control] = Action.DOWN_THEN_UP;
+			break;
+			
+		}
+	}
+
 	private onKeydown = (event: Event) => {
 		const e = event as KeyboardEvent;
 		const control = this.keyMap[e.code];
 		if (control) {
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.collectedKeys[control] = Action.DOWN;
-				break;
-				
-			case Action.DOWN:
-				break;
-				
-			case Action.UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.DOWN_THEN_UP:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			case Action.UP_THEN_DOWN:
-				this.collectedKeys[control] = Action.UP_THEN_DOWN;
-				break;
-
-			}
+			this.applyKeydown(control);
 		}
 	}
 
@@ -121,27 +154,8 @@ export class InputHandler {
 		const e = event as KeyboardEvent;
 		const control = this.keyMap[e.code];
 		if (control) {
-			switch (this.collectedKeys[control]) {
-			case Action.NONE:
-				this.collectedKeys[control] = Action.UP;
-				break;
-				
-			case Action.DOWN:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
-				
-			case Action.UP:
-				break;
-
-			case Action.DOWN_THEN_UP:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
-
-			case Action.UP_THEN_DOWN:
-				this.collectedKeys[control] = Action.DOWN_THEN_UP;
-				break;
-				
-			}
+			this.applyKeyup(control);
+			
 		}
 	}
 
@@ -180,7 +194,7 @@ export class InputHandler {
 	private onButtonTouchEnd = (control: Control | 'special', element: HTMLElement) => {
 		element.classList.remove("high");
 		if (control === 'special') {
-			document.getElementById("mobileEntry-specialContainer")?.classList.toggle('hidden');
+			getElementById("mobileEntry-specialContainer")?.classList.toggle('hidden');
 			return;
 		}
 
@@ -402,7 +416,7 @@ export class InputHandler {
 	
 	startMobileListeners() {
 		const add = (id: string, control: Control | 'special') => {
-			const element = document.getElementById(id);
+			const element = getElementById(id);
 			if (!element)
 				return;
 
@@ -410,7 +424,7 @@ export class InputHandler {
 			element.ontouchend = () => this.onButtonTouchEnd(control, element);
 		}
 
-		document.getElementById("mobileEntryContainer")?.classList.remove("hidden");
+		getElementById("mobileEntryContainer")?.classList.remove("hidden");
 		
 		add("mobileEntry-left", 'left');
 		add("mobileEntry-right", 'right');
@@ -557,5 +571,23 @@ export class InputHandler {
 
 	draw() {
 
+	}
+
+
+	getCapture(): number {
+		let gameFlag = 0;
+
+		const get = (key: 'left' | 'right' | 'up' | 'down') =>
+			(this.press(key) || this.firstPressCapture[key]) ? 1:0;
+
+		gameFlag |= get('left');
+		gameFlag |= get('right') << 1;
+		gameFlag |= get('up') << 2;
+		gameFlag |= get('down') << 3;
+
+		this.firstPressCapture = new Keydown();
+		this.killedPressCapture = new Keydown();
+
+		return gameFlag;
 	}
 }

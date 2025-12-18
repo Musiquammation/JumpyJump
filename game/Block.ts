@@ -1,5 +1,8 @@
+import { BlockLifeHandler } from "./BlockLifeHandler";
 import { Entity } from "./Entity";
 import type { Game } from "./Game";
+import { DataReader } from "./net/DataReader";
+import { DataWriter } from "./net/DataWriter";
 import { physics } from "./physics";
 import { Player } from "./Player";
 import type { Room } from "./Room";
@@ -51,7 +54,13 @@ interface DrawableModule<T> {
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: T): void;
 }
 
-class MovingModule implements DrawableModule<null> {
+interface SendableModule {
+	receive(reader: DataReader, block: Block, player: Player): void;
+	send(writer: DataWriter, block: Block, player: Player): void;
+	getSendFlag(): number;
+}
+
+class MovingModule implements SendableModule, DrawableModule<null> {
 	readonly patterns: MovingPath[];
 	readonly times: number; // -1 means infinite
 	private currentPattern: number;
@@ -140,6 +149,23 @@ class MovingModule implements DrawableModule<null> {
 	generateAnimator(_: Block) {
 		return null;
 	}
+
+
+
+	receive(reader: DataReader, block: Block, _: Player) {
+		block.x = reader.readFloat32();
+		block.y = reader.readFloat32();
+	}
+
+	send(writer: DataWriter, block: Block, _: Player) {
+		writer.writeFloat32(block.x);
+		writer.writeFloat32(block.y);
+	}
+
+	getSendFlag() {
+		return 0;
+	}
+
 }
 
 
@@ -163,7 +189,7 @@ class CouldownedAttackAnimator {
 }
 
 
-class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator>, ArgumentModule {
+class CouldownedAttackModule implements SendableModule, DrawableModule<CouldownedAttackAnimator>, ArgumentModule {
 	damages: number;
 	duration: number;
 	playerOnly: boolean;
@@ -331,6 +357,20 @@ class CouldownedAttackModule implements DrawableModule<CouldownedAttackAnimator>
 		if (name === 'duration') this.duration = value;
 		if (name === 'playerOnly') this.playerOnly = value;
 	}
+
+
+	receive(reader: DataReader, _: Block, player: Player) {
+		this.couldowns.set(player as Entity, reader.readFloat32());
+	}
+	
+	send(writer: DataWriter, _: Block, player: Player) {
+		const value = this.couldowns.get(player as Entity) ?? 0;
+		writer.writeFloat32(value);
+	}
+
+	getSendFlag() {
+		return 1;
+	}
 }
 
 
@@ -413,7 +453,7 @@ class ContinuousAttackAnimator {
 	
 }
 
-class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator>, ArgumentModule {
+class ContinuousAttackModule implements SendableModule, DrawableModule<ContinuousAttackAnimator>, ArgumentModule {
 	damages: number;
 	playerOnly: boolean;
 
@@ -473,6 +513,19 @@ class ContinuousAttackModule implements DrawableModule<ContinuousAttackAnimator>
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 
+
+	receive(_: DataReader, __: Block, ___: Player) {
+
+	}
+
+	send(_: DataWriter, __: Block, ___: Player) {
+
+	}
+
+	getSendFlag() {
+		return 2;
+	}
+
 }
 
 
@@ -524,7 +577,7 @@ class BounceAnimator {
 }
 
 
-class BounceModule implements DrawableModule<BounceAnimator>, ArgumentModule {
+class BounceModule implements SendableModule, DrawableModule<BounceAnimator>, ArgumentModule {
 	cost: number;
 	factor: number;
 	playerOnly: boolean;
@@ -617,6 +670,19 @@ class BounceModule implements DrawableModule<BounceAnimator>, ArgumentModule {
 		if (name === "cost") {this.cost = value;}
 		if (name === "factor") {this.factor = value;}
 		if (name === "playerOnly") {this.playerOnly = value;}
+	}
+
+
+	receive(_: DataReader, __: Block, ___: Player) {
+
+	}
+
+	send(_: DataWriter, __: Block, ___: Player) {
+
+	}
+
+	getSendFlag() {
+		return 3;
 	}
 }
 
@@ -736,7 +802,7 @@ class KillModule implements DrawableModule<KillAnimator>, ArgumentModule {
 
 
 
-class CouldownDespawnModule implements DrawableModule<null> {
+class CouldownDespawnModule implements SendableModule, DrawableModule<null> {
 	duration: number;
 	private couldown: number;
 
@@ -769,9 +835,21 @@ class CouldownDespawnModule implements DrawableModule<null> {
 	generateAnimator(_: Block) {
 		return null;
 	}
+
+	receive(reader: DataReader, block: Block, player: Player) {
+
+	}
+
+	send(writer: DataWriter, block: Block, player: Player) {
+
+	}
+
+	getSendFlag() {
+		return 4;
+	}
 }
 
-class TouchDespawnModule implements DrawableModule<null>, ArgumentModule {
+class TouchDespawnModule implements SendableModule, DrawableModule<null>, ArgumentModule {
 	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
@@ -813,6 +891,19 @@ class TouchDespawnModule implements DrawableModule<null>, ArgumentModule {
 	
 	setArg(name: string, value: any) {
 		if (name === "playerOnly") {this.playerOnly = value;}
+	}
+
+
+	receive(reader: DataReader, block: Block, player: Player) {
+
+	}
+
+	send(writer: DataWriter, block: Block, player: Player) {
+
+	}
+
+	getSendFlag() {
+		return 5;
 	}
 }
 
@@ -895,7 +986,7 @@ class HealAnimator {
 
 
 
-class HealModule implements DrawableModule<HealAnimator>, ArgumentModule {
+class HealModule implements SendableModule, DrawableModule<HealAnimator>, ArgumentModule {
 	hp: number;
 	playerOnly: boolean;
 	touched = new Set<Entity>();
@@ -993,9 +1084,22 @@ class HealModule implements DrawableModule<HealAnimator>, ArgumentModule {
 		if (name === "hp") {this.hp = value;}
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
+
+
+	receive(reader: DataReader, block: Block, player: Player) {
+		this.playerHasTouched = reader.readInt8() === 1;
+	}
+
+	send(writer: DataWriter, block: Block, player: Player) {
+		writer.writeInt8(this.playerHasTouched ? 1:0);
+	}
+
+	getSendFlag() {
+		return 6;
+	}
 }
 
-class SpeedModule implements DrawableModule<null>, ArgumentModule {
+class SpeedModule implements SendableModule, DrawableModule<null>, ArgumentModule {
 	vx: number;
 	vy: number;
 
@@ -1059,9 +1163,24 @@ class SpeedModule implements DrawableModule<null>, ArgumentModule {
 		if (name === "vx") {this.vx = value;}
 		if (name === "vy") {this.vy = value;}
 	}
+
+
+	receive(reader: DataReader, block: Block, _: Player) {
+		block.x = reader.readFloat32();
+		block.y = reader.readFloat32();
+	}
+
+	send(writer: DataWriter, block: Block, _: Player) {
+		writer.writeFloat32(block.x);
+		writer.writeFloat32(block.y);
+	}
+
+	getSendFlag() {
+		return 7;
+	}
  }
 
-class AccelerationModule implements DrawableModule<null>, ArgumentModule {
+class AccelerationModule implements SendableModule, DrawableModule<null>, ArgumentModule {
 	ax: number;
 	ay: number;
 
@@ -1109,6 +1228,19 @@ class AccelerationModule implements DrawableModule<null>, ArgumentModule {
 	setArg(name: string, value: any) {
 		if (name === "ax") {this.ax = value;}
 		if (name === "ay") {this.ay = value;}
+	}
+
+
+	receive(reader: DataReader, block: Block, _: Player) {
+
+	}
+
+	send(writer: DataWriter, block: Block, _: Player) {
+
+	}
+
+	getSendFlag() {
+		return 8;
 	}
 }
 
@@ -1190,7 +1322,7 @@ class RestoreJumpAnimator {
 	}
 }
 
-class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator>, ArgumentModule {
+class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAnimator>, ArgumentModule {
 	gain: number;
 	helper: EntityCouldownHelper;
 
@@ -1244,10 +1376,22 @@ class RestoreJumpModule implements DrawableModule<RestoreJumpAnimator>, Argument
 	setArg(name: string, value: any) {
 		if (name === "gain") {this.gain = value;}
 	}
+
+	receive(reader: DataReader, block: Block, _: Player) {
+
+	}
+
+	send(writer: DataWriter, block: Block, _: Player) {
+
+	}
+
+	getSendFlag() {
+		return 9;
+	}
 }
 
 
-class RotationModule implements ArgumentModule {
+class RotationModule implements SendableModule, ArgumentModule {
 	start: number;
 	speed: number;
 	angle: number;
@@ -1293,6 +1437,19 @@ class RotationModule implements ArgumentModule {
 	setArg(name: string, value: any) {
 		if (name === "start") {this.start = value;}
 		if (name === "speed") {this.speed = value;}
+	}
+
+
+	receive(reader: DataReader, block: Block, _: Player) {
+		this.angle = reader.readFloat32();
+	}
+
+	send(writer: DataWriter, block: Block, _: Player) {
+		writer.writeFloat32(this.angle);
+	}
+
+	getSendFlag() {
+		return 10;
 	}
 }
 
@@ -1366,6 +1523,8 @@ class GoalModule implements DrawableModule<GoalAnimator>, ArgumentModule {
 	setArg(name: string, value: any) {
 		if (name === "type") {this.type = value;}
 	}
+
+
 }
 
 
@@ -1389,7 +1548,7 @@ class TextModule implements DrawableModule<void>, ArgumentModule {
 
 	generateAnimator(_: Block): void {}
 	
-	draw(block: Block, ctx: CanvasRenderingContext2D, _: void) {
+	draw(__: Block, ctx: CanvasRenderingContext2D, _: void) {
 		ctx.font = this.fontSize + "px monospace";
 		ctx.textAlign = "center";
 		ctx.textBaseline = "middle";
@@ -1432,7 +1591,6 @@ class TextModule implements DrawableModule<void>, ArgumentModule {
 		if (name === "fontSize") {return this.fontSize};
 		if (name === "text") {return this.text};
 	}
-
 }
 
 
@@ -1450,14 +1608,14 @@ class SpawnerModule {
 		this.blocks = blocks;
 	}
 
-	update(spawner: Block, room: Room) {
+	update(spawner: Block, room: Room, blf: BlockLifeHandler) {
 		if (--this.couldown <= 0) {
 			this.couldown += this.rythm;
 			const src = this.blocks[this.index];
 			if (++this.index >= this.blocks.length)
 				this.index -= this.blocks.length;
 
-			const copy = src.build(spawner);
+			const copy = src.build(spawner, blf);
 			if (copy) {
 				copy.fromSpawner = true;
 				room.blocks.push(copy);
@@ -1510,17 +1668,19 @@ export class BlockBuilder {
 		this.module = module;
 	}
 
-	build(spawner: Block): Block | null {
+	build(spawner: Block, blf: BlockLifeHandler): Block | null {
 		if (!this.module)
 			return null;
 
-		const block = new Block(
+		
+		const block = blf.add((id: number) => new Block(
 			spawner.x + this.dx,
 			spawner.y + this.dy,
 			this.w,
 			this.h,
-			this.module.copy()
-		);
+			this.module!.copy(),
+			id
+		));
 
 		return block;
 	}
@@ -1624,7 +1784,8 @@ export class BlockModule {
 			speed: this.speed?.copy(),
 			acceleration: this.acceleration?.copy(),
 			text: this.text?.copy(),
-			runInAdjacentRoom: this.runInAdjacentRoom
+			runInAdjacentRoom: this.runInAdjacentRoom,
+			goal: this.goal?.type
 		});
 	}
 
@@ -1655,6 +1816,52 @@ export class BlockModule {
 
 		return null;
 	}
+
+	send(writer: DataWriter, block: Block, player: Player) {
+		const id = block.id;
+		let flag = 0;
+		for (let name of SENDABLE_MODULE_NAMES) {
+			const key: keyof typeof this = name;
+			const value = this[key] as SendableModule | undefined;
+			if (value) {
+				flag |= 1 << value.getSendFlag();
+			}
+		}
+
+		if (flag === 0)
+			return;
+
+		writer.writeInt32(id);
+		writer.writeInt32(flag);
+
+		for (let name of SENDABLE_MODULE_NAMES) {
+			const key: keyof typeof this = name;
+			const value = this[key] as SendableModule | undefined;
+			if (value) {
+				value.send(writer, block, player);
+			}
+		}
+	}
+
+	receive(reader: DataReader, block: Block, player: Player) {
+		const flag = reader.readInt32();
+		for (let counter = 31; counter >= 0; counter--) {
+			const mask = 1 << counter;
+			if ((flag & mask) === 0)
+				continue;
+
+			for (let name of SENDABLE_MODULE_NAMES) {
+				const key: keyof typeof this = name;
+				const value = this[key] as SendableModule | undefined;
+				if (value && (value?.getSendFlag() === counter)) {
+					value.receive(reader, block, player);
+				}
+			}
+
+		}
+		
+
+	}
 }
 
 
@@ -1680,18 +1887,22 @@ export class Block {
 
 	drawMode: DrawableModule<any> | null;
 	drawAnimator: any;
+	id: number;
 
 	constructor(
 		x: number,
 		y: number,
 		w: number,
 		h: number,
-		module: BlockModule
+		module: BlockModule,
+		id: number,
+		drawModule = true,
 	) {
 		this.x = x;
 		this.y = y;
 		this.w = w;
 		this.h = h;
+		this.id = id;
 
 		this.start_x = x;
 		this.start_y = y;
@@ -1699,7 +1910,7 @@ export class Block {
 		this.start_h = h;
 
 		this.module = module;
-		this.drawMode = module.getDrawModule(0);
+		this.drawMode = drawModule ? module.getDrawModule(0) : null;
 
 		if (this.drawMode) {
 			this.drawAnimator = this.drawMode.generateAnimator(this);
@@ -1738,7 +1949,7 @@ export class Block {
 		this.spawnRoom = room;
 	}
 
-	frame(game: Game, room: Room): void {
+	frame(game: Game, room: Room, blf: BlockLifeHandler): void {
 		// Frame
 		this.module.moving?.update(this, room);
 		this.module.speed?.update(this, room);
@@ -1746,17 +1957,20 @@ export class Block {
 		this.module.rotation?.update();
 		this.module.couldownedAttack?.update(this);
 		this.module.couldownDespawn?.update(this);
-		this.module.spawner?.update(this, room);
+		this.module.spawner?.update(this, room, blf);
 		this.module.bounce?.update();
 
 		// Collisions
 		if (this.module.checkCollision) {
-			this.handleTouch(game.player, game);
+			for (let player of game.players) {
+				this.handleTouch(player, game);
+			}
+
+			if (this.toRemove && !this.fromSpawner) {
+				this.spawnRoom!.missingBlocks.push(this);
+			}
 		}
 
-		if (this.toRemove && !this.fromSpawner) {
-			this.spawnRoom!.missingBlocks.push(this);
-		}
 	}
 
 	reset() {
@@ -1777,6 +1991,13 @@ export class Block {
 		this.module.touchDespawn?.reset();
 		this.module.restoreJump?.reset();
 		this.module.couldownDespawn?.reset();
+	}
+
+	deepCopy() {
+		return new Block(
+			this.x, this.y, this.w, this.h,
+			this.module.copy(), this.id
+		);
 	}
 
 	draw(ctx: CanvasRenderingContext2D) {
@@ -1838,3 +2059,23 @@ export const bmodules = {
 };
 
 
+
+
+
+
+
+
+
+export const SENDABLE_MODULE_NAMES = [
+	"moving" as const, 
+	"couldownedAttack" as const, 
+	"continuousAttack" as const, 
+	"bounce" as const, 
+	"couldownDespawn" as const ,
+	"touchDespawn" as const, 
+	"heal" as const, 
+	"speed" as const, 
+	"acceleration" as const, 
+	"restoreJump" as const, 
+	"rotation" as const, 
+];

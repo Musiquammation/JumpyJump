@@ -1,7 +1,8 @@
-import type { Block } from "./Block";
+import { Block } from "./Block";
 import { Entity } from "./Entity";
 import type { Game } from "./Game";
-import { importStage } from "./importStage";
+import { createWordStageGenerator, importStage } from "./importStage";
+import { DataWriter } from "./net/DataWriter";
 import { physics } from "./physics";
 import { Player } from "./Player";
 import { AdjacenceRect, Room } from "./Room";
@@ -27,12 +28,19 @@ function openDB(): Promise<IDBDatabase> {
 export class WeakStage {
 	stage: Stage | null;
 	name: string | null;
-	key: string;
+	key: string | null;
+	hash: string | null;
 
-	constructor(key: string, stage: Stage | null = null, name: string | null = null) {
+	constructor(
+		key: string | null,
+		stage: Stage | null = null,
+		name: string | null = null,
+		hash: string | null = null
+	) {
 		this.key = key;
 		this.stage = stage;
 		this.name = name;
+		this.hash = hash;
 	}
 
 
@@ -43,7 +51,7 @@ export class WeakStage {
 		const db = await openDB();
 		const tx = db.transaction("levels", "readonly");
 		const store = tx.objectStore("levels");
-		const req = store.get(this.key);
+		const req = store.get(this.key!);
 		
 		const file = (await new Promise((resolve, reject) => {
 			req.onsuccess = () => resolve(req.result ?? null);
@@ -56,106 +64,136 @@ export class WeakStage {
 			window.location.reload();
 		}
 
-		function* words(): Generator<string> {
-			let firstLineSent = false;
-			let buffer = "";
-			let currentWord = "";
-
-			let i = 0;
-			const isSep = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
-
-			const extractLanguageBlock = (block: string): string => {
-				const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
-				let match;
-				const map = new Map<string, string>();
-				const order: string[] = [];
-				while ((match = regex.exec(block))) {
-					const lang = match[1].toLowerCase();
-					map.set(lang, match[2].trim());
-					order.push(lang);
-				}
-				if (order.length === 0) return "";
-
-				let nav = (navigator.language || "en").split("-")[0].toLowerCase();
-				if (map.has(nav)) return map.get(nav)!;
-				if (map.has("en")) return map.get("en")!;
-				return map.get(order[0])!;
-			};
-
-			while (i < file.length) {
-				// Gestion du bloc <text>...</text>
-				if (file.startsWith("<text>", i)) {
-					const endIdx = file.indexOf("</text>", i);
-					if (endIdx === -1) break; // bloc malformé → on ignore
-					const block = file.slice(i + 6, endIdx);
-					const extracted = extractLanguageBlock(block);
-					if (extracted) yield extracted;
-					i = endIdx + 7;
-					continue;
-				}
-
-				const c = file[i];
-
-				// Première ligne entière
-				if (!firstLineSent) {
-					if (c === "\n" || c === "\r") {
-						yield buffer;
-						buffer = "";
-						firstLineSent = true;
-					} else {
-						buffer += c;
-					}
-					i++;
-					continue;
-				}
-
-				// Découpage mot par mot
-				if (isSep(c)) {
-					if (buffer.length > 0) {
-						yield buffer;
-						buffer = "";
-					}
-				} else {
-					buffer += c;
-				}
-
-				i++;
-			}
-
-			if (!firstLineSent && buffer.length > 0) yield buffer;
-			else if (buffer.length > 0) yield buffer;
-		}
+		
 
 
 
-		const {stage, name} = await importStage(words);
+		const {stage, name} = await importStage(createWordStageGenerator(file));
 		this.stage = stage;
 		this.name = name;
 		return {stage, name};
 	}
 }
 
+
+class ServMod {
+	private writers: DataWriter[];
+
+	constructor(playerNumber: number) {
+		const writers = [];
+		for (let i = 0; i < playerNumber; i++) {
+			writers[i] = new DataWriter();
+		}
+		this.writers = writers;
+	}
+
+	append(writer: DataWriter) {
+		for (let w of this.writers) {
+			w.addWriter(writer);
+		}
+	}
+
+	getWriter(idx: number) {
+		return this.writers[idx];
+	}
+
+	collectWriter(idx: number) {
+		const writer = this.writers[idx];
+		this.writers[idx] = new DataWriter();
+
+		writer.writeInt8(-1); // finish
+		return writer;
+	}
+}
+
 export class Stage {
 	rooms: Room[];
-	currentRoom: Room;
+	blockMap: Map<number, Block>;
+	private blockId: number;
+	readonly firstRoom: Room;
+	private servMod: ServMod | null = null;
 
-	constructor(rooms: Room[]) {
+	constructor(rooms: Room[], blockMap: Map<number, Block>, nextBlockId: number) {
 		this.rooms = rooms;
+		this.blockId = nextBlockId;
+		this.blockMap = blockMap;
+
 		this.fillAdjacentRooms();
 		for (let r of rooms)
 			r.fillAdjacenceRects();
 		
-		const currentRoom = this.findRoom(0, 0);
-		if (currentRoom === null)
+		const firstRoom = this.findRoom(0, 0);
+		if (firstRoom === null)
 			throw new Error("Missing spawn room");
 
-		this.currentRoom = currentRoom;
+		this.firstRoom = firstRoom;
 
 		for (let r of this.rooms)
 			r.init();
 
 	}
 
+
+	enableServMod(playerNumber: number) {
+		this.servMod = new ServMod(playerNumber);
+	}
+
+	getServMode() {
+		return this.servMod;
+	}
+
+	appendIfServMode(generate: () => DataWriter) {
+		if (this.servMod) {
+			this.servMod.append(generate());
+		}
+	}
+
+
+
+	appendBlock(construct: ((id: number) => Block), id = -1) {
+		if (id < 0) {
+			id = this.blockId;
+			this.blockId++;
+		}
+		const block = construct(id)
+		this.blockMap.set(id, block);
+		
+		this.appendIfServMode(() => {
+			const w = new DataWriter();
+			w.writeInt8(0); // for create
+			w.writeInt32(id);
+			
+			w.writeInt32(block.x);
+			w.writeInt32(block.y);
+			w.writeInt32(block.w);
+			w.writeInt32(block.h);
+
+			return w;
+		});
+		
+		return block;
+	}
+
+	fullRemoveBlock(id: number) {
+		console.log(this.servMod)
+		this.appendIfServMode(() => {
+			const w = new DataWriter();
+			w.writeInt8(1); // for full remove
+			w.writeInt32(id);
+			return w;
+		});
+
+		this.blockMap.delete(id);
+	}
+
+	removeBlock(id: number) {
+		this.appendIfServMode(() => {
+			const w = new DataWriter();
+			w.writeInt8(2); // for remove
+			w.writeInt32(id);
+			return w;
+		})
+	}
 
 
 	private fillAdjacentRooms() {
@@ -208,14 +246,17 @@ export class Stage {
 
 
 	
-	frame(game: Game) {
+	frame(game: Game, roomsToRun: Set<Room>) {
 		const toBlockArr: {block: Block, dest: Room}[] = [];
 		const toEntityArr: {entity: Entity, dest: Room}[] = [];
 
-		this.currentRoom.frame(game, toBlockArr, toEntityArr);
 
-		for (let room of this.currentRoom.adjacentRooms!) {
-			room.frame(game, toBlockArr, toEntityArr);
+		for (let room of roomsToRun) {
+			room.frame(game, toBlockArr, toEntityArr, {
+				add: arg => this.appendBlock(arg),
+				fullRemove: arg => this.fullRemoveBlock(arg),
+				remove: arg => this.removeBlock(arg)
+			});
 		}
 
 		// Move blocks
@@ -227,7 +268,6 @@ export class Stage {
 		for (let tm of toEntityArr) {
 			tm.dest.entites.push(tm.entity);
 		}
-
 	}
 
 	drawAdjacenceRects(ctx: CanvasRenderingContext2D, player: Player) {
@@ -266,8 +306,8 @@ export class Stage {
 		}
 
 		ctx.fillStyle = "white";
-		addRoom(this.currentRoom);
-		for (let room of this.currentRoom.adjacentRooms!) {
+		addRoom(player.currentRoom!);
+		for (let room of player.currentRoom!.adjacentRooms!) {
 			addRoom(room);
 		}
 
@@ -287,26 +327,32 @@ export class Stage {
 	}
 
 
-	update(x: number, y: number, w: number, h: number) {
-		if (this.currentRoom.contains(x, y))
-			return 'same';
+	update(x: number, y: number, w: number, h: number, currentRoom: Room) {
+		if (currentRoom.contains(x, y))
+			return {code: 'same' as const, room: currentRoom};
 
 		const room = this.findRoom(x, y);
 		if (room) {
-			this.currentRoom = room;
-			return 'new';
+			currentRoom = room;
+			return {code: 'new' as const, room: currentRoom};
 		}
 
-		if (this.currentRoom.containsBox(x, y, w, h))
-			return 'same';
+		if (currentRoom.containsBox(x, y, w, h))
+			return {code: 'same' as const, room: currentRoom};
 
-		return 'out';
+		return {code: 'out' as const, room: currentRoom};
 	}
 
 	reset() {
 		for (let room of this.rooms) {
 			room.reset();
 		}
+	}
+
+	
+
+	deepCopy() {
+		return new Stage(this.rooms.map(r => r.deepCopy()), new Map(), this.blockId);
 	}
 
 
@@ -388,6 +434,7 @@ export class Stage {
 				return x;
 			}
 		}
-	}}
+	}
+}
 
 

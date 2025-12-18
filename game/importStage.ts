@@ -43,6 +43,8 @@ export async function importStage(read: Function) {
 	let currentMode: string | null = null;
 	let step = 0;
 	let blocks: Block[] = [];
+	let blockId = 0;
+	const blockMap = new Map<number, Block>();
 
 	class BlockModuleArg {
 		moving?: InstanceType<typeof MovingModule>;
@@ -100,13 +102,18 @@ export async function importStage(read: Function) {
 		if (!blockToPush)
 			return;
 	
-		blocks.push(new Block(
+		const block = new Block(
 			blockBuffer[0],
 			blockBuffer[1],
 			blockBuffer[2],
 			blockBuffer[3],
-			new BlockModule(blockToPush)
-		));
+			new BlockModule(blockToPush),
+			blockId
+		)
+		blocks.push(block);
+		blockMap.set(blockId, block);
+
+		blockId++;
 
 		blockBuffer[0] = -1;
 		blockBuffer[1] = -1;
@@ -483,7 +490,7 @@ export async function importStage(read: Function) {
 
 	pushBlock();
 	pushRoom();
-	return {stage: new Stage(rooms), name: name!};
+	return {stage: new Stage(rooms, blockMap, blockId), name: name!};
 }
 
 
@@ -524,7 +531,12 @@ export function createImportStageGenerator(file: File) {
 			if (order.length === 0) return ""; // bloc vide
 
 			// Langue du navigateur
-			let nav = navigator.language || "en";
+			let nav: string;
+			if (typeof window !== 'undefined' && window.navigator) {
+				nav = window.navigator.language || "en";
+			} else {
+				nav = "en";
+			}
 			nav = nav.split("-")[0].toLowerCase();
 
 			// 1) On essaie la langue du navigateur
@@ -687,4 +699,83 @@ export function createImportStageGenerator(file: File) {
 			yield currentWord;
 		}
 	}
+}
+
+export function createWordStageGenerator(file: string) {
+	function* words(): Generator<string> {
+		let firstLineSent = false;
+		let buffer = "";
+
+		let i = 0;
+		const isSep = (c: string) => c === " " || c === "\t" || c === "\n" || c === "\r";
+
+		const extractLanguageBlock = (block: string): string => {
+			const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+			let match;
+			const map = new Map<string, string>();
+			const order: string[] = [];
+			while ((match = regex.exec(block))) {
+				const lang = match[1].toLowerCase();
+				map.set(lang, match[2].trim());
+				order.push(lang);
+			}
+			if (order.length === 0) return "";
+
+			let nav: string;
+			if (typeof window !== 'undefined' && window.navigator) {
+				nav = window.navigator.language || "en";
+			} else {
+				nav = "en";
+			}
+
+			if (map.has(nav)) return map.get(nav)!;
+			if (map.has("en")) return map.get("en")!;
+			return map.get(order[0])!;
+		};
+
+		while (i < file.length) {
+			// Gestion du bloc <text>...</text>
+			if (file.startsWith("<text>", i)) {
+				const endIdx = file.indexOf("</text>", i);
+				if (endIdx === -1) break; // bloc malformé → on ignore
+				const block = file.slice(i + 6, endIdx);
+				const extracted = extractLanguageBlock(block);
+				if (extracted) yield extracted;
+				i = endIdx + 7;
+				continue;
+			}
+
+			const c = file[i];
+
+			// Première ligne entière
+			if (!firstLineSent) {
+				if (c === "\n" || c === "\r") {
+					yield buffer;
+					buffer = "";
+					firstLineSent = true;
+				} else {
+					buffer += c;
+				}
+				i++;
+				continue;
+			}
+
+			// Découpage mot par mot
+			if (isSep(c)) {
+				if (buffer.length > 0) {
+					yield buffer;
+					buffer = "";
+				}
+			} else {
+				buffer += c;
+			}
+
+			i++;
+		}
+
+		if (!firstLineSent && buffer.length > 0) yield buffer;
+		else if (buffer.length > 0) yield buffer;
+	}
+
+	return words;
 }

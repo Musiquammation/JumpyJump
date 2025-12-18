@@ -24,6 +24,8 @@ export class Camera {
 	}
 
 	teleport(x: number, y: number) {
+		this.x = x;
+		this.y = y;
 		this.targetX = x;
 		this.targetY = y;
 		this.instant = true;
@@ -62,7 +64,7 @@ export class Camera {
 		const dy = this.targetY - this.y;
 		const dist2 = dx*dx + dy*dy;
 
-		if (dist2 < this.speed*this.speed) {
+		if (dist2 <= this.speed*this.speed) {
 			this.x = this.targetX;
 			this.y = this.targetY;
 			this.instant = true;
@@ -110,7 +112,6 @@ export class Camera {
 		} else if (tdy2 >= pdy2 && pdy2 >= ylim) {
 			this.y = this.targetY + ylim;
 		}
-
 	}
 
 	reset() {

@@ -1,7 +1,7 @@
 const URL = "https://jumpyjump-production.up.railway.app";
 
 export async function sendRun(
-	handle: FileSystemFileHandle,
+	_: FileSystemFileHandle,
 	username: string,
 	mapname: string,
 	frames: number

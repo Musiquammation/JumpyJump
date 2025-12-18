@@ -2,7 +2,6 @@ import { Game } from "./Game";
 import { GAME_GRAVITY } from "./GAME_GRAVITY";
 import { LelevedBar as LeveledBar } from "./LeveledBar";
 import { physics } from "./physics";
-import { Player } from "./Player";
 import { Room } from "./Room";
 import { Vector } from "./Vector";
 
@@ -126,7 +125,7 @@ export abstract class Entity {
 	
 	getRotation() {return 0;}
 	heal(_: number) {}
-	kill(game: Game) {
+	kill(_: Game) {
 
 	}
 	bounce(_factor: number, _cost: number) {}
@@ -231,7 +230,6 @@ export class HumanFollower extends Entity {
 				);
 	
 				if (collResult) {
-					console.log(this.hp, this.damages);
 					this.target.hit(this.damages, this);
 					this.hit(this.damages, null);
 					this.happyTime = HumanFollower.HAPPY_TIME;

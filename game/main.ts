@@ -1,10 +1,10 @@
-import { HumanFollower } from "./Entity";
 import { Game } from "./Game";
 import { WeakStage } from "./Stage";
 
 interface Level {
 	name: string;
 	filename: string;
+	hash: string;
 	version: number;
 }
 
@@ -101,6 +101,7 @@ async function updateNetworkLevels(link: string, architecture: World[] | null): 
 			newLevels.push({
 				name: remoteLevel.name,
 				filename: remoteLevel.filename,
+				hash: remoteLevel.hash,
 				version: remoteLevel.version
 			});
 		}
@@ -137,7 +138,7 @@ function generateWeakStages(worlds: World[]) {
 	for (let world of worlds) {
 		const line: WeakStage[] = [];
 		for (let level of world.levels) {
-			line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name));
+			line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name, level.hash));
 		}
 		container.push(line);
 	}
@@ -201,9 +202,16 @@ export async function startGame() {
 		document.getElementById("fullyLoadingGame")?.classList.add("hidden");
 	}
 
-
+	const NETWORK_ADDRESS = window.NETWORK_ADDRESS;
+	console.log(NETWORK_ADDRESS);
 	const canvasContext = canvas.getContext("2d")!;
-	game = new Game(realKeyboardMode, document, weakStages);
+	game = new Game({
+		keyboardMode: realKeyboardMode,
+		eventTarget: document,
+		stageList: weakStages,
+		networkAddress: NETWORK_ADDRESS,
+		architecture
+	}, 'GameClassicContructor');
 	const chronoDiv = document.getElementById("chrono")!;
 	
 	function runGameLoop() {
@@ -222,7 +230,11 @@ export async function startGame() {
 		chronoDiv.innerHTML = game.generateChronoText();
 	
 		if (window.running) {
-			requestAnimationFrame(runGameLoop);
+			if (window.useRequestAnimationFrame) {
+				requestAnimationFrame(runGameLoop);
+			} else {
+				setTimeout(runGameLoop, 1000/60);
+			}
 		}
 
 		countedFps++;
@@ -241,9 +253,12 @@ declare global {
 		game: any;
 		running: any;
 		startGame: any;
+		NETWORK_ADDRESS: string | null;
+		useRequestAnimationFrame: boolean;
 	}
 }
 
 window.game = null;
 window.running = false;
 window.startGame = startGame;
+window.useRequestAnimationFrame = true;

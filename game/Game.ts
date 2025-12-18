@@ -6,10 +6,18 @@ import { Stage, WeakStage } from "./Stage";
 import { Room } from "./Room";
 import { sendRun } from "./sendRun";
 import { Vector } from "./Vector";
-import { Entity, HumanFollower } from "./Entity";
+import { Entity } from "./Entity";
+import { ClientNet } from "./ClientNet";
+import { getElementById } from "./getElementById";
+import { DataWriter } from "./net/DataWriter";
 
 
-type TypeState = 'play' | 'menu' | 'playToWin' | 'win';
+
+
+
+type TypeState = 'play' | 'menu' | 'playToWin' | 'win' |
+	'onlineLobbyConnecting' | 'onlineLobby' | 'onlineCouldown' | 'onlinePlay' |
+	'servPlay' | 'servPlayToWin' | 'servWin';
 
 class State {
 	private type: TypeState = 'menu';
@@ -32,6 +40,14 @@ class State {
 				this.set('win');
 			}
 			break;
+
+		case 'servPlayToWin':
+			if (this.chrono >= State.PLAY_TO_WIN_DURATION) {
+				this.set('servWin');
+			}
+			break;
+
+
 		}
 	}
 
@@ -42,10 +58,20 @@ class State {
 	set(type: TypeState) {
 		switch (type) {
 		case 'play':
+			this.game.camera.reset();
+			break;
+
+		case 'onlinePlay':
+			this.game.camera.reset();
+			break;
+
+		case 'onlineLobby':
+			this.game.currentLevel = 0;
+			this.game.player?.inputHandler?.stopRecord();
 			break;
 		
 		default:
-			this.game.inputHandler.stopRecord();
+			this.game.player?.inputHandler?.stopRecord();
 			break;
 		}
 
@@ -60,6 +86,50 @@ class State {
 }
 
 
+function copyToClipboard(text: string) {
+    if (!navigator.clipboard) {
+        // Fallback pour les navigateurs anciens
+        const textarea = document.createElement("textarea");
+        textarea.value = text;
+        document.body.appendChild(textarea);
+        textarea.select();
+        try {
+            document.execCommand("copy");
+            console.log("Text copied to clipboard (fallback)!");
+        } catch (err) {
+            console.error("Fallback: Could not copy text", err);
+        }
+        document.body.removeChild(textarea);
+        return;
+    }
+
+    // Méthode moderne
+    navigator.clipboard.writeText(text)
+        .then(() => {
+            console.log("Text copied to clipboard!");
+        })
+        .catch(err => {
+            console.error("Could not copy text: ", err);
+        });
+}
+
+
+
+
+interface GameClassicContructor {
+	keyboardMode: "zqsd" | "wasd";
+	eventTarget: EventTarget;
+	stageList: WeakStage[][];
+	networkAddress: string | null;
+	architecture: any;
+}
+
+interface GameServConstructor {
+	stage: Stage;
+	playerCount: number;
+}
+
+
 export class Game {
 	static WIDTH = 1600;
 	static HEIGHT = 900;
@@ -67,14 +137,21 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.5.1";
+	static GAME_VERSION = "1.6.0";
 
-	player = new Player();
+	static SPECIAL_ACTIONS = [
+		"Open file",
+		"Join multiplayer room",
+		"Create multiplayer room"
+	];
+
+
+	players: Player[];
+	player: Player | null;
 	camera = new Camera();
 
-	inputHandler: InputHandler;
-
 	stageList: WeakStage[][];
+	architecture: any;
 	stage: Stage | null = null;
 	frame = 0;
 	goalComplete = 0;
@@ -83,26 +160,63 @@ export class Game {
 	validRun = true;
 	currentWorld = 0;
 	currentLevel = 0;
-	selectWorldFile = false;
+	specialActionsWorld = false;
 	playerUsername: string | null = null;
 	stageName: string | null = null;
+	clientNet: ClientNet | null = null;
+	networkAddress: string | null;
 
+	constructor(
+		data: GameClassicContructor | GameServConstructor,
+		constructorUsed: 'GameClassicContructor' | 'GameServConstructor'
+	) {
+		if (constructorUsed === 'GameClassicContructor') {
+			data = data as GameClassicContructor;
+			this.stageList = data.stageList;
+			this.networkAddress = data.networkAddress;
+			this.architecture = data.architecture;
 
-	constructor(keyboardMode: "zqsd" | "wasd", eventTarget: EventTarget, stageList: WeakStage[][]) {
-		this.inputHandler = new InputHandler(keyboardMode);
-		this.inputHandler.startListeners(eventTarget);
-		this.stageList = stageList;
+			const player = new Player();
+			this.player = player;
+			this.players = [player];
+
+			player.inputHandler = new InputHandler(data.keyboardMode);
+			player.inputHandler.startListeners(data.eventTarget);
+		} else {
+			data = data as GameServConstructor;
+			this.stageList = [[new WeakStage(null, data.stage, "")]];
+			this.networkAddress = null;
+			this.player = null;
+			this.players = [];
+			for (let i = 0; i < data.playerCount; i++) {
+				const player = new Player();
+				player.inputHandler = new InputHandler("zqsd");
+				this.players.push(player);
+			}
+			this.state.set('servPlay');
+			this.startLevel(data.stage, "");
+			data.stage.enableServMod(data.playerCount);
+		}
 	}
+
+
+
+	
 
 
 	startLevel(stage: Stage, stageName: string) {
 		this.stage = stage;
 		this.stageName = stageName;
-		this.player.respawnCouldown = 0;
+
+		for (let player of this.players) {
+			player.respawnCouldown = 0;
+			player.visualRespawnCouldown = 0;
+		}
+		
 		this.resetStage();
 
 
-		const element = document.getElementById("levelName");
+		const element = getElementById("levelName");
 		if (element) {
 			element.classList.remove("shown");
 			void element.offsetWidth; // forcer le reflow
@@ -114,26 +228,49 @@ export class Game {
 	startReplay(stage: Stage) {
 		this.startLoading();
 		
-		this.inputHandler.loadRecord().then(() => {
-			this.state.set('play');
-			this.startLevel(stage, this.stageName!);
-			this.inputHandler.startEmulation();
-		}).catch(e => {
-			console.error(e);
-		}).finally(() => {
-			this.finishLoading();
-		});
+		if (this.player && this.player.inputHandler) {
+			const inputHandler = this.player.inputHandler;
+			inputHandler.loadRecord().then(() => {
+				this.state.set('play');
+				this.startLevel(stage, this.stageName!);
+				inputHandler.startEmulation();
+			}).catch(e => {
+				console.error(e);
+			}).finally(() => {
+				this.finishLoading();
+			});
+		}
 	}
 
-	playLogic(checkComplete: boolean) {
-		const resetStage = this.player.reduceCouldown();
 
+	getGlobalRespawnCouldown() {
+		let respawnCouldown = -1;
+		for (let player of this.players) {
+			const r = player.respawnCouldown;
+			if (r < 0) {
+				respawnCouldown = -1;
+				break;
+			}
+
+			if (r > respawnCouldown) {
+				respawnCouldown = player.respawnCouldown;
+			}
+		}
+
+		return respawnCouldown;
+	}
+
+	playLogic_solo(player: Player, checkComplete: boolean) {
+		const resetStage = player.reduceCouldown();
+
+
+		const inputHandler = this.player!.inputHandler!;
 		if (checkComplete) {
-			if (this.inputHandler.press('debug')) {
+			if (inputHandler.press('debug')) {
 				this.validRun = false;
-				this.player.eternalMode = true;
+				player.eternalMode = true;
 			} else {
-				this.player.eternalMode = false;
+				player.eternalMode = false;
 			}
 
 			if (resetStage) {
@@ -143,104 +280,233 @@ export class Game {
 
 
 
-		if (this.inputHandler.first('enter')) {
+		if (inputHandler.first('enter')) {
 			const special = prompt("replay,debug");
 			if (special) {
 				this.handleSpecial(special);
 			}
-			this.inputHandler.kill('enter', true);
+			inputHandler.kill('enter', true);
 		}
 
-		this.player.frame(this);
+		player.frame(this);
 	
-		this.stage!.frame(this);
+		const stage = this.stage!;
+		const room = player.currentRoom!;
+		const roomSet = new Set<Room>();
+		roomSet.add(room);
+		for (let r of room.adjacentRooms!)
+			roomSet.add(r);
+
+		stage.frame(this, roomSet);
 
 
-		if (this.player.isAlive()) {
-			this.handleRoom();
+		if (player.isAlive()) {
+			player.handleRoom(stage, this.camera);
 		}
 		
 		if (checkComplete) {
 			if (this.goalComplete > 0)
 				this.state.set('playToWin');
 
-			if (this.player.respawnCouldown <= Player.RESPAWN_COULDOWN)
+			if (player.respawnCouldown <= Player.RESPAWN_COULDOWN)
 				this.gameChrono++;
 		}
 	}
 
 
-	menuLogic() {
-		
-		if (this.inputHandler.first('enter')) {
-			if (this.selectWorldFile) {
 
+	servPlayLogic_multi_reduceCouldowns() {
+		let allDead = true;
+		for (let player of this.players) {
+			if (player.respawnCouldown > Player.RESPAWN_COULDOWN) {
+				allDead = false;
+				player.respawnCouldown--;
+			} else if (player.respawnCouldown === -1) {
+				allDead = false;
+			}
+		}
+
+		if (allDead) {
+			const r = this.players[0].respawnCouldown - 1;
+			if (r === Player.RESPAWN_COULDOWN - 1) {
+				this.resetStage();
+			}
+
+			for (let player of this.players) {
+				player.respawnCouldown = r;
+			}
+		}
+
+	}
+
+	clientPlayLogic_multi(_: boolean) {
+		for (let player of this.players) {
+			if (player.isAlive()) {
+				player.handleRoom(this.stage!, this.camera);
+			}
+		}
+	}
+
+
+	servPlayLogic_multi(checkComplete: boolean) {
+		for (let player of this.players)
+			player.inputHandler!.update();
+
+		const globalRespawnCouldown = this.getGlobalRespawnCouldown()
+		const runEveryone = globalRespawnCouldown >= 0 &&
+			globalRespawnCouldown <= Player.RESPAWN_COULDOWN;
+
+		const stage = this.stage!;
+
+		for (let player of this.players) {
+			const rc = player.respawnCouldown;
+			if (rc === -1 || rc > Player.RESPAWN_COULDOWN || runEveryone) {
+				player.frame(this);
+			}
+
+			if (player.isAlive())
+				player.handleRoom(stage, this.camera);
+		}
+	
+		const roomSet = new Set<Room>();
+		for (let player of this.players) {
+			const room = player.currentRoom!;
+			roomSet.add(room);
+			for (let r of room.adjacentRooms!)
+				roomSet.add(r);
+
+		}
+
+		stage.frame(this, roomSet);
+
+		this.servPlayLogic_multi_reduceCouldowns();
+
+		if (checkComplete) {
+			if (this.goalComplete > 0) {
+				console.log("servPlayToWin")
+				this.state.set('servPlayToWin');
+			}
+
+			if (globalRespawnCouldown <= Player.RESPAWN_COULDOWN)
+				this.gameChrono++;
+
+		}
+	}
+
+
+	menuLogic() {
+		const inputHandler = this.player!.inputHandler!;
+
+		if (inputHandler.first('enter')) {
+			if (this.specialActionsWorld) {
+				switch (this.currentLevel) {
+				// Open file
+				case 0:
+				{
+					(async ()=>{
+						const [handle] = await window.showOpenFilePicker!();
+						const file = await handle.getFile();
+
+						const {stage, name} = await importStage(
+							createImportStageGenerator(file)
+						);
+						this.state.set('play');
+						this.startLevel(stage, name);
+					})();
+					break;
+				}
+
+				// Join room
+				case 1:
+				{
+					this.askClientNet()?.joinRoom();
+					break;
+				}
+
+				// Create room
+				case 2:
+				{
+					const cn = this.askClientNet();
+					if (!cn)
+						break;
+
+					cn.createRoom(async () => {
+						const result = await ClientNet.openHtmlLevelSelector(this.architecture);
+						if (result === null)
+							return null;
+						
+						this.state.set('onlineLobbyConnecting');
+						return result;
+					});
+					break;
+				}
+				
+				}
+
+				inputHandler.kill('enter');
+				
 			} else {
 				const weakStage = this.stageList[this.currentWorld][this.currentLevel];
-				document.getElementById("loadingIcon")?.classList.remove("hidden");
+				getElementById("loadingIcon")?.classList.remove("hidden");
 				weakStage.load().then(({stage, name}) => {
 					this.state.set('play');
 					this.startLevel(stage, name);
 				}).catch(e => {
 					console.error(e);
 				}).finally(() => {
-					document.getElementById("loadingIcon")?.classList.add("hidden");
+					getElementById("loadingIcon")?.classList.add("hidden");
 				})
 			}
 		}
 
-		if (this.inputHandler.first('right')) {
-			if (this.selectWorldFile) {
-				this.selectWorldFile = false;
+		if (inputHandler.first('right')) {
+			if (this.specialActionsWorld) {
+				if (this.currentLevel+1 === Game.SPECIAL_ACTIONS.length) {
+					this.specialActionsWorld = false;
+					this.currentLevel = 0;
+				} else {
+					this.currentLevel++;
+				}
+				
 			} else if (this.currentLevel < this.stageList[this.currentWorld].length - 1) {
 				this.currentLevel++;
 			}
 		}
 
-		if (this.inputHandler.first('left') && !this.selectWorldFile) {
+		if (inputHandler.first('left')) {
 			if (this.currentLevel > 0) {
 				this.currentLevel--;
 			} else {
-				this.selectWorldFile = true;
+				this.specialActionsWorld = true;
 			}
 		}
 
 
-		if (this.selectWorldFile) {
-			if (this.inputHandler.first('debug')) {
-				(async ()=>{
-					const [handle] = await window.showOpenFilePicker!();
-					const file = await handle.getFile();
-
-					const {stage, name} = await importStage(
-						createImportStageGenerator(file)
-					);
-					this.inputHandler.kill('debug');
-					this.state.set('play');
-					this.startLevel(stage, name);
-				})();
-			}
+		if (this.specialActionsWorld) {
+			
 
 		} else {
 			if (
-				this.inputHandler.first('down') &&
+				inputHandler.first('down') &&
 				this.currentWorld < this.stageList.length - 1
 			) {this.currentWorld++;}
 	
 			if (
-				this.inputHandler.first('up') &&
+				inputHandler.first('up') &&
 				this.currentWorld > 0
 			) {this.currentWorld--;}
 		}
 	}
 
 	winLogic() {
-		if (this.validRun && this.inputHandler.first('debug')) {
+		const inputHandler = this.player!.inputHandler!;
+
+		if (this.validRun && inputHandler.first('debug')) {
 			const sendResult = confirm("Do you want to send your run?");
-			document.getElementById("savingRun")?.classList.remove("hidden");
+			getElementById("savingRun")?.classList.remove("hidden");
 			
-			this.inputHandler.saveRecord(this.stageName, this.gameChrono).then(f => {
-				document.getElementById("savingRun")?.classList.add("hidden");
+			inputHandler.saveRecord(this.stageName, this.gameChrono).then(f => {
+				getElementById("savingRun")?.classList.add("hidden");
 
 				if (sendResult && f) {
 
@@ -252,45 +518,102 @@ export class Game {
 						this.playerUsername = playerUsername;
 					}
 
-					document.getElementById("sendingRun")?.classList.remove("hidden");
+					getElementById("sendingRun")?.classList.remove("hidden");
 					sendRun(
 						f,
 						playerUsername,
 						this.stageName ?? Date.now().toString(),
 						this.gameChrono
 					).finally(() => {
-						document.getElementById("sendingRun")?.classList.add("hidden");
+						getElementById("sendingRun")?.classList.add("hidden");
 					})
 					
 				}
 			}).catch(e => {
-				document.getElementById("savingRun")?.classList.add("hidden");
+				getElementById("savingRun")?.classList.add("hidden");
 				console.error(e);
 
 			});
 		
 		}
 
-		if (this.inputHandler.first('enter')) {
+		if (inputHandler.first('enter')) {
 			this.state.set('menu');
 		}
 
-		if (this.inputHandler.first('up')) {
+		if (inputHandler.first('up')) {
 			this.resetStage();
 			this.state.set('play');
 		}
 	}
 
+
+
+
+	onlineLobbyLogic() {
+		const inputHandler = this.player!.inputHandler!;
+
+		if (inputHandler.first('up') && this.currentLevel > 0) {
+			this.currentLevel--;
+		}
+
+		if (inputHandler.first('down') &&
+			this.currentLevel < this.clientNet!.lobbyActions.length - 1
+		) {
+			this.currentLevel++;
+		}
+
+		if (inputHandler.first('enter')) {
+			const clientNet = this.clientNet!;
+			if (clientNet.isAdmin) {
+				switch (this.currentLevel) {
+				case 0:
+					console.log("Joined lobby:", clientNet.lobbyId);
+					if (clientNet.lobbyId) {
+						copyToClipboard(clientNet.lobbyId);
+					}
+					break;
+
+				case 1:
+					clientNet.startGame();
+					break;
+
+				case 2:
+					clientNet.deleteLobby();
+				}
+			
+			} else {
+				switch (this.currentLevel) {
+				case 0:
+					console.log("Joined lobby:", clientNet.lobbyId);
+					if (clientNet.lobbyId) {
+						copyToClipboard(clientNet.lobbyId);
+					}
+					break;
+	
+				case 1:
+					clientNet.quitLobby();
+					break;
+				}
+			}
+
+		}
+	}
+
 	gameLogic() {
-		this.inputHandler.update();
+		this.player?.inputHandler?.update();
+
+		if (this.player?.inputHandler?.first('enter') && this.clientNet) {
+			this.clientNet.sendRestart();
+		}
 
 		switch (this.state.get()) {
 		case 'play':
-			this.playLogic(true);
+			this.playLogic_solo(this.player!, true);
 			break;
 
 		case 'playToWin':
-			this.playLogic(false);
+			this.playLogic_solo(this.player!, false);
 			break
 			
 		case 'menu':
@@ -300,7 +623,26 @@ export class Game {
 		case 'win':
 			this.winLogic();
 			break;
+
+		case 'onlineLobby':
+			this.onlineLobbyLogic();
+			break;
+
+		case 'onlinePlay':
+			this.clientPlayLogic_multi(true);
+			break;
+
+		case 'servPlay':
+			this.servPlayLogic_multi(true);
+			break;
 			
+		case 'servPlayToWin':
+			this.servPlayLogic_multi(false);
+			break;
+			
+		case 'servWin':
+			break;
+
 		}
 
 		this.frame++;
@@ -310,7 +652,12 @@ export class Game {
 
 	generateChronoText() {
 		const gameState = this.state.get();
-		if (gameState !== 'play' && gameState !== 'playToWin' && gameState !== 'win') {
+		if (
+			gameState !== 'play' &&
+			gameState !== 'playToWin' &&
+			gameState !== 'onlinePlay' &&
+			gameState !== 'win'
+		) {
 			return "";
 		}
 
@@ -330,12 +677,26 @@ export class Game {
 
 	
 	resetStage() {
-		this.inputHandler.restartRecord();
-		this.stage!.reset();
-				
 		const gameState = this.state.get();
-		if (gameState === 'play' || gameState === 'win') {
-			this.player.respawn();
+
+		if (this.player && this.player.inputHandler && gameState !== 'onlinePlay')
+			this.player.inputHandler.restartRecord();
+
+		const stage = this.stage!;
+		stage.reset();
+		stage.appendIfServMode(() => {
+			const writer = new DataWriter();
+			writer.writeInt8(4);
+			return writer;
+		});
+				
+		if (
+			gameState === 'play' ||
+			gameState === 'win' ||
+			gameState === 'onlinePlay' ||
+			gameState === 'servPlay'
+		) {
+			for (let p of this.players) {p.respawn(stage.firstRoom);}
 			this.camera.reset();
 			this.validRun = true;
 			this.gameChrono = 0;
@@ -344,118 +705,103 @@ export class Game {
 	}
 
 	handleRoom() {
-		const size = this.player.getSize();
-		
+		const stage = this.stage!;
+		const camera = this.player ? this.camera : null;
 
-		const getCamera = (room: Room) => {
-			let camX: number;
-			let camY: number;
-
-			if (room.w <= Game.WIDTH) {
-				camX = room.x + room.w/2;
-			} else if (this.player.x - Game.WIDTH_2 <= room.x) {
-				camX = room.x + Game.WIDTH_2;
-			} else if (this.player.x + Game.WIDTH_2 >= room.x + room.w) {
-				camX = room.x + room.w - Game.WIDTH_2;
-			} else {
-				camX = this.player.x;
-			}
-
-
-			if (room.h <= Game.HEIGHT) {
-				camY = room.y + room.h/2;
-			} else if (this.player.y - Game.HEIGHT_2 <= room.y) {
-				camY = room.y + Game.HEIGHT_2;
-			} else if (this.player.y + Game.HEIGHT_2 >= room.y + room.h) {
-				camY = room.y + room.h - Game.HEIGHT_2;
-			} else {
-				camY = this.player.y;
-			}
-
-
-			return {camX, camY};
-		}
-		
-		// Place camera
-		switch (this.stage!.update(this.player.x, this.player.y, size.x, size.y)) {
-		case "same":
-		{
-			const cam = getCamera(this.stage!.currentRoom);
-			this.camera.move(cam.camX, cam.camY);
-			break; // nothing to do
-		}
-		
-		case "new":
-		{
-			const cam = getCamera(this.stage!.currentRoom);
-			this.camera.startTracker(cam.camX, cam.camY);
-			this.player.restoreJumps();
-			// this.camera.move(room.x + room.w/2, room.y + room.h/2);
-			break;
-		}
-
-		case "out":
-			this.player.kill();
-			break;
+		for (let p of this.players) {
+			p.handleRoom(stage, camera);
 		}
 	}
 
 
+
+	drawWinMenu(ctx: CanvasRenderingContext2D) {
+		ctx.fillStyle = "black";
+		ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+
+		ctx.font = "30px Arial";
+		ctx.fillStyle = "white";
+		ctx.textAlign = "center";
+		ctx.fillText("Press P to save", Game.WIDTH_2, Game.HEIGHT_2 - 20);
+
+		ctx.fillStyle = "white";
+		ctx.fillText("Press SPACE to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
+
+		ctx.fillStyle = "white";
+		ctx.fillText("Press ENTER to select level", Game.WIDTH_2, Game.HEIGHT_2 + 60);
+	}
 
 	drawMethod(ctx: CanvasRenderingContext2D, followCamera: Function, unfollowCamera: Function) {
 		const state = this.state.get();
 		switch (this.state.get()) {
 		case 'play':
 		case 'playToWin':
+		case 'onlinePlay':
 		{
+			let playToWinChrono = -1;
+
+			if (state === 'playToWin') {
+				playToWinChrono = this.state.getChrono();
+			} else if (this.clientNet) {
+				playToWinChrono = this.clientNet.chrono;
+				if (playToWinChrono === -2) {
+					this.drawWinMenu(ctx);
+					break;
+				}
+			}
+
 			followCamera();
 	
-			
+			const player = this.player!;
+			const currentRoom = player.currentRoom!;
+
 			// Draw backgrounds
 			ctx.fillStyle = "#111";
 			ctx.fillRect(
-				this.stage!.currentRoom.x,
-				this.stage!.currentRoom.y,
-				this.stage!.currentRoom.w,
-				this.stage!.currentRoom.h,
+				currentRoom.x,
+				currentRoom.y,
+				currentRoom.w,
+				currentRoom.h,
 			);
 			ctx.fillStyle = "#1a1a1a";
-			for (let room of this.stage!.currentRoom.adjacentRooms!) {
+			for (let room of currentRoom.adjacentRooms!) {
 				ctx.fillRect(room.x, room.y, room.w, room.h);
 			}
 
 
 			// Draw blocks
-			this.stage!.currentRoom.drawBlocks(ctx);
-			for (let room of this.stage!.currentRoom.adjacentRooms!) {
+			currentRoom.drawBlocks(ctx);
+			for (let room of currentRoom.adjacentRooms!) {
 				room.drawBlocks(ctx);
 			}
 			
 			// Draw adjacence rects
-			this.stage!.drawAdjacenceRects(ctx, this.player);
+			this.stage!.drawAdjacenceRects(ctx, player);
 
 			// Draw entities
-			this.stage!.currentRoom.drawEntites(ctx);
-			for (let room of this.stage!.currentRoom.adjacentRooms!) {
+			currentRoom.drawEntites(ctx);
+			for (let room of currentRoom.adjacentRooms!) {
 				room.drawEntites(ctx);
 			}
 
 			
 
-			// Draw player
-			this.player.draw(ctx);		
+			// Draw players
+			for (let p of this.players) {
+				p.draw(ctx);		
+			}
 
 
 			unfollowCamera();
 	
 	
-	
-			this.player.drawInfos(ctx);
-	
-			this.player.drawDeathTransition(ctx);
+			player.drawInfos(ctx);
+			player.drawDeathTransition(ctx);
 
-			if (state === 'playToWin') {
-				let ratio = 1.5 * this.state.getChrono() / State.PLAY_TO_WIN_DURATION;
+			
+
+			if (playToWinChrono >= 0) {
+				let ratio = 1.5 * playToWinChrono / State.PLAY_TO_WIN_DURATION;
 				if (ratio < 1) {
 					ratio = Math.sin(ratio * Math.PI/2);
 				} else {
@@ -477,8 +823,22 @@ export class Game {
 			ctx.font = "30px Arial";
 
 			ctx.fillStyle = "white";
-			if (this.selectWorldFile) {
-				ctx.fillText(`Select file (press P)`, Game.WIDTH_2, 100);
+			if (this.specialActionsWorld) {
+				ctx.fillText(`Special`, Game.WIDTH_2, 100);
+
+
+				for (let i = 0; i < Game.SPECIAL_ACTIONS.length; i++) {
+					ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+					let x = 400 + 200 * (i%5);
+					let y = 300 + Math.floor(i/5) * 100;
+					ctx.font = "30px Arial";
+					ctx.fillText(`#${i}`, x, y);
+
+					ctx.font = "italic 16px Arial";
+					ctx.fillText(`${Game.SPECIAL_ACTIONS[i]}`, x, y+25);
+				}
+
+
 			} else {
 				ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
 				if (this.currentWorld < this.stageList.length) {
@@ -511,19 +871,59 @@ export class Game {
 
 		case 'win':
 		{
-			ctx.fillStyle = "black";
-			ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
+			this.drawWinMenu(ctx);
+			break;
+		}
 
-			ctx.font = "30px Arial";
+		case 'onlineLobbyConnecting':
+		{
+			ctx.font = "italic 30px Arial";
 			ctx.fillStyle = "white";
 			ctx.textAlign = "center";
-			ctx.fillText("Press P to save", Game.WIDTH_2, Game.HEIGHT_2 - 20);
+			ctx.fillText("Connecting to room...", Game.WIDTH_2, Game.HEIGHT_2);
+			break;
+		}
 
-			ctx.fillStyle = "white";
-			ctx.fillText("Press SPACE to restart", Game.WIDTH_2, Game.HEIGHT_2 + 20);
+		case 'onlineCouldown':
+		{
+			const clientNet = this.clientNet!;
+			if (clientNet.startCouldown >= 0) {
+				ctx.font = "50px monospace";
+				ctx.fillStyle = "white";
+				ctx.textAlign = "center";
+				ctx.fillText(clientNet.startCouldown.toFixed(2), Game.WIDTH_2, Game.HEIGHT_2/10);
+			} else {
+				ctx.font = "italic 30px monospace";
+				ctx.fillStyle = "white";
+				ctx.textAlign = "center";
+				ctx.fillText("Getting time left", Game.WIDTH_2, Game.HEIGHT_2/10);
+			}
 
+
+			break;
+		}
+
+		case 'onlineLobby':
+		{
+			ctx.font = "50px Arial";
 			ctx.fillStyle = "white";
-			ctx.fillText("Press ENTER to select level", Game.WIDTH_2, Game.HEIGHT_2 + 60);
+			ctx.textAlign = "left";
+			ctx.fillText("Lobby", Game.WIDTH_2, Game.HEIGHT_2/10);
+
+			const clientNet = this.clientNet!;
+
+			for (let i = 0; i < clientNet.lobbyActions.length; i++) {
+				const selected = (i == this.currentLevel);
+				ctx.fillStyle = selected ? "yellow" : "white";
+				let y = 300 + i * 100;
+				ctx.font = "30px Arial";
+				ctx.fillText(clientNet.lobbyActions[i], 400, y);
+				
+				if (selected) {
+					ctx.fillText(">", 370, y);
+				}
+			}
+
 			break;
 		}
 
@@ -543,10 +943,11 @@ export class Game {
 		ctx.scale(scale, scale);
 
 		// Draw background
+		const player = this.player!;
 		ctx.fillStyle = "black";
 		ctx.fillRect(0, 0, Game.WIDTH, Game.HEIGHT);
 
-		this.camera.update(new Vector(this.player.x, this.player.y));
+		this.camera.update(new Vector(player.x, player.y));
 
 
 		const followCamera = () => {
@@ -591,14 +992,14 @@ export class Game {
 	}
 
 	startLoading() {
-		const loadingIcon = document.getElementById("loadingIcon");
+		const loadingIcon = getElementById("loadingIcon");
 		if (loadingIcon) {
 			loadingIcon.classList.remove("hidden");
 		}
 	}
 
 	finishLoading() {
-		const loadingIcon = document.getElementById("loadingIcon");
+		const loadingIcon = getElementById("loadingIcon");
 		if (loadingIcon) {
 			loadingIcon.classList.add("hidden");
 		}
@@ -609,11 +1010,13 @@ export class Game {
 		let nearest: Entity | null = null;
 		let bestDist = Infinity;
 
-		if (filter(this.player)) {
-			const dx = this.player.x - x;
-			const dy = this.player.y - y;
-			bestDist = dx * dx + dy * dy;
-			nearest = this.player;
+		for (let p of this.players) {
+			if (filter(p)) {
+				const dx = p.x - x;
+				const dy = p.y - y;
+				bestDist = dx * dx + dy * dy;
+				nearest = p;
+			}
 		}
 
 		if (!room || !room.contains(x, y)) {
@@ -650,6 +1053,20 @@ export class Game {
 	}
 
 
+	askClientNet() {
+		if (this.clientNet) {
+			return this.clientNet;
+		}
+
+		if (this.networkAddress) {
+			const cn = new ClientNet(this.networkAddress, this);
+			this.clientNet = cn;
+			return cn;
+		}
+
+		alert("Connection to the server failed");
+		return null;
+	}
 
 	debug() {
 		
