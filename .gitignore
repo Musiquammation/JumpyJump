@@ -25,6 +25,7 @@ leaderboard/node_modules
 *.sln
 *.sw?
 
+.env
 
 # Draft
 draft
