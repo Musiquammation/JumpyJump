@@ -522,7 +522,7 @@
     }
     heal(_) {
     }
-    kill(game) {
+    kill(_) {
     }
     bounce(_factor, _cost) {
     }
@@ -618,7 +618,6 @@
             { x: this.x, y: this.y, w: size.x, h: size.y, r: this.getRotation() }
           );
           if (collResult) {
-            console.log(this.hp, this.damages);
             this.target.hit(this.damages, this);
             this.hit(this.damages, null);
             this.happyTime = _HumanFollower.HAPPY_TIME;
@@ -702,8 +701,11 @@
     vy = 0;
     eternalMode = false;
     protectFromEjection = false;
+    goalComplete = 0;
     jumps = _Player.JUMP_COUNT;
     respawnCouldown = -1;
+    visualRespawnCouldown = -1;
+    inputHandler = null;
     jump_leveledBar = new LelevedBar(
       "vertical",
       1,
@@ -730,7 +732,7 @@
     );
     constructor() {
       super(0, 0, _Player.HP);
-      this.respawn();
+      this.respawn(null);
     }
     getSize() {
       return new Vector(_Player.SIZE, _Player.SIZE);
@@ -793,18 +795,23 @@
       }
     }
     isAlive() {
-      return this.respawnCouldown <= _Player.RESPAWN_COULDOWN;
+      return this.respawnCouldown < _Player.RESPAWN_COULDOWN;
     }
     kill() {
       if (this.eternalMode)
         return;
+      if (!this.isAlive())
+        return;
       this.respawnCouldown = _Player.DEATH_ANIM_COULDOWN;
+      this.visualRespawnCouldown = _Player.DEATH_ANIM_COULDOWN;
     }
-    respawn() {
+    respawn(room) {
       this.x = 0;
       this.y = 0;
       this.vx = 0;
       this.vy = -_Player.JUMP;
+      this.currentRoom = room;
+      this.goalComplete = 0;
       this.restoreHp();
       this.restoreJumps();
     }
@@ -814,44 +821,92 @@
     reduceCouldown() {
       if (this.respawnCouldown >= 0) {
         this.respawnCouldown--;
+        this.visualRespawnCouldown = this.respawnCouldown;
         if (this.respawnCouldown == _Player.RESPAWN_COULDOWN)
           return true;
       }
+      this.visualRespawnCouldown = this.respawnCouldown;
       return false;
     }
+    handleRoom(stage, camera) {
+      const size = this.getSize();
+      const getCamera = (room) => {
+        let camX;
+        let camY;
+        if (room.w <= Game.WIDTH) {
+          camX = room.x + room.w / 2;
+        } else if (this.x - Game.WIDTH_2 <= room.x) {
+          camX = room.x + Game.WIDTH_2;
+        } else if (this.x + Game.WIDTH_2 >= room.x + room.w) {
+          camX = room.x + room.w - Game.WIDTH_2;
+        } else {
+          camX = this.x;
+        }
+        if (room.h <= Game.HEIGHT) {
+          camY = room.y + room.h / 2;
+        } else if (this.y - Game.HEIGHT_2 <= room.y) {
+          camY = room.y + Game.HEIGHT_2;
+        } else if (this.y + Game.HEIGHT_2 >= room.y + room.h) {
+          camY = room.y + room.h - Game.HEIGHT_2;
+        } else {
+          camY = this.y;
+        }
+        return { camX, camY };
+      };
+      const update = stage.update(this.x, this.y, size.x, size.y, this.currentRoom);
+      switch (update.code) {
+        case "same": {
+          const cam = getCamera(update.room);
+          camera?.move(cam.camX, cam.camY);
+          break;
+        }
+        case "new": {
+          const cam = getCamera(update.room);
+          camera?.startTracker(cam.camX, cam.camY);
+          this.restoreJumps();
+          break;
+        }
+        case "out":
+          this.kill();
+          break;
+      }
+      this.currentRoom = update.room;
+    }
     frame(game) {
-      const input = game.inputHandler;
-      if (input.press("left")) {
-        if (this.vx > 0) {
-          this.vx -= _Player.SPEED_DEC;
+      const input = this.inputHandler;
+      if (input) {
+        if (input.press("left")) {
+          if (this.vx > 0) {
+            this.vx -= _Player.SPEED_DEC;
+          } else {
+            this.vx -= _Player.SPEED_INC;
+          }
+        } else if (input.press("right")) {
+          if (this.vx < 0) {
+            this.vx += _Player.SPEED_DEC;
+          } else {
+            this.vx += _Player.SPEED_INC;
+          }
         } else {
-          this.vx -= _Player.SPEED_INC;
+          if (this.vx > 0) {
+            this.vx -= _Player.SPEED_DEC;
+            if (this.vx < 0) this.vx = 0;
+          } else if (this.vx < 0) {
+            this.vx += _Player.SPEED_DEC;
+            if (this.vx > 0) this.vx = 0;
+          }
         }
-      } else if (input.press("right")) {
-        if (this.vx < 0) {
-          this.vx += _Player.SPEED_DEC;
-        } else {
-          this.vx += _Player.SPEED_INC;
+        if (input.first("up")) {
+          this.consumeJump();
+          this.vy = -_Player.JUMP;
         }
-      } else {
-        if (this.vx > 0) {
-          this.vx -= _Player.SPEED_DEC;
-          if (this.vx < 0) this.vx = 0;
-        } else if (this.vx < 0) {
-          this.vx += _Player.SPEED_DEC;
-          if (this.vx > 0) this.vx = 0;
+        if (input.press("down")) {
+          this.y += _Player.DASH;
         }
       }
       if (this.vx > _Player.MAX_SPEED) this.vx = _Player.MAX_SPEED;
       if (this.vx < -_Player.MAX_SPEED) this.vx = -_Player.MAX_SPEED;
-      if (input.first("up")) {
-        this.consumeJump();
-        this.vy = -_Player.JUMP;
-      }
       this.vy += GAME_GRAVITY;
-      if (input.press("down")) {
-        this.y += _Player.DASH;
-      }
       if (this.protectFromEjection) {
         const ceiling = game.stage?.projectUp(this.x, this.y) ?? Infinity;
         const ceilDelta = this.vy * this.vy - 2 * GAME_GRAVITY * (this.y - ceiling);
@@ -877,13 +932,22 @@
       return false;
     }
     draw(ctx) {
-      ctx.fillStyle = "white";
-      ctx.strokeStyle = "black";
-      ctx.lineWidth = 5;
       const radius = 4;
       const x = this.x - _Player.SIZE_2;
       const y = this.y - _Player.SIZE_2;
       const size = _Player.SIZE;
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x, y, size, size);
+      let opacity;
+      if (this.visualRespawnCouldown < _Player.RESPAWN_COULDOWN) {
+        opacity = 1;
+      } else {
+        opacity = (this.visualRespawnCouldown - _Player.RESPAWN_COULDOWN) / (_Player.DEATH_ANIM_COULDOWN - _Player.RESPAWN_COULDOWN);
+      }
+      ctx.fillStyle = `rgba(255, 255, 255, ${opacity})`;
+      ctx.strokeStyle = `rgba(0, 0, 0, ${opacity})`;
+      ctx.lineWidth = 5;
       ctx.fillRect(x, y, size, size);
       ctx.beginPath();
       ctx.moveTo(x + radius, y);
@@ -923,6 +987,15 @@
   };
 
   // game/Block.ts
+  var AbstractModule = class _AbstractModule {
+    static registry = [];
+    static register(module) {
+      _AbstractModule.registry.push(module);
+    }
+    static getRegisteredModules() {
+      return _AbstractModule.registry;
+    }
+  };
   var MovingPath = class {
     dx;
     dy;
@@ -949,7 +1022,7 @@
       this.usages.clear();
     }
   };
-  var MovingModule = class _MovingModule {
+  var MovingModule = class _MovingModule extends AbstractModule {
     patterns;
     times;
     // -1 means infinite
@@ -958,6 +1031,7 @@
     loopCount;
     active;
     constructor(patterns, times) {
+      super();
       this.patterns = patterns;
       this.times = times;
       this.currentPattern = 0;
@@ -1018,6 +1092,47 @@
     generateAnimator(_) {
       return null;
     }
+    getDrawLevel() {
+      return 120;
+    }
+    static {
+      AbstractModule.register(_MovingModule);
+    }
+    getArgumentInterface() {
+      return null;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "moving";
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getImportArgsCount() {
+      return -1;
+    }
+    importModule() {
+      return null;
+    }
+    receive(reader, block, _) {
+      block.x = reader.readFloat32();
+      block.y = reader.readFloat32();
+    }
+    send(writer, block, _) {
+      writer.writeFloat32(block.x);
+      writer.writeFloat32(block.y);
+    }
+    getSendFlag() {
+      return 0;
+    }
   };
   var CouldownedAttackAnimator = class {
     spikes_x;
@@ -1031,15 +1146,37 @@
       this.spikes_h = h / this.spikes_y;
     }
   };
-  var CouldownedAttackModule = class _CouldownedAttackModule {
+  var CouldownedAttackModule = class _CouldownedAttackModule extends AbstractModule {
     damages;
     duration;
     playerOnly;
     couldowns = /* @__PURE__ */ new Map();
     constructor(damages, duration, playerOnly = true) {
+      super();
       this.damages = damages;
       this.duration = duration;
       this.playerOnly = playerOnly;
+    }
+    static {
+      AbstractModule.register(_CouldownedAttackModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "couldownedAttack";
     }
     update(_) {
       for (let [e, d] of this.couldowns) {
@@ -1067,6 +1204,13 @@
       const copy = new _CouldownedAttackModule(this.damages, this.duration, this.playerOnly);
       copy.couldowns = new Map(this.couldowns);
       return copy;
+    }
+    // ImportableModule
+    getImportArgsCount() {
+      return 3;
+    }
+    importModule(buffer) {
+      return new _CouldownedAttackModule(buffer[0], buffer[1], !!buffer[2]);
     }
     draw(block, ctx, animator) {
       ctx.fillStyle = "#9B59B6";
@@ -1155,6 +1299,9 @@
     generateAnimator(block) {
       return new CouldownedAttackAnimator(block.w, block.h);
     }
+    getDrawLevel() {
+      return 160;
+    }
     enumArgs() {
       return [
         { name: "damages", type: "number" },
@@ -1171,6 +1318,19 @@
       if (name === "damages") this.damages = value;
       if (name === "duration") this.duration = value;
       if (name === "playerOnly") this.playerOnly = value;
+    }
+    moduleEditorName() {
+      return "Couldowned Attack";
+    }
+    receive(reader, _, player) {
+      this.couldowns.set(player, reader.readFloat32());
+    }
+    send(writer, _, player) {
+      const value = this.couldowns.get(player) ?? 0;
+      writer.writeFloat32(value);
+    }
+    getSendFlag() {
+      return 1;
     }
   };
   var ContinousAttackParticle = class {
@@ -1236,12 +1396,34 @@
       this.particles.forEach((p) => p.draw(ctx));
     }
   };
-  var ContinuousAttackModule = class _ContinuousAttackModule {
+  var ContinuousAttackModule = class _ContinuousAttackModule extends AbstractModule {
     damages;
     playerOnly;
     constructor(damages, playerOnly = true) {
+      super();
       this.damages = damages;
       this.playerOnly = playerOnly;
+    }
+    static {
+      AbstractModule.register(_ContinuousAttackModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "continuousAttack";
     }
     reset() {
     }
@@ -1252,6 +1434,13 @@
     copy() {
       const copy = new _ContinuousAttackModule(this.damages, this.playerOnly);
       return copy;
+    }
+    // ImportableModule
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _ContinuousAttackModule(buffer[0], !!buffer[1]);
     }
     draw(block, ctx, animator) {
       ctx.save();
@@ -1265,6 +1454,9 @@
     }
     generateAnimator(_) {
       return new ContinuousAttackAnimator();
+    }
+    getDrawLevel() {
+      return 150;
     }
     enumArgs() {
       return [
@@ -1283,6 +1475,16 @@
       if (name === "playerOnly") {
         this.playerOnly = value;
       }
+    }
+    moduleEditorName() {
+      return "Continous Attack";
+    }
+    receive(_, __, ___) {
+    }
+    send(_, __, ___) {
+    }
+    getSendFlag() {
+      return 2;
     }
   };
   var BounceAnimator = class {
@@ -1318,21 +1520,43 @@
       return 1;
     }
   };
-  var BounceModule = class _BounceModule {
+  var BounceModule = class _BounceModule extends AbstractModule {
     cost;
     factor;
     playerOnly;
     helper;
     constructor(cost, factor, playerOnly = true, liberationCouldown = 12) {
+      super();
       this.factor = factor;
       this.cost = cost;
       this.playerOnly = playerOnly;
       this.helper = new EntityCouldownHelper(liberationCouldown);
     }
+    static {
+      AbstractModule.register(_BounceModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "bounce";
+    }
     reset() {
       this.helper.reset();
     }
-    onTouch(entity, frameNumber) {
+    onTouch(entity, _block, frameNumber) {
       if (this.playerOnly && !(entity instanceof Player)) return;
       if (this.helper.track(entity, frameNumber)) entity.bounce(this.factor, this.cost);
     }
@@ -1341,6 +1565,13 @@
     copy() {
       const copy = new _BounceModule(this.cost, this.factor, this.playerOnly);
       return copy;
+    }
+    // ImportableModule
+    getImportArgsCount() {
+      return 3;
+    }
+    importModule(buffer) {
+      return new _BounceModule(buffer[0], buffer[1], !!buffer[2]);
     }
     draw(block, ctx, animator) {
       animator.update(block.h);
@@ -1378,6 +1609,9 @@
     generateAnimator(block) {
       return new BounceAnimator(block.h);
     }
+    getDrawLevel() {
+      return 130;
+    }
     enumArgs() {
       return [
         { name: "cost", type: "number" },
@@ -1400,6 +1634,16 @@
       if (name === "playerOnly") {
         this.playerOnly = value;
       }
+    }
+    moduleEditorName() {
+      return "Bounce";
+    }
+    receive(_, __, ___) {
+    }
+    send(_, __, ___) {
+    }
+    getSendFlag() {
+      return 3;
     }
   };
   var LavaBubble = class {
@@ -1451,10 +1695,32 @@
       this.bubbles.forEach((b) => b.draw(ctx));
     }
   };
-  var KillModule = class _KillModule {
+  var KillModule = class _KillModule extends AbstractModule {
     playerOnly;
     constructor(playerOnly = true) {
+      super();
       this.playerOnly = playerOnly;
+    }
+    static {
+      AbstractModule.register(_KillModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "kill";
     }
     reset() {
     }
@@ -1466,6 +1732,13 @@
     }
     copy() {
       return new _KillModule(this.playerOnly);
+    }
+    // ImportableModule
+    getImportArgsCount() {
+      return 1;
+    }
+    importModule(buffer) {
+      return new _KillModule(!!buffer[0]);
     }
     draw(block, ctx, animator) {
       ctx.save();
@@ -1490,16 +1763,44 @@
         this.playerOnly = value;
       }
     }
+    moduleEditorName() {
+      return "Kill";
+    }
     generateAnimator(_) {
       return new KillAnimator();
     }
+    getDrawLevel() {
+      return 180;
+    }
   };
-  var CouldownDespawnModule = class _CouldownDespawnModule {
+  var CouldownDespawnModule = class _CouldownDespawnModule extends AbstractModule {
     duration;
     couldown;
     constructor(duration) {
+      super();
       this.duration = duration;
       this.couldown = duration;
+    }
+    static {
+      AbstractModule.register(_CouldownDespawnModule);
+    }
+    getArgumentInterface() {
+      return null;
+    }
+    getDrawableInterface() {
+      return null;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "couldownDespawn";
     }
     update(block) {
       if (--this.couldown <= 0) {
@@ -1514,18 +1815,47 @@
       copy.couldown = this.couldown;
       return copy;
     }
-    draw(block, ctx, _) {
-      ctx.fillStyle = "#555";
-      ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+    // ImportableModule
+    getImportArgsCount() {
+      return 1;
     }
-    generateAnimator(_) {
-      return null;
+    importModule(buffer) {
+      return new _CouldownDespawnModule(buffer[0]);
+    }
+    receive(_reader, _block, _player) {
+    }
+    send(_writer, _block, _player) {
+    }
+    getSendFlag() {
+      return 4;
     }
   };
-  var TouchDespawnModule = class _TouchDespawnModule {
+  var TouchDespawnModule = class _TouchDespawnModule extends AbstractModule {
     playerOnly;
     constructor(playerOnly = true) {
+      super();
       this.playerOnly = playerOnly;
+    }
+    static {
+      AbstractModule.register(_TouchDespawnModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return null;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "touchDespawn";
     }
     reset() {
     }
@@ -1538,12 +1868,12 @@
     copy() {
       return new _TouchDespawnModule(this.playerOnly);
     }
-    draw(block, ctx, _) {
-      ctx.fillStyle = "#555";
-      ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+    // ImportableModule
+    getImportArgsCount() {
+      return 1;
     }
-    generateAnimator(_) {
-      return null;
+    importModule(buffer) {
+      return new _TouchDespawnModule(!!buffer[0]);
     }
     enumArgs() {
       return [
@@ -1557,6 +1887,16 @@
       if (name === "playerOnly") {
         this.playerOnly = value;
       }
+    }
+    moduleEditorName() {
+      return "Touch Despawn";
+    }
+    receive(_reader, _block, _player) {
+    }
+    send(_writer, _block, _player) {
+    }
+    getSendFlag() {
+      return 5;
     }
   };
   var HealAnimator = class _HealAnimator {
@@ -1572,7 +1912,8 @@
     static PRODUCTION = 2e5;
     update(block) {
       const factor = 0.05;
-      if (block.module.heal?.playerHasTouched) {
+      const heal = block.module.record.heal;
+      if (heal.playerHasTouched) {
         this.currentColor.r += (this.touchedColor.r - this.currentColor.r) * factor;
         this.currentColor.g += (this.touchedColor.g - this.currentColor.g) * factor;
         this.currentColor.b += (this.touchedColor.b - this.currentColor.b) * factor;
@@ -1581,12 +1922,12 @@
         this.currentColor.g += (this.usableColor.g - this.currentColor.g) * factor;
         this.currentColor.b += (this.usableColor.b - this.currentColor.b) * factor;
       }
-      if (!block.module.heal?.playerHasTouched) {
+      if (!heal.playerHasTouched) {
         this.shadowPulse += 0.04;
       } else {
         this.shadowPulse = 0;
       }
-      if (!block.module.heal?.playerHasTouched) {
+      if (!heal.playerHasTouched) {
         this.production += block.w * block.h;
         if (this.production > _HealAnimator.PRODUCTION) {
           this.production -= _HealAnimator.PRODUCTION;
@@ -1609,21 +1950,44 @@
       return `rgb(${this.currentColor.r}, ${this.currentColor.g}, ${this.currentColor.b})`;
     }
     getShadowBlur(block) {
-      if (block.module.heal?.playerHasTouched) {
+      const heal = block.module.record.heal;
+      if (heal.playerHasTouched) {
         return this.baseShadowBlur * 0.1;
       } else {
         return this.baseShadowBlur + Math.sin(this.shadowPulse) * 5;
       }
     }
   };
-  var HealModule = class _HealModule {
+  var HealModule = class _HealModule extends AbstractModule {
     hp;
     playerOnly;
     touched = /* @__PURE__ */ new Set();
     playerHasTouched = false;
     constructor(hp, playerOnly = true) {
+      super();
       this.hp = hp;
       this.playerOnly = playerOnly;
+    }
+    static {
+      AbstractModule.register(_HealModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "heal";
     }
     reset() {
       this.touched.clear();
@@ -1646,6 +2010,13 @@
       const copy = new _HealModule(this.hp, this.playerOnly);
       copy.touched = new Set(this.touched);
       return copy;
+    }
+    // ImportableModule
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _HealModule(buffer[0], !!buffer[1]);
     }
     draw(block, ctx, animator) {
       animator.update(block);
@@ -1680,6 +2051,9 @@
     generateAnimator(_) {
       return new HealAnimator();
     }
+    getDrawLevel() {
+      return 170;
+    }
     enumArgs() {
       return [
         { name: "hp", type: "number" },
@@ -1698,13 +2072,51 @@
         this.playerOnly = value;
       }
     }
+    moduleEditorName() {
+      return "Heal";
+    }
+    receive(reader, _block, _player) {
+      this.playerHasTouched = reader.readInt8() === 1;
+    }
+    send(writer, _block, _player) {
+      writer.writeInt8(this.playerHasTouched ? 1 : 0);
+    }
+    getSendFlag() {
+      return 6;
+    }
   };
-  var SpeedModule = class _SpeedModule {
+  var SpeedModule = class _SpeedModule extends AbstractModule {
+    start_vx;
+    start_vy;
     vx;
     vy;
     constructor(vx = 0, vy = 0) {
+      super();
       this.vx = vx;
       this.vy = vy;
+      this.start_vx = vx;
+      this.start_vy = vy;
+    }
+    static {
+      AbstractModule.register(_SpeedModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "speed";
     }
     update(block, room) {
       block.x += this.vx;
@@ -1724,11 +2136,17 @@
       }
     }
     reset() {
-      this.vx = 0;
-      this.vy = 0;
+      this.vx = this.start_vx;
+      this.vy = this.start_vy;
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _SpeedModule(buffer[0], buffer[1]);
     }
     copy() {
-      return new _SpeedModule(this.vx, this.vy);
+      return new _SpeedModule(this.start_vx, this.start_vy);
     }
     draw(block, ctx, _) {
       ctx.fillStyle = "#555";
@@ -1736,6 +2154,9 @@
     }
     generateAnimator(_) {
       return null;
+    }
+    getDrawLevel() {
+      return 110;
     }
     enumArgs() {
       return [
@@ -1755,22 +2176,65 @@
         this.vy = value;
       }
     }
+    moduleEditorName() {
+      return "Speed";
+    }
+    receive(reader, block, _) {
+      block.x = reader.readFloat32();
+      block.y = reader.readFloat32();
+    }
+    send(writer, block, _) {
+      writer.writeFloat32(block.x);
+      writer.writeFloat32(block.y);
+    }
+    getSendFlag() {
+      return 7;
+    }
   };
-  var AccelerationModule = class _AccelerationModule {
+  var AccelerationModule = class _AccelerationModule extends AbstractModule {
     ax;
     ay;
     constructor(ax, ay) {
+      super();
       this.ax = ax;
       this.ay = ay;
     }
-    update(block) {
-      if (!block.module.speed) {
+    static {
+      AbstractModule.register(_AccelerationModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "acceleration";
+    }
+    update(block, _room) {
+      const sm = block.module.getModule("speed");
+      if (!sm) {
         throw new Error("AccelerationModule requires SpeedModule to be used");
       }
-      block.module.speed.vx += this.ax;
-      block.module.speed.vy += this.ay;
+      sm.vx += this.ax;
+      sm.vy += this.ay;
     }
     reset() {
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _AccelerationModule(buffer[0], buffer[1]);
     }
     copy() {
       return new _AccelerationModule(this.ax, this.ay);
@@ -1781,6 +2245,9 @@
     }
     generateAnimator(_) {
       return null;
+    }
+    getDrawLevel() {
+      return 100;
     }
     enumArgs() {
       return [
@@ -1799,6 +2266,16 @@
       if (name === "ay") {
         this.ay = value;
       }
+    }
+    moduleEditorName() {
+      return "Acceleration";
+    }
+    receive(_reader, _block, _) {
+    }
+    send(_writer, _block, _) {
+    }
+    getSendFlag() {
+      return 8;
     }
   };
   var RestoreJumpParticle = class {
@@ -1864,17 +2341,45 @@
       this.particles.forEach((p) => p.draw(ctx));
     }
   };
-  var RestoreJumpModule = class _RestoreJumpModule {
+  var RestoreJumpModule = class _RestoreJumpModule extends AbstractModule {
     gain;
     helper;
     constructor(gain, liberationCouldown = 12) {
+      super();
       this.gain = gain;
       this.helper = new EntityCouldownHelper(liberationCouldown);
+    }
+    static {
+      AbstractModule.register(_RestoreJumpModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "restoreJump";
+    }
+    getImportArgsCount() {
+      return 1;
+    }
+    importModule(buffer) {
+      return new _RestoreJumpModule(buffer[0]);
     }
     reset() {
       this.helper.reset();
     }
-    onTouch(entity, frameNumber) {
+    onTouch(entity, _block, frameNumber) {
       if (!(entity instanceof Player)) return;
       if (this.helper.track(entity, frameNumber)) {
         entity.restoreJumpAdd(this.gain);
@@ -1896,6 +2401,9 @@
     generateAnimator(_) {
       return new RestoreJumpAnimator();
     }
+    getDrawLevel() {
+      return 140;
+    }
     enumArgs() {
       return [
         { name: "gain", type: "number" }
@@ -1909,15 +2417,53 @@
         this.gain = value;
       }
     }
+    moduleEditorName() {
+      return "Restore Jump";
+    }
+    receive(_reader, _block, _) {
+    }
+    send(_writer, _block, _) {
+    }
+    getSendFlag() {
+      return 9;
+    }
   };
-  var RotationModule = class _RotationModule {
+  var RotationModule = class _RotationModule extends AbstractModule {
     start;
     speed;
     angle;
     constructor(start, speed) {
+      super();
       this.start = start;
       this.speed = speed;
       this.angle = start;
+    }
+    static {
+      AbstractModule.register(_RotationModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return null;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "rotation";
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new SpeedModule(buffer[0], buffer[1]);
     }
     update() {
       this.angle += this.speed;
@@ -1953,6 +2499,18 @@
         this.speed = value;
       }
     }
+    moduleEditorName() {
+      return "Rotation";
+    }
+    receive(reader, _block, _) {
+      this.angle = reader.readFloat32();
+    }
+    send(writer, _block, _) {
+      writer.writeFloat32(this.angle);
+    }
+    getSendFlag() {
+      return 10;
+    }
   };
   var GoalAnimator = class {
     time = 0;
@@ -1967,10 +2525,43 @@
       return base + 15 * Math.sin(this.time * 4);
     }
   };
-  var GoalModule = class {
+  var GoalModule = class _GoalModule extends AbstractModule {
     type;
     constructor(type) {
+      super();
       this.type = type;
+    }
+    static {
+      AbstractModule.register(_GoalModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "goal";
+    }
+    reset() {
+    }
+    copy() {
+      return new _GoalModule(this.type);
+    }
+    getImportArgsCount() {
+      return 1;
+    }
+    importModule(buffer) {
+      return new _GoalModule(buffer[0]);
     }
     draw(block, ctx, animator) {
       animator.time += 0.015;
@@ -1992,6 +2583,9 @@
     generateAnimator(_) {
       return new GoalAnimator();
     }
+    getDrawLevel() {
+      return 190;
+    }
     enumArgs() {
       return [
         { name: "type", type: "number" }
@@ -2005,20 +2599,60 @@
         this.type = value;
       }
     }
+    moduleEditorName() {
+      return "Goal";
+    }
+    onTouch(entity, _block, _frameNumber) {
+      if (!(entity instanceof Player)) return;
+      entity.goalComplete = this.type;
+    }
   };
-  var TextModule = class _TextModule {
+  var TextModule = class _TextModule extends AbstractModule {
     text;
     fontSize;
     constructor(text = "Some text...", fontSize = 100) {
+      super();
       this.text = text;
       this.fontSize = fontSize;
+    }
+    static {
+      AbstractModule.register(_TextModule);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "text";
+    }
+    getImportArgsCount() {
+      return -1;
+    }
+    importModule() {
+      return null;
+    }
+    reset() {
     }
     copy() {
       return new _TextModule(this.text, this.fontSize);
     }
     generateAnimator(_) {
     }
-    draw(block, ctx, _) {
+    getDrawLevel() {
+      return 200;
+    }
+    draw(__, ctx, _) {
       ctx.font = this.fontSize + "px monospace";
       ctx.textAlign = "center";
       ctx.textBaseline = "middle";
@@ -2061,29 +2695,37 @@
       }
       ;
     }
+    moduleEditorName() {
+      return "Text";
+    }
   };
-  var SpawnerModule = class _SpawnerModule {
+  var SpawnerModule = class _SpawnerModule extends AbstractModule {
     rythm;
     couldown;
     blocks;
     index = 0;
     constructor(rythm, startInstantly, blocks) {
+      super();
       this.rythm = rythm;
       this.couldown = startInstantly ? 1 : rythm;
       this.blocks = blocks;
     }
-    update(spawner, room) {
+    update(spawner, room, blf) {
       if (--this.couldown <= 0) {
         this.couldown += this.rythm;
         const src = this.blocks[this.index];
         if (++this.index >= this.blocks.length)
           this.index -= this.blocks.length;
-        const copy = src.build(spawner);
+        const copy = src.build(spawner, blf);
         if (copy) {
           copy.fromSpawner = true;
           room.blocks.push(copy);
         }
       }
+    }
+    reset() {
+      this.index = 0;
+      this.couldown = 0;
     }
     copy() {
       const copy = new _SpawnerModule(
@@ -2094,6 +2736,30 @@
       copy.couldown = this.couldown;
       copy.index = this.index;
       return copy;
+    }
+    getArgumentInterface() {
+      return null;
+    }
+    getDrawableInterface() {
+      return null;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getImportArgsCount() {
+      return -1;
+    }
+    importModule(_buffer) {
+      return null;
+    }
+    getModuleName() {
+      return "spawner";
     }
   };
   var BlockBuilder = class _BlockBuilder {
@@ -2114,115 +2780,169 @@
       this.keepRotation = args.keepRotation ?? false;
       this.module = module;
     }
-    build(spawner) {
+    build(spawner, blf) {
       if (!this.module)
         return null;
-      const block = new Block(
+      const block = blf.add((id) => new Block(
         spawner.x + this.dx,
         spawner.y + this.dy,
         this.w,
         this.h,
-        this.module.copy()
-      );
+        this.module.copy(),
+        id
+      ));
       return block;
     }
   };
   var BlockModule = class _BlockModule {
-    moving;
-    rotation;
-    couldownedAttack;
-    continuousAttack;
-    bounce;
-    kill;
-    heal;
-    touchDespawn;
-    restoreJump;
-    couldownDespawn;
-    spawner;
-    speed;
-    acceleration;
-    goal;
-    text;
-    checkCollision;
+    record;
     runInAdjacentRoom;
+    checkCollision;
     constructor(args) {
-      this.moving = args.moving;
-      this.rotation = args.rotation;
-      this.couldownedAttack = args.couldownedAttack;
-      this.continuousAttack = args.continuousAttack;
-      this.bounce = args.bounce;
-      this.kill = args.kill;
-      this.heal = args.heal;
-      this.touchDespawn = args.touchDespawn;
-      this.restoreJump = args.restoreJump;
-      this.couldownDespawn = args.couldownDespawn;
-      this.spawner = args.spawner;
-      this.speed = args.speed;
-      this.acceleration = args.acceleration;
-      this.text = args.text;
-      if (this.acceleration && !this.speed) {
-        this.speed = new SpeedModule(0, 0);
+      const record = {};
+      this.record = record;
+      for (let i in args) {
+        record[i] = args[i];
       }
-      this.runInAdjacentRoom = args.runInAdjacentRoom ? true : false;
-      if (args.goal) {
-        this.goal = new GoalModule(args.goal);
+      if (args && typeof args === "object") {
+        for (const k in args) {
+          if (k === "runInAdjacentRoom") continue;
+          this.record[k] = args[k] ?? null;
+        }
+        this.runInAdjacentRoom = !!args.runInAdjacentRoom;
+      } else {
+        this.runInAdjacentRoom = false;
+      }
+      if (this.record.acceleration && !this.record.speed) {
+        this.record.speed = new SpeedModule(0, 0);
       }
       this.checkCollision = [
-        args.couldownedAttack,
-        args.continuousAttack,
-        args.bounce,
-        args.kill,
-        args.heal,
-        args.touchDespawn,
-        args.restoreJump,
-        args.goal
-      ].some((x) => x);
+        this.record.couldownedAttack,
+        this.record.continuousAttack,
+        this.record.bounce,
+        this.record.kill,
+        this.record.heal,
+        this.record.touchDespawn,
+        this.record.restoreJump,
+        this.record.goal
+      ].some((x) => !!x);
+    }
+    getModule(name) {
+      if (!name) return null;
+      return this.record[name] ?? null;
     }
     copy() {
-      return new _BlockModule({
-        moving: this.moving?.copy(),
-        rotation: this.rotation?.copy(),
-        couldownedAttack: this.couldownedAttack?.copy(),
-        continuousAttack: this.continuousAttack?.copy(),
-        bounce: this.bounce?.copy(),
-        kill: this.kill?.copy(),
-        heal: this.heal?.copy(),
-        touchDespawn: this.touchDespawn?.copy(),
-        restoreJump: this.restoreJump?.copy(),
-        couldownDespawn: this.couldownDespawn?.copy(),
-        spawner: this.spawner?.copy(),
-        speed: this.speed?.copy(),
-        acceleration: this.acceleration?.copy(),
-        text: this.text?.copy(),
-        runInAdjacentRoom: this.runInAdjacentRoom
-      });
+      const out = {};
+      for (const key in this.record) {
+        out[key] = this.record[key]?.copy() ?? null;
+      }
+      return new _BlockModule(out);
     }
-    getDrawModule(level) {
-      const list = [
-        this.text,
-        this.goal,
-        this.kill,
-        this.heal,
-        this.couldownedAttack,
-        this.continuousAttack,
-        this.restoreJump,
-        this.bounce,
-        this.moving,
-        this.speed,
-        this.acceleration
-      ];
-      let idx = level;
-      for (let i of list) {
-        if (i) {
-          if (idx === 0)
-            return i;
-          idx--;
+    getDrawModule() {
+      let bestModule = null;
+      let bestLevel = -Infinity;
+      for (const key in this.record) {
+        const module = this.record[key];
+        if (!module) continue;
+        const drawable = module.getDrawableInterface();
+        if (!drawable) continue;
+        const level = drawable.getDrawLevel();
+        if (level > bestLevel) {
+          bestLevel = level;
+          bestModule = drawable;
         }
       }
-      return null;
+      return bestModule;
+    }
+    send(writer, block, player) {
+      const id = block.id;
+      let flag = 0;
+      for (let module of AbstractModule.getRegisteredModules()) {
+        const name = module.prototype.getModuleName();
+        const key = name;
+        const obj = this.record[key];
+        if (!obj)
+          continue;
+        const value = obj.getSendableInterface();
+        if (value) {
+          flag |= 1 << value.getSendFlag();
+        }
+      }
+      if (flag === 0)
+        return;
+      writer.writeInt32(id);
+      writer.writeInt32(flag);
+      for (let module of AbstractModule.getRegisteredModules()) {
+        const name = module.prototype.getModuleName();
+        const key = name;
+        const obj = this.record[key];
+        if (!obj)
+          continue;
+        const value = obj.getSendableInterface();
+        if (value) {
+          value.send(writer, block, player);
+        }
+      }
+    }
+    receive(reader, block, player) {
+      const flag = reader.readInt32();
+      for (let counter = 31; counter >= 0; counter--) {
+        const mask = 1 << counter;
+        if ((flag & mask) === 0)
+          continue;
+        for (let module of AbstractModule.getRegisteredModules()) {
+          const name = module.prototype.getModuleName();
+          const key = name;
+          const obj = this.record[key];
+          if (!obj)
+            continue;
+          const value = obj.getSendableInterface();
+          if (value && value?.getSendFlag() === counter) {
+            value.receive(reader, block, player);
+          }
+        }
+      }
+    }
+    update(block, room) {
+      for (const key in this.record) {
+        const module = this.record[key];
+        if (!module) continue;
+        const frameModule = module.getFrameInterface();
+        if (frameModule) {
+          frameModule.update(block, room);
+        }
+      }
+    }
+    reset() {
+      for (const key in this.record) {
+        const module = this.record[key];
+        if (!module) continue;
+        module.reset();
+      }
+    }
+    handleTouch(entity, block, game) {
+      const entitySize = entity.getSize();
+      if (!physics.checkRectRectCollision(
+        { x: block.x, y: block.y, w: block.w, h: block.h, r: block.getRotation() },
+        { x: entity.x, y: entity.y, w: entitySize.x, h: entitySize.y, r: entity.getRotation() }
+      )) {
+        return;
+      }
+      for (const key in this.record) {
+        const module = this.record[key];
+        if (!module) continue;
+        const collisionModule = module.getCollisionInterface();
+        if (collisionModule) {
+          collisionModule.onTouch(entity, block, game.frame);
+        }
+      }
+      if (this.record.goal) {
+        const goal = this.record.goal;
+        game.goalComplete = goal.type;
+      }
     }
   };
-  var Block = class {
+  var Block = class _Block {
     x;
     y;
     w;
@@ -2239,17 +2959,19 @@
     fromSpawner = false;
     drawMode;
     drawAnimator;
-    constructor(x, y, w, h, module) {
+    id;
+    constructor(x, y, w, h, module, id, drawModule = true) {
       this.x = x;
       this.y = y;
       this.w = w;
       this.h = h;
+      this.id = id;
       this.start_x = x;
       this.start_y = y;
       this.start_w = w;
       this.start_h = h;
       this.module = module;
-      this.drawMode = module.getDrawModule(0);
+      this.drawMode = drawModule ? module.getDrawModule() : null;
       if (this.drawMode) {
         this.drawAnimator = this.drawMode.generateAnimator(this);
       } else {
@@ -2257,44 +2979,25 @@
       }
     }
     getRotation() {
-      return this.module.rotation ? this.module.rotation.getAngle() : 0;
-    }
-    handleTouch(entity, game) {
-      const entitySize = entity.getSize();
-      if (!physics.checkRectRectCollision(
-        { x: this.x, y: this.y, w: this.w, h: this.h, r: this.getRotation() },
-        { x: entity.x, y: entity.y, w: entitySize.x, h: entitySize.y, r: entity.getRotation() }
-      )) {
-        return;
-      }
-      this.module.couldownedAttack?.onTouch(entity);
-      this.module.continuousAttack?.onTouch(entity);
-      this.module.bounce?.onTouch(entity, game.frame);
-      this.module.kill?.onTouch(entity);
-      this.module.heal?.onTouch(entity);
-      this.module.touchDespawn?.onTouch(entity, this);
-      this.module.restoreJump?.onTouch(entity, game.frame);
-      if (this.module.goal) {
-        game.goalComplete = this.module.goal.type;
-      }
+      const rm = this.module.getModule("rotation");
+      return rm ? rm.getAngle() : 0;
     }
     init(room) {
       this.spawnRoom = room;
     }
-    frame(game, room) {
-      this.module.moving?.update(this, room);
-      this.module.speed?.update(this, room);
-      this.module.acceleration?.update(this);
-      this.module.rotation?.update();
-      this.module.couldownedAttack?.update(this);
-      this.module.couldownDespawn?.update(this);
-      this.module.spawner?.update(this, room);
-      this.module.bounce?.update();
-      if (this.module.checkCollision) {
-        this.handleTouch(game.player, game);
+    frame(game, room, blf) {
+      this.module.update(this, room);
+      if (this.module.record.spawner) {
+        const spawner = this.module.record.spawner;
+        spawner.update(this, room, blf);
       }
-      if (this.toRemove && !this.fromSpawner) {
-        this.spawnRoom.missingBlocks.push(this);
+      if (this.module.checkCollision) {
+        for (let player of game.players) {
+          this.module.handleTouch(player, this, game);
+        }
+        if (this.toRemove && !this.fromSpawner) {
+          this.spawnRoom.missingBlocks.push(this);
+        }
       }
     }
     reset() {
@@ -2302,25 +3005,25 @@
       this.y = this.start_y;
       this.w = this.start_w;
       this.h = this.start_h;
-      this.module.moving?.reset();
-      this.module.couldownedAttack?.reset();
-      this.module.rotation?.reset();
-      this.module.continuousAttack?.reset();
-      this.module.bounce?.reset();
-      this.module.kill?.reset();
-      this.module.heal?.reset();
-      this.module.speed?.reset();
-      this.module.acceleration?.reset();
-      this.module.touchDespawn?.reset();
-      this.module.restoreJump?.reset();
-      this.module.couldownDespawn?.reset();
+      this.module.reset();
+    }
+    deepCopy() {
+      return new _Block(
+        this.x,
+        this.y,
+        this.w,
+        this.h,
+        this.module.copy(),
+        this.id
+      );
     }
     draw(ctx) {
       ctx.fillStyle = "#555";
       ctx.save();
       ctx.translate(this.x, this.y);
-      if (this.module.rotation) {
-        ctx.rotate(this.module.rotation.getAngle());
+      const rm = this.module.getModule("rotation");
+      if (rm) {
+        ctx.rotate(rm.getAngle());
       }
       if (this.drawMode) {
         this.drawMode.draw(this, ctx, this.drawAnimator);
@@ -2334,9 +3037,10 @@
       ctx.fillRect(-this.w / 2, -this.h / 2, this.w, this.h);
     }
     cancelRotation(ctx, callback) {
-      if (this.module.rotation) {
+      const rm = this.module.getModule("rotation");
+      if (rm) {
         ctx.save();
-        ctx.rotate(-this.module.rotation.getAngle());
+        ctx.rotate(-rm.getAngle());
         callback();
         ctx.restore();
       } else {
@@ -2394,7 +3098,7 @@
   };
 
   // game/Room.ts
-  var Room = class {
+  var Room = class _Room {
     x;
     y;
     w;
@@ -2501,11 +3205,16 @@
       for (let i = 0; i < length; i++)
         this.blocks[i].init(this);
     }
-    frame(game, toBlockOut, toEntityOut) {
+    frame(game, toBlockOut, toEntityOut, blf) {
       for (let i = this.blocks.length - 1; i >= 0; i--) {
         const block = this.blocks[i];
-        block.frame(game, this);
+        block.frame(game, this, blf);
         if (block.toRemove) {
+          if (block.fromSpawner) {
+            blf.fullRemove(block.id);
+          } else {
+            blf.remove(block.id);
+          }
           this.blocks.splice(i, 1);
           block.toRemove = false;
           block.toMove = null;
@@ -2553,6 +3262,16 @@
         }
       }
     }
+    deepCopy() {
+      return new _Room(
+        this.x,
+        this.y,
+        this.w,
+        this.h,
+        this.blocks.map((block) => block.deepCopy()),
+        this.entityGenerators
+      );
+    }
     drawAdjacenceRects(ctx, player, drawTouch) {
       const playerSize = player.getSize();
       const playerRect = {
@@ -2590,6 +3309,143 @@
     }
   };
 
+  // game/net/DataWriter.ts
+  var DataWriter = class _DataWriter {
+    buffer;
+    view;
+    offset = 0;
+    constructor(size = 64) {
+      this.buffer = new ArrayBuffer(size);
+      this.view = new DataView(this.buffer);
+    }
+    checkSize(required) {
+      const needed = this.offset + required;
+      if (needed <= this.buffer.byteLength) return;
+      let newSize = this.buffer.byteLength;
+      while (newSize < needed) {
+        newSize *= 2;
+      }
+      const newBuffer = new ArrayBuffer(newSize);
+      new Uint8Array(newBuffer).set(new Uint8Array(this.buffer));
+      this.buffer = newBuffer;
+      this.view = new DataView(this.buffer);
+    }
+    writeInt8(value) {
+      this.checkSize(1);
+      this.view.setInt8(this.offset, value);
+      this.offset += 1;
+      return this;
+    }
+    writeUint8(value) {
+      this.checkSize(1);
+      this.view.setUint8(this.offset, value);
+      this.offset += 1;
+      return this;
+    }
+    writeInt16(value, littleEndian = true) {
+      this.checkSize(2);
+      this.view.setInt16(this.offset, value, littleEndian);
+      this.offset += 2;
+      return this;
+    }
+    writeUint16(value, littleEndian = true) {
+      this.checkSize(2);
+      this.view.setUint16(this.offset, value, littleEndian);
+      this.offset += 2;
+      return this;
+    }
+    writeInt32(value, littleEndian = true) {
+      this.checkSize(4);
+      this.view.setInt32(this.offset, value, littleEndian);
+      this.offset += 4;
+      return this;
+    }
+    writeUint32(value, littleEndian = true) {
+      this.checkSize(4);
+      this.view.setUint32(this.offset, value, littleEndian);
+      this.offset += 4;
+      return this;
+    }
+    writeFloat32(value, littleEndian = true) {
+      this.checkSize(4);
+      this.view.setFloat32(this.offset, value, littleEndian);
+      this.offset += 4;
+      return this;
+    }
+    writeFloat64(value, littleEndian = true) {
+      this.checkSize(8);
+      this.view.setFloat64(this.offset, value, littleEndian);
+      this.offset += 8;
+      return this;
+    }
+    static getHex(caracter) {
+      switch (caracter) {
+        case "0":
+          return 0;
+        case "1":
+          return 1;
+        case "2":
+          return 2;
+        case "3":
+          return 3;
+        case "4":
+          return 4;
+        case "5":
+          return 5;
+        case "6":
+          return 6;
+        case "7":
+          return 7;
+        case "8":
+          return 8;
+        case "9":
+          return 9;
+        case "a":
+          return 10;
+        case "b":
+          return 11;
+        case "c":
+          return 12;
+        case "d":
+          return 13;
+        case "e":
+          return 14;
+        case "f":
+          return 15;
+        default:
+          return 0;
+      }
+    }
+    write256(hex) {
+      if (hex === null) {
+        this.checkSize(8);
+        for (let i = 0; i < 8; i++) {
+          this.view.setUint8(this.offset++, 0);
+        }
+        return;
+      }
+      if (hex.length !== 16) throw new Error("Hex string must be 16 characters (8 bytes)");
+      this.checkSize(8);
+      for (let i = 0; i < 16; i += 2) {
+        const byte = _DataWriter.getHex(hex[i]) << 4 | _DataWriter.getHex(hex[i + 1]);
+        this.view.setUint8(this.offset++, byte);
+      }
+    }
+    toArrayBuffer() {
+      return this.buffer.slice(0, this.offset);
+    }
+    addWriter(writer) {
+      const length = writer.getOffset();
+      if (length === 0) return;
+      this.checkSize(length);
+      new Uint8Array(this.buffer, this.offset, length).set(new Uint8Array(writer.toArrayBuffer()));
+      this.offset += length;
+    }
+    getOffset() {
+      return this.offset;
+    }
+  };
+
   // game/Stage.ts
   function openDB() {
     return new Promise((resolve, reject) => {
@@ -2608,10 +3464,12 @@
     stage;
     name;
     key;
-    constructor(key, stage = null, name = null) {
+    hash;
+    constructor(key, stage = null, name = null, hash = null) {
       this.key = key;
       this.stage = stage;
       this.name = name;
+      this.hash = hash;
     }
     async load() {
       if (this.stage && this.name)
@@ -2629,83 +3487,103 @@
         alert("An error occured. The page will restart");
         window.location.reload();
       }
-      function* words() {
-        let firstLineSent = false;
-        let buffer = "";
-        let currentWord = "";
-        let i = 0;
-        const isSep = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
-        const extractLanguageBlock = (block) => {
-          const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
-          let match;
-          const map = /* @__PURE__ */ new Map();
-          const order = [];
-          while (match = regex.exec(block)) {
-            const lang = match[1].toLowerCase();
-            map.set(lang, match[2].trim());
-            order.push(lang);
-          }
-          if (order.length === 0) return "";
-          let nav = (navigator.language || "en").split("-")[0].toLowerCase();
-          if (map.has(nav)) return map.get(nav);
-          if (map.has("en")) return map.get("en");
-          return map.get(order[0]);
-        };
-        while (i < file.length) {
-          if (file.startsWith("<text>", i)) {
-            const endIdx = file.indexOf("</text>", i);
-            if (endIdx === -1) break;
-            const block = file.slice(i + 6, endIdx);
-            const extracted = extractLanguageBlock(block);
-            if (extracted) yield extracted;
-            i = endIdx + 7;
-            continue;
-          }
-          const c = file[i];
-          if (!firstLineSent) {
-            if (c === "\n" || c === "\r") {
-              yield buffer;
-              buffer = "";
-              firstLineSent = true;
-            } else {
-              buffer += c;
-            }
-            i++;
-            continue;
-          }
-          if (isSep(c)) {
-            if (buffer.length > 0) {
-              yield buffer;
-              buffer = "";
-            }
-          } else {
-            buffer += c;
-          }
-          i++;
-        }
-        if (!firstLineSent && buffer.length > 0) yield buffer;
-        else if (buffer.length > 0) yield buffer;
-      }
-      const { stage, name } = await importStage(words);
+      const { stage, name } = await importStage(createWordStageGenerator(file));
       this.stage = stage;
       this.name = name;
       return { stage, name };
     }
   };
-  var Stage = class {
+  var ServMod = class {
+    writers;
+    constructor(playerNumber) {
+      const writers = [];
+      for (let i = 0; i < playerNumber; i++) {
+        writers[i] = new DataWriter();
+      }
+      this.writers = writers;
+    }
+    append(writer) {
+      for (let w of this.writers) {
+        w.addWriter(writer);
+      }
+    }
+    getWriter(idx) {
+      return this.writers[idx];
+    }
+    collectWriter(idx) {
+      const writer = this.writers[idx];
+      this.writers[idx] = new DataWriter();
+      writer.writeInt8(-1);
+      return writer;
+    }
+  };
+  var Stage = class _Stage {
     rooms;
-    currentRoom;
-    constructor(rooms) {
+    blockMap;
+    blockId;
+    firstRoom;
+    servMod = null;
+    constructor(rooms, blockMap, nextBlockId) {
       this.rooms = rooms;
+      this.blockId = nextBlockId;
+      this.blockMap = blockMap;
       this.fillAdjacentRooms();
       for (let r of rooms)
         r.fillAdjacenceRects();
-      const currentRoom = this.findRoom(0, 0);
-      if (currentRoom === null)
+      const firstRoom = this.findRoom(0, 0);
+      if (firstRoom === null)
         throw new Error("Missing spawn room");
-      this.currentRoom = currentRoom;
+      this.firstRoom = firstRoom;
       for (let r of this.rooms)
         r.init();
+    }
+    enableServMod(playerNumber) {
+      this.servMod = new ServMod(playerNumber);
+    }
+    getServMode() {
+      return this.servMod;
+    }
+    appendIfServMode(generate) {
+      if (this.servMod) {
+        this.servMod.append(generate());
+      }
+    }
+    appendBlock(construct, id = -1) {
+      if (id < 0) {
+        id = this.blockId;
+        this.blockId++;
+      }
+      const block = construct(id);
+      this.blockMap.set(id, block);
+      this.appendIfServMode(() => {
+        const w = new DataWriter();
+        w.writeInt8(0);
+        w.writeInt32(id);
+        w.writeInt32(block.x);
+        w.writeInt32(block.y);
+        w.writeInt32(block.w);
+        w.writeInt32(block.h);
+        return w;
+      });
+      return block;
+    }
+    fullRemoveBlock(id) {
+      console.log(this.servMod);
+      this.appendIfServMode(() => {
+        const w = new DataWriter();
+        w.writeInt8(1);
+        w.writeInt32(id);
+        return w;
+      });
+      this.blockMap.delete(id);
+    }
+    removeBlock(id) {
+      this.appendIfServMode(() => {
+        const w = new DataWriter();
+        w.writeInt8(2);
+        w.writeInt32(id);
+        return w;
+      });
     }
     fillAdjacentRooms() {
       for (let i = 0; i < this.rooms.length; i++) {
@@ -2733,12 +3611,15 @@
       }
       return null;
     }
-    frame(game) {
+    frame(game, roomsToRun) {
       const toBlockArr = [];
       const toEntityArr = [];
-      this.currentRoom.frame(game, toBlockArr, toEntityArr);
-      for (let room of this.currentRoom.adjacentRooms) {
-        room.frame(game, toBlockArr, toEntityArr);
+      for (let room of roomsToRun) {
+        room.frame(game, toBlockArr, toEntityArr, {
+          add: (arg) => this.appendBlock(arg),
+          fullRemove: (arg) => this.fullRemoveBlock(arg),
+          remove: (arg) => this.removeBlock(arg)
+        });
       }
       for (let tm of toBlockArr) {
         tm.dest.blocks.push(tm.block);
@@ -2778,8 +3659,8 @@
         }
       }
       ctx.fillStyle = "white";
-      addRoom(this.currentRoom);
-      for (let room of this.currentRoom.adjacentRooms) {
+      addRoom(player.currentRoom);
+      for (let room of player.currentRoom.adjacentRooms) {
         addRoom(room);
       }
       ranks.sort((a, b) => a.factor - b.factor);
@@ -2793,22 +3674,25 @@
         ctx.fillRect(i.rect.x, i.rect.y, i.rect.w, i.rect.h);
       }
     }
-    update(x, y, w, h) {
-      if (this.currentRoom.contains(x, y))
-        return "same";
+    update(x, y, w, h, currentRoom) {
+      if (currentRoom.contains(x, y))
+        return { code: "same", room: currentRoom };
       const room = this.findRoom(x, y);
       if (room) {
-        this.currentRoom = room;
-        return "new";
+        currentRoom = room;
+        return { code: "new", room: currentRoom };
       }
-      if (this.currentRoom.containsBox(x, y, w, h))
-        return "same";
-      return "out";
+      if (currentRoom.containsBox(x, y, w, h))
+        return { code: "same", room: currentRoom };
+      return { code: "out", room: currentRoom };
     }
     reset() {
       for (let room of this.rooms) {
         room.reset();
       }
+    }
+    deepCopy() {
+      return new _Stage(this.rooms.map((r) => r.deepCopy()), /* @__PURE__ */ new Map(), this.blockId);
     }
     projectUp(x, y) {
       let skip = null;
@@ -2884,17 +3768,6 @@
   var {
     MovingModule: MovingModule2,
     MovingPath: MovingPath2,
-    CouldownedAttackModule: CouldownedAttackModule2,
-    ContinuousAttackModule: ContinuousAttackModule2,
-    BounceModule: BounceModule2,
-    KillModule: KillModule2,
-    CouldownDespawnModule: CouldownDespawnModule2,
-    TouchDespawnModule: TouchDespawnModule2,
-    HealModule: HealModule2,
-    SpeedModule: SpeedModule2,
-    AccelerationModule: AccelerationModule2,
-    RestoreJumpModule: RestoreJumpModule2,
-    RotationModule: RotationModule2,
     TextModule: TextModule2,
     SpawnerModule: SpawnerModule2
   } = bmodules;
@@ -2913,25 +3786,8 @@
     let currentMode = null;
     let step = 0;
     let blocks = [];
-    class BlockModuleArg {
-      moving;
-      rotation;
-      couldownedAttack;
-      continuousAttack;
-      bounce;
-      kill;
-      heal;
-      touchDespawn;
-      restoreJump;
-      couldownDespawn;
-      spawner;
-      speed;
-      acceleration;
-      text;
-      goal = 0;
-      checkCollision = false;
-      runInAdjacentRoom = false;
-    }
+    let blockId = 0;
+    const blockMap = /* @__PURE__ */ new Map();
     let blockToPush = null;
     let movingPatterns = [];
     let movingTimes = -1;
@@ -2948,13 +3804,17 @@
     function pushBlock() {
       if (!blockToPush)
         return;
-      blocks.push(new Block(
+      const block = new Block(
         blockBuffer[0],
         blockBuffer[1],
         blockBuffer[2],
         blockBuffer[3],
-        new BlockModule(blockToPush)
-      ));
+        new BlockModule(blockToPush),
+        blockId
+      );
+      blocks.push(block);
+      blockMap.set(blockId, block);
+      blockId++;
       blockBuffer[0] = -1;
       blockBuffer[1] = -1;
       blockBuffer[2] = -1;
@@ -2979,7 +3839,7 @@
       if (spawnerStack.length > 0) {
         const ctx = spawnerStack[spawnerStack.length - 1];
         if (!ctx.currentBuilderModule) {
-          ctx.currentBuilderModule = new BlockModuleArg();
+          ctx.currentBuilderModule = {};
         }
         return ctx.currentBuilderModule;
       }
@@ -3031,7 +3891,7 @@
           ctx.currentBuilderStep = 0;
           if (ctx.blocks.length >= ctx.blockCount) {
             const finished = spawnerStack.pop();
-            finished.parentModule.spawner = new SpawnerModule2(finished.rythm, false, finished.blocks);
+            finished.parentModule["spawner"] = new SpawnerModule2(finished.rythm, false, finished.blocks);
             currentMode = null;
           } else {
             currentMode = "spawnerBuilder";
@@ -3069,7 +3929,7 @@
           if (step === 4) {
             currentMode = null;
             step = 0;
-            blockToPush = new BlockModuleArg();
+            blockToPush = {};
           }
           break;
         }
@@ -3108,87 +3968,6 @@
           }
           break;
         }
-        case "rotation":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
-            break;
-          }
-          getCurrentModule().rotation = new RotationModule2(moduleBuffer[0], moduleBuffer[1]);
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "couldownedAttack":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 3) {
-            break;
-          }
-          getCurrentModule().couldownedAttack = new CouldownedAttackModule2(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "continuousAttack":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
-            break;
-          }
-          getCurrentModule().continuousAttack = new ContinuousAttackModule2(moduleBuffer[0], toBool(moduleBuffer[1]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "bounce":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 3) {
-            break;
-          }
-          getCurrentModule().bounce = new BounceModule2(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "kill":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
-            break;
-          }
-          getCurrentModule().kill = new KillModule2(toBool(moduleBuffer[0]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "heal":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
-            break;
-          }
-          getCurrentModule().heal = new HealModule2(moduleBuffer[0], toBool(moduleBuffer[1]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "touchDespawn":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
-            break;
-          }
-          getCurrentModule().touchDespawn = new TouchDespawnModule2(toBool(moduleBuffer[0]));
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "restoreJump":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
-            break;
-          }
-          getCurrentModule().restoreJump = new RestoreJumpModule2(moduleBuffer[0]);
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "couldownDespawn":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
-            break;
-          }
-          getCurrentModule().couldownDespawn = new CouldownDespawnModule2(moduleBuffer[0]);
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
         case "spawner": {
           if (moduleBuffer.length < 2) {
             moduleBuffer.push(take(word));
@@ -3225,33 +4004,6 @@
           }
           break;
         }
-        case "speed":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
-            break;
-          }
-          getCurrentModule().speed = new SpeedModule2(moduleBuffer[0], moduleBuffer[1]);
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "acceleration":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 2) {
-            break;
-          }
-          getCurrentModule().acceleration = new AccelerationModule2(moduleBuffer[0], moduleBuffer[1]);
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
-        case "goal":
-          moduleBuffer.push(take(word));
-          if (moduleBuffer.length < 1) {
-            break;
-          }
-          getCurrentModule().goal = moduleBuffer[0];
-          moduleBuffer.length = 0;
-          currentMode = null;
-          break;
         case "text":
           if (moduleBuffer.length < 1) {
             moduleBuffer.push(take(word));
@@ -3265,7 +4017,7 @@
           const num = +word;
           if (Number.isFinite(num)) {
             pushBlock();
-            blockToPush = new BlockModuleArg();
+            blockToPush = {};
             blockBuffer[0] = take(word);
             step = 1;
             currentMode = "block";
@@ -3274,11 +4026,32 @@
           }
           break;
         }
+        default: {
+          let obj = null;
+          for (let c of AbstractModule.getRegisteredModules()) {
+            if (currentMode !== c.prototype.getModuleName())
+              continue;
+            obj = c;
+            break;
+          }
+          if (!obj) {
+            throw new Error(`Unknown module type: ${currentMode}`);
+          }
+          const importableArgsCount = obj.prototype.getImportArgsCount();
+          moduleBuffer.push(take(word));
+          if (moduleBuffer.length < importableArgsCount) {
+            break;
+          }
+          getCurrentModule()[obj.prototype.getModuleName()] = obj.prototype.importModule(moduleBuffer);
+          moduleBuffer.length = 0;
+          currentMode = null;
+          break;
+        }
       }
     }
     pushBlock();
     pushRoom();
-    return { stage: new Stage(rooms), name };
+    return { stage: new Stage(rooms, blockMap, blockId), name };
   }
   function createImportStageGenerator(file) {
     return async function* read() {
@@ -3303,7 +4076,12 @@
           order.push(lang);
         }
         if (order.length === 0) return "";
-        let nav = navigator.language || "en";
+        let nav;
+        if (typeof window !== "undefined" && window.navigator) {
+          nav = window.navigator.language || "en";
+        } else {
+          nav = "en";
+        }
         nav = nav.split("-")[0].toLowerCase();
         if (map.has(nav)) return map.get(nav);
         if (map.has("en")) return map.get("en");
@@ -3419,6 +4197,70 @@
       }
     };
   }
+  function createWordStageGenerator(file) {
+    function* words() {
+      let firstLineSent = false;
+      let buffer = "";
+      let i = 0;
+      const isSep = (c) => c === " " || c === "	" || c === "\n" || c === "\r";
+      const extractLanguageBlock = (block) => {
+        const regex = /<([a-zA-Z0-9_-]+)>([\s\S]*?)<\/\1>/g;
+        let match;
+        const map = /* @__PURE__ */ new Map();
+        const order = [];
+        while (match = regex.exec(block)) {
+          const lang = match[1].toLowerCase();
+          map.set(lang, match[2].trim());
+          order.push(lang);
+        }
+        if (order.length === 0) return "";
+        let nav;
+        if (typeof window !== "undefined" && window.navigator) {
+          nav = window.navigator.language || "en";
+        } else {
+          nav = "en";
+        }
+        if (map.has(nav)) return map.get(nav);
+        if (map.has("en")) return map.get("en");
+        return map.get(order[0]);
+      };
+      while (i < file.length) {
+        if (file.startsWith("<text>", i)) {
+          const endIdx = file.indexOf("</text>", i);
+          if (endIdx === -1) break;
+          const block = file.slice(i + 6, endIdx);
+          const extracted = extractLanguageBlock(block);
+          if (extracted) yield extracted;
+          i = endIdx + 7;
+          continue;
+        }
+        const c = file[i];
+        if (!firstLineSent) {
+          if (c === "\n" || c === "\r") {
+            yield buffer;
+            buffer = "";
+            firstLineSent = true;
+          } else {
+            buffer += c;
+          }
+          i++;
+          continue;
+        }
+        if (isSep(c)) {
+          if (buffer.length > 0) {
+            yield buffer;
+            buffer = "";
+          }
+        } else {
+          buffer += c;
+        }
+        i++;
+      }
+      if (!firstLineSent && buffer.length > 0) yield buffer;
+      else if (buffer.length > 0) yield buffer;
+    }
+    return words;
+  }
 
   // game/Camera.ts
   var Camera = class _Camera {
@@ -3438,6 +4280,8 @@
       this.targetY = y;
     }
     teleport(x, y) {
+      this.x = x;
+      this.y = y;
       this.targetX = x;
       this.targetY = y;
       this.instant = true;
@@ -3468,7 +4312,7 @@
       const dx = this.targetX - this.x;
       const dy = this.targetY - this.y;
       const dist2 = dx * dx + dy * dy;
-      if (dist2 < this.speed * this.speed) {
+      if (dist2 <= this.speed * this.speed) {
         this.x = this.targetX;
         this.y = this.targetY;
         this.instant = true;
@@ -3509,6 +4353,13 @@
     }
   };
 
+  // game/getElementById.ts
+  function getElementById(elementId) {
+    if (typeof window !== "undefined")
+      return document.getElementById(elementId);
+    return null;
+  }
+
   // game/InputHandler.ts
   var Keydown = class {
     left = false;
@@ -3535,6 +4386,8 @@
     keysDown = new Keydown();
     firstPress = new Keydown();
     killedPress = new Keydown();
+    firstPressCapture = new Keydown();
+    killedPressCapture = new Keydown();
     keyMap;
     gameRecords = null;
     frameCount = 0;
@@ -3573,48 +4426,54 @@
     constructor(mode) {
       this.keyMap = _InputHandler.KEYBOARDS[mode];
     }
+    applyKeydown(control) {
+      switch (this.collectedKeys[control]) {
+        case 0 /* NONE */:
+          this.collectedKeys[control] = 1 /* DOWN */;
+          break;
+        case 1 /* DOWN */:
+          break;
+        case 2 /* UP */:
+          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+          break;
+        case 3 /* DOWN_THEN_UP */:
+          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+          break;
+        case 4 /* UP_THEN_DOWN */:
+          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+          break;
+      }
+    }
+    applyKeyup(control) {
+      switch (this.collectedKeys[control]) {
+        case 0 /* NONE */:
+          this.collectedKeys[control] = 2 /* UP */;
+          break;
+        case 1 /* DOWN */:
+          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+          break;
+        case 2 /* UP */:
+          break;
+        case 3 /* DOWN_THEN_UP */:
+          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+          break;
+        case 4 /* UP_THEN_DOWN */:
+          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+          break;
+      }
+    }
     onKeydown = (event) => {
       const e = event;
       const control = this.keyMap[e.code];
       if (control) {
-        switch (this.collectedKeys[control]) {
-          case 0 /* NONE */:
-            this.collectedKeys[control] = 1 /* DOWN */;
-            break;
-          case 1 /* DOWN */:
-            break;
-          case 2 /* UP */:
-            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-            break;
-          case 3 /* DOWN_THEN_UP */:
-            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-            break;
-          case 4 /* UP_THEN_DOWN */:
-            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-            break;
-        }
+        this.applyKeydown(control);
       }
     };
     onKeyup = (event) => {
       const e = event;
       const control = this.keyMap[e.code];
       if (control) {
-        switch (this.collectedKeys[control]) {
-          case 0 /* NONE */:
-            this.collectedKeys[control] = 2 /* UP */;
-            break;
-          case 1 /* DOWN */:
-            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-            break;
-          case 2 /* UP */:
-            break;
-          case 3 /* DOWN_THEN_UP */:
-            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-            break;
-          case 4 /* UP_THEN_DOWN */:
-            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-            break;
-        }
+        this.applyKeyup(control);
       }
     };
     onButtonTouchStart = (control, element) => {
@@ -3642,7 +4501,7 @@
     onButtonTouchEnd = (control, element) => {
       element.classList.remove("high");
       if (control === "special") {
-        document.getElementById("mobileEntry-specialContainer")?.classList.toggle("hidden");
+        getElementById("mobileEntry-specialContainer")?.classList.toggle("hidden");
         return;
       }
       switch (this.collectedKeys[control]) {
@@ -3819,13 +4678,13 @@
     }
     startMobileListeners() {
       const add = (id, control) => {
-        const element = document.getElementById(id);
+        const element = getElementById(id);
         if (!element)
           return;
         element.ontouchstart = () => this.onButtonTouchStart(control, element);
         element.ontouchend = () => this.onButtonTouchEnd(control, element);
       };
-      document.getElementById("mobileEntryContainer")?.classList.remove("hidden");
+      getElementById("mobileEntryContainer")?.classList.remove("hidden");
       add("mobileEntry-left", "left");
       add("mobileEntry-right", "right");
       add("mobileEntry-up", "up");
@@ -3943,11 +4802,22 @@
     }
     draw() {
     }
+    getCapture() {
+      let gameFlag = 0;
+      const get = (key) => this.press(key) || this.firstPressCapture[key] ? 1 : 0;
+      gameFlag |= get("left");
+      gameFlag |= get("right") << 1;
+      gameFlag |= get("up") << 2;
+      gameFlag |= get("down") << 3;
+      this.firstPressCapture = new Keydown();
+      this.killedPressCapture = new Keydown();
+      return gameFlag;
+    }
   };
 
   // game/sendRun.ts
   var URL = "https://jumpyjump-production.up.railway.app";
-  async function sendRun(handle, username, mapname, frames) {
+  async function sendRun(_, username, mapname, frames) {
     const res = await fetch(URL + "/pushRun", {
       method: "POST",
       headers: {
@@ -3962,6 +4832,421 @@
     const data = await res.json();
     console.log(data);
   }
+
+  // game/net/DataReader.ts
+  var DataReader = class {
+    view;
+    offset = 0;
+    constructor(buffer) {
+      this.view = new DataView(buffer);
+    }
+    readInt8() {
+      const val = this.view.getInt8(this.offset);
+      this.offset += 1;
+      return val;
+    }
+    readUint8() {
+      const val = this.view.getUint8(this.offset);
+      this.offset += 1;
+      return val;
+    }
+    readInt16(littleEndian = true) {
+      const val = this.view.getInt16(this.offset, littleEndian);
+      this.offset += 2;
+      return val;
+    }
+    readUint16(littleEndian = true) {
+      const val = this.view.getUint16(this.offset, littleEndian);
+      this.offset += 2;
+      return val;
+    }
+    readInt32(littleEndian = true) {
+      const val = this.view.getInt32(this.offset, littleEndian);
+      this.offset += 4;
+      return val;
+    }
+    readUint32(littleEndian = true) {
+      const val = this.view.getUint32(this.offset, littleEndian);
+      this.offset += 4;
+      return val;
+    }
+    readFloat32(littleEndian = true) {
+      const val = this.view.getFloat32(this.offset, littleEndian);
+      this.offset += 4;
+      return val;
+    }
+    readFloat64(littleEndian = true) {
+      const val = this.view.getFloat64(this.offset, littleEndian);
+      this.offset += 8;
+      return val;
+    }
+    read256() {
+      const bytes = new Uint8Array(this.view.buffer, this.offset, 8);
+      this.offset += 8;
+      let hex = "";
+      for (const b of bytes) {
+        hex += (b >> 4 & 15).toString(16);
+        hex += (b & 15).toString(16);
+      }
+      return hex;
+    }
+  };
+
+  // game/ClientNet.ts
+  var ClientNet = class {
+    ws;
+    ready = false;
+    promises = [];
+    startCouldown = -1;
+    isAdmin = false;
+    lobbyId = null;
+    state = "none";
+    game;
+    stage = null;
+    stageName = null;
+    playerIndex = -1;
+    chrono = -1;
+    lobbyActions = [];
+    maxPingPong = 12;
+    lastDate = 0;
+    constructor(networkAddress, game) {
+      const ws = new WebSocket(networkAddress);
+      this.ws = ws;
+      this.game = game;
+      ws.onopen = () => {
+        const writer = new DataWriter(2);
+        writer.writeInt8(0 /* WELCOME */);
+        writer.writeInt8(10 /* END_MSG */);
+        ws.send(writer.toArrayBuffer());
+      };
+      ws.onmessage = async (event) => {
+        const reader = new DataReader(await event.data.arrayBuffer());
+        let willResolveAll = false;
+        let acceptData = true;
+        while (acceptData) {
+          const code = reader.readInt8();
+          switch (code) {
+            case 0 /* WELCOME */:
+              willResolveAll = true;
+              break;
+            case 1 /* ROOM_STAGE_INFO */:
+              this.command_room_stage_info(reader);
+              break;
+            case 2 /* WAIT_ROOM */:
+              this.command_wait_room(reader);
+              break;
+            case 3 /* START_ROOM */:
+              this.command_start_room(reader);
+              break;
+            case 4 /* START_ROOM_COULDOWN */:
+              this.command_startRoomCouldown(reader);
+              break;
+            case 5 /* PLAY */:
+              this.command_play(reader);
+              break;
+            case 6 /* END_MSG */:
+              acceptData = false;
+              break;
+          }
+        }
+        if (willResolveAll) {
+          for (let resolve of this.promises) {
+            resolve(false);
+          }
+          this.ready = true;
+          this.promises.length = 0;
+        }
+      };
+      ws.onerror = (err) => {
+        console.error(err);
+      };
+      ws.onclose = () => {
+      };
+    }
+    static openHtmlLevelSelector(architecture) {
+      return new Promise((resolve) => {
+        const container = document.createElement("div");
+        container.id = "netLevelSelector";
+        document.body.appendChild(container);
+        const overlay = document.createElement("div");
+        overlay.className = "overlay";
+        container.appendChild(overlay);
+        const box = document.createElement("div");
+        box.className = "selectorBox";
+        overlay.appendChild(box);
+        architecture.forEach((world) => {
+          const title = document.createElement("h2");
+          title.textContent = world.name;
+          box.appendChild(title);
+          world.levels.forEach((level) => {
+            const btn = document.createElement("button");
+            btn.textContent = level.name;
+            btn.onclick = () => {
+              cleanup();
+              resolve(level.hash);
+            };
+            box.appendChild(btn);
+          });
+        });
+        overlay.onclick = (e) => {
+          if (e.target === overlay) {
+            cleanup();
+            resolve(null);
+          }
+        };
+        function cleanup() {
+          document.body.removeChild(container);
+        }
+      });
+    }
+    command_room_stage_info(reader) {
+      const mapId = reader.read256();
+      this.loadMap(mapId).then(() => {
+        const writer = new DataWriter();
+        writer.writeInt8(2 /* WAIT_ROOM */);
+        writer.write256(this.lobbyId);
+        writer.writeInt8(10 /* END_MSG */);
+        this.send(writer);
+      }).catch(console.error);
+    }
+    command_wait_room(reader) {
+      const lobbyId = reader.read256();
+      const isAdmin = reader.readInt8();
+      this.isAdmin = isAdmin != 0;
+      if (isAdmin) {
+        this.lobbyActions = [
+          "Copy lobby id",
+          "Start game",
+          "Delete lobby"
+        ];
+      } else {
+        this.lobbyActions = [
+          "Copy lobby id",
+          "Quit lobby"
+        ];
+      }
+      console.log("Joined lobby:", lobbyId);
+      this.lobbyId = lobbyId;
+      this.game.state.set("onlineLobby");
+    }
+    command_start_room(reader) {
+      const lobbyId = reader.read256();
+      if (lobbyId != this.lobbyId)
+        throw new Error("Invalid lobby");
+      this.playerIndex = reader.readInt32();
+      this.game.state.set("onlineCouldown");
+      const writer = new DataWriter();
+      writer.writeInt8(6 /* GET_START_COULDOWN */);
+      writer.writeInt8(10 /* END_MSG */);
+      this.send(writer);
+    }
+    command_startRoomCouldown(reader) {
+      const time = reader.readInt32();
+      if (time >= 0) {
+        this.startCouldown = Math.floor(time / 10) / 100;
+        const writer2 = new DataWriter();
+        writer2.writeInt8(6 /* GET_START_COULDOWN */);
+        writer2.writeInt8(10 /* END_MSG */);
+        this.send(writer2);
+        return;
+      }
+      let gameFlag = 0;
+      const playerNumber = -time;
+      const players = [];
+      for (let i = 0; i < playerNumber; i++) {
+        if (i === this.playerIndex) {
+          const player = this.game.player;
+          players.push(player);
+          const inputHandler = player.inputHandler;
+          gameFlag = inputHandler.getCapture();
+        } else {
+          const player = new Player();
+          players.push(player);
+        }
+      }
+      this.game.state.set("onlinePlay");
+      this.game.players = players;
+      this.game.startLevel(this.stage, "");
+      const writer = new DataWriter();
+      writer.writeInt8(8 /* PLAY */);
+      writer.writeUint8(gameFlag);
+      writer.writeInt8(10 /* END_MSG */);
+      this.send(writer);
+    }
+    command_play(reader) {
+      this.chrono = reader.readInt8();
+      if (this.chrono === -2)
+        return;
+      for (let player of this.game.players) {
+        player.x = reader.readFloat32();
+        player.y = reader.readFloat32();
+        player.hp = reader.readFloat32();
+        player.jumps = reader.readFloat32();
+        player.visualRespawnCouldown = reader.readInt8();
+        player.hp_leveledBar.setRatio(player.hp / Player.HP);
+        player.jump_leveledBar.setRatio(player.jumps / Player.JUMP_COUNT);
+      }
+      this.game.player.respawnCouldown = reader.readInt8();
+      this.game.gameChrono = reader.readFloat32();
+      while (true) {
+        const code = reader.readInt8();
+        if (code < 0)
+          break;
+        switch (code) {
+          case 0:
+            this.blockIns_fullAdd(reader.readInt32(), reader);
+            break;
+          case 1:
+            this.blockIns_fullRemove(reader.readInt32());
+            break;
+          case 2:
+            this.blockIns_remove(reader.readInt32(), true);
+            break;
+          case 3:
+            this.blockIns_set(reader.readInt32(), reader);
+            break;
+          case 4:
+            this.blockIns_reset();
+            break;
+          default:
+            throw new Error("Corrupted data");
+        }
+      }
+      while (true) {
+        const id = reader.readInt32();
+        if (id < 0)
+          break;
+        const block = this.stage.blockMap.get(id);
+        if (!block) {
+          throw new Error("Cannot find block");
+        }
+        block.module.receive(reader, block, this.game.player);
+      }
+      setTimeout(() => {
+        this.lastDate = Date.now();
+        const writer = new DataWriter();
+        writer.writeInt8(8 /* PLAY */);
+        writer.writeUint8(this.game.player.inputHandler.getCapture());
+        writer.writeInt8(10 /* END_MSG */);
+        this.send(writer);
+      }, this.lastDate - Date.now() + this.maxPingPong);
+    }
+    pushAsPromise() {
+      if (this.ready)
+        return true;
+      const p = new Promise((resolve) => {
+        this.promises.push(resolve);
+      });
+      return p;
+    }
+    send(writer) {
+      this.ws.send(writer.toArrayBuffer());
+    }
+    async loadMap(hash) {
+      for (let world of this.game.stageList) {
+        for (let s of world) {
+          if (s.hash !== hash)
+            continue;
+          const { stage, name } = await s.load();
+          this.stage = stage;
+          this.stageName = name;
+          return;
+        }
+      }
+      throw new Error("Cannot find map file");
+    }
+    async joinRoom() {
+      const lobbyId = prompt("Enter lobby id");
+      if (lobbyId === null)
+        return;
+      this.lobbyId = lobbyId;
+      await this.pushAsPromise();
+      const writer = new DataWriter(66);
+      try {
+        writer.writeInt8(1 /* ASK_STAGE */);
+        writer.write256(lobbyId);
+        writer.writeInt8(10 /* END_MSG */);
+      } catch (e) {
+        console.error(e);
+        alert("Invalid prompt");
+        return;
+      }
+      this.send(writer);
+    }
+    async createRoom(selectRoom) {
+      const map = await selectRoom();
+      if (!map)
+        return;
+      await this.loadMap(map);
+      await this.pushAsPromise();
+      const writer = new DataWriter(66);
+      writer.writeInt8(4 /* CREATE_ROOM */);
+      writer.write256(map);
+      writer.writeInt8(10 /* END_MSG */);
+      this.send(writer);
+    }
+    startGame() {
+      const writer = new DataWriter(66);
+      writer.writeInt8(5 /* START_ROOM */);
+      writer.write256(this.lobbyId);
+      writer.writeInt8(10 /* END_MSG */);
+      this.send(writer);
+    }
+    quitLobby() {
+    }
+    deleteLobby() {
+    }
+    blockIns_fullAdd(id, reader) {
+      const x = reader.readFloat32();
+      const y = reader.readFloat32();
+      const w = reader.readFloat32();
+      const h = reader.readFloat32();
+      const module = new BlockModule({});
+      this.stage.appendBlock((_) => new Block(
+        x,
+        y,
+        w,
+        h,
+        module,
+        id,
+        true
+      ), id);
+    }
+    blockIns_fullRemove(id) {
+      this.blockIns_remove(id, false);
+      this.game.stage.fullRemoveBlock(id);
+    }
+    blockIns_remove(id, collectBlock) {
+      const stage = this.game.stage;
+      const block = stage.blockMap.get(id);
+      if (!block)
+        return;
+      for (let room of stage.rooms) {
+        const idx = room.blocks.indexOf(block);
+        if (idx < 0)
+          continue;
+        room.blocks.splice(idx, 1);
+        block.toRemove = false;
+        block.toMove = null;
+        if (collectBlock)
+          block.spawnRoom.missingBlocks.push(block);
+        break;
+      }
+    }
+    blockIns_reset() {
+      this.stage?.reset();
+    }
+    blockIns_set(_, __) {
+    }
+    sendRestart() {
+      if (this.chrono === -2) {
+        const writer = new DataWriter();
+        writer.writeInt8(9 /* RESTART */);
+        writer.writeInt8(10 /* END_MSG */);
+        this.send(writer);
+      }
+    }
+  };
 
   // game/Game.ts
   var State = class _State {
@@ -3980,6 +5265,11 @@
             this.set("win");
           }
           break;
+        case "servPlayToWin":
+          if (this.chrono >= _State.PLAY_TO_WIN_DURATION) {
+            this.set("servWin");
+          }
+          break;
       }
     }
     getChrono() {
@@ -3988,9 +5278,17 @@
     set(type) {
       switch (type) {
         case "play":
+          this.game.camera.reset();
+          break;
+        case "onlinePlay":
+          this.game.camera.reset();
+          break;
+        case "onlineLobby":
+          this.game.currentLevel = 0;
+          this.game.player?.inputHandler?.stopRecord();
           break;
         default:
-          this.game.inputHandler.stopRecord();
+          this.game.player?.inputHandler?.stopRecord();
           break;
       }
       this.type = type;
@@ -4000,16 +5298,43 @@
       return this.type;
     }
   };
+  function copyToClipboard(text) {
+    if (!navigator.clipboard) {
+      const textarea = document.createElement("textarea");
+      textarea.value = text;
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand("copy");
+        console.log("Text copied to clipboard (fallback)!");
+      } catch (err) {
+        console.error("Fallback: Could not copy text", err);
+      }
+      document.body.removeChild(textarea);
+      return;
+    }
+    navigator.clipboard.writeText(text).then(() => {
+      console.log("Text copied to clipboard!");
+    }).catch((err) => {
+      console.error("Could not copy text: ", err);
+    });
+  }
   var Game = class _Game {
     static WIDTH = 1600;
     static HEIGHT = 900;
     static WIDTH_2 = _Game.WIDTH / 2;
     static HEIGHT_2 = _Game.HEIGHT / 2;
-    static GAME_VERSION = "1.5.1";
-    player = new Player();
+    static GAME_VERSION = "1.6.0";
+    static SPECIAL_ACTIONS = [
+      "Open file",
+      "Join multiplayer room",
+      "Create multiplayer room"
+    ];
+    players;
+    player;
     camera = new Camera();
-    inputHandler;
     stageList;
+    architecture;
     stage = null;
     frame = 0;
     goalComplete = 0;
@@ -4018,20 +5343,47 @@
     validRun = true;
     currentWorld = 0;
     currentLevel = 0;
-    selectWorldFile = false;
+    specialActionsWorld = false;
     playerUsername = null;
     stageName = null;
-    constructor(keyboardMode, eventTarget, stageList) {
-      this.inputHandler = new InputHandler(keyboardMode);
-      this.inputHandler.startListeners(eventTarget);
-      this.stageList = stageList;
+    clientNet = null;
+    networkAddress;
+    constructor(data, constructorUsed) {
+      if (constructorUsed === "GameClassicContructor") {
+        data = data;
+        this.stageList = data.stageList;
+        this.networkAddress = data.networkAddress;
+        this.architecture = data.architecture;
+        const player = new Player();
+        this.player = player;
+        this.players = [player];
+        player.inputHandler = new InputHandler(data.keyboardMode);
+        player.inputHandler.startListeners(data.eventTarget);
+      } else {
+        data = data;
+        this.stageList = [[new WeakStage(null, data.stage, "")]];
+        this.networkAddress = null;
+        this.player = null;
+        this.players = [];
+        for (let i = 0; i < data.playerCount; i++) {
+          const player = new Player();
+          player.inputHandler = new InputHandler("zqsd");
+          this.players.push(player);
+        }
+        this.state.set("servPlay");
+        this.startLevel(data.stage, "");
+        data.stage.enableServMod(data.playerCount);
+      }
     }
     startLevel(stage, stageName) {
       this.stage = stage;
       this.stageName = stageName;
-      this.player.respawnCouldown = 0;
+      for (let player of this.players) {
+        player.respawnCouldown = 0;
+        player.visualRespawnCouldown = 0;
+      }
       this.resetStage();
-      const element = document.getElementById("levelName");
+      const element = getElementById("levelName");
       if (element) {
         element.classList.remove("shown");
         void element.offsetWidth;
@@ -4041,106 +5393,225 @@
     }
     startReplay(stage) {
       this.startLoading();
-      this.inputHandler.loadRecord().then(() => {
-        this.state.set("play");
-        this.startLevel(stage, this.stageName);
-        this.inputHandler.startEmulation();
-      }).catch((e) => {
-        console.error(e);
-      }).finally(() => {
-        this.finishLoading();
-      });
+      if (this.player && this.player.inputHandler) {
+        const inputHandler = this.player.inputHandler;
+        inputHandler.loadRecord().then(() => {
+          this.state.set("play");
+          this.startLevel(stage, this.stageName);
+          inputHandler.startEmulation();
+        }).catch((e) => {
+          console.error(e);
+        }).finally(() => {
+          this.finishLoading();
+        });
+      }
     }
-    playLogic(checkComplete) {
-      const resetStage = this.player.reduceCouldown();
+    getGlobalRespawnCouldown() {
+      let respawnCouldown = -1;
+      for (let player of this.players) {
+        const r = player.respawnCouldown;
+        if (r < 0) {
+          respawnCouldown = -1;
+          break;
+        }
+        if (r > respawnCouldown) {
+          respawnCouldown = player.respawnCouldown;
+        }
+      }
+      return respawnCouldown;
+    }
+    playLogic_solo(player, checkComplete) {
+      const resetStage = player.reduceCouldown();
+      const inputHandler = this.player.inputHandler;
       if (checkComplete) {
-        if (this.inputHandler.press("debug")) {
+        if (inputHandler.press("debug")) {
           this.validRun = false;
-          this.player.eternalMode = true;
+          player.eternalMode = true;
         } else {
-          this.player.eternalMode = false;
+          player.eternalMode = false;
         }
         if (resetStage) {
           this.resetStage();
         }
       }
-      if (this.inputHandler.first("enter")) {
+      if (inputHandler.first("enter")) {
         const special = prompt("replay,debug");
         if (special) {
           this.handleSpecial(special);
         }
-        this.inputHandler.kill("enter", true);
+        inputHandler.kill("enter", true);
       }
-      this.player.frame(this);
-      this.stage.frame(this);
-      if (this.player.isAlive()) {
-        this.handleRoom();
+      player.frame(this);
+      const stage = this.stage;
+      const room = player.currentRoom;
+      const roomSet = /* @__PURE__ */ new Set();
+      roomSet.add(room);
+      for (let r of room.adjacentRooms)
+        roomSet.add(r);
+      stage.frame(this, roomSet);
+      if (player.isAlive()) {
+        player.handleRoom(stage, this.camera);
       }
       if (checkComplete) {
         if (this.goalComplete > 0)
           this.state.set("playToWin");
-        if (this.player.respawnCouldown <= Player.RESPAWN_COULDOWN)
+        if (player.respawnCouldown <= Player.RESPAWN_COULDOWN)
+          this.gameChrono++;
+      }
+      for (let p of this.players) {
+        if (p.goalComplete) {
+          this.goalComplete = p.goalComplete;
+          break;
+        }
+      }
+    }
+    servPlayLogic_multi_reduceCouldowns() {
+      let allDead = true;
+      for (let player of this.players) {
+        if (player.respawnCouldown > Player.RESPAWN_COULDOWN) {
+          allDead = false;
+          player.respawnCouldown--;
+        } else if (player.respawnCouldown === -1) {
+          allDead = false;
+        }
+      }
+      if (allDead) {
+        const r = this.players[0].respawnCouldown - 1;
+        if (r === Player.RESPAWN_COULDOWN - 1) {
+          this.resetStage();
+        }
+        for (let player of this.players) {
+          player.respawnCouldown = r;
+        }
+      }
+    }
+    clientPlayLogic_multi(_) {
+      for (let player of this.players) {
+        if (player.isAlive()) {
+          player.handleRoom(this.stage, this.camera);
+        }
+      }
+    }
+    servPlayLogic_multi(checkComplete) {
+      for (let player of this.players)
+        player.inputHandler.update();
+      const globalRespawnCouldown = this.getGlobalRespawnCouldown();
+      const runEveryone = globalRespawnCouldown >= 0 && globalRespawnCouldown <= Player.RESPAWN_COULDOWN;
+      const stage = this.stage;
+      for (let player of this.players) {
+        const rc = player.respawnCouldown;
+        if (rc === -1 || rc > Player.RESPAWN_COULDOWN || runEveryone) {
+          player.frame(this);
+        }
+        if (player.isAlive())
+          player.handleRoom(stage, this.camera);
+      }
+      const roomSet = /* @__PURE__ */ new Set();
+      for (let player of this.players) {
+        const room = player.currentRoom;
+        roomSet.add(room);
+        for (let r of room.adjacentRooms)
+          roomSet.add(r);
+      }
+      stage.frame(this, roomSet);
+      this.servPlayLogic_multi_reduceCouldowns();
+      if (checkComplete) {
+        if (this.goalComplete > 0) {
+          console.log("servPlayToWin");
+          this.state.set("servPlayToWin");
+        }
+        if (globalRespawnCouldown <= Player.RESPAWN_COULDOWN)
           this.gameChrono++;
       }
     }
     menuLogic() {
-      if (this.inputHandler.first("enter")) {
-        if (this.selectWorldFile) {
+      const inputHandler = this.player.inputHandler;
+      if (inputHandler.first("enter")) {
+        if (this.specialActionsWorld) {
+          switch (this.currentLevel) {
+            // Open file
+            case 0: {
+              (async () => {
+                const [handle] = await window.showOpenFilePicker();
+                const file = await handle.getFile();
+                const { stage, name } = await importStage(
+                  createImportStageGenerator(file)
+                );
+                this.state.set("play");
+                this.startLevel(stage, name);
+              })();
+              break;
+            }
+            // Join room
+            case 1: {
+              this.askClientNet()?.joinRoom();
+              break;
+            }
+            // Create room
+            case 2: {
+              const cn = this.askClientNet();
+              if (!cn)
+                break;
+              cn.createRoom(async () => {
+                const result = await ClientNet.openHtmlLevelSelector(this.architecture);
+                if (result === null)
+                  return null;
+                this.state.set("onlineLobbyConnecting");
+                return result;
+              });
+              break;
+            }
+          }
+          inputHandler.kill("enter");
         } else {
           const weakStage = this.stageList[this.currentWorld][this.currentLevel];
-          document.getElementById("loadingIcon")?.classList.remove("hidden");
+          getElementById("loadingIcon")?.classList.remove("hidden");
           weakStage.load().then(({ stage, name }) => {
             this.state.set("play");
             this.startLevel(stage, name);
           }).catch((e) => {
             console.error(e);
           }).finally(() => {
-            document.getElementById("loadingIcon")?.classList.add("hidden");
+            getElementById("loadingIcon")?.classList.add("hidden");
           });
         }
       }
-      if (this.inputHandler.first("right")) {
-        if (this.selectWorldFile) {
-          this.selectWorldFile = false;
+      if (inputHandler.first("right")) {
+        if (this.specialActionsWorld) {
+          if (this.currentLevel + 1 === _Game.SPECIAL_ACTIONS.length) {
+            this.specialActionsWorld = false;
+            this.currentLevel = 0;
+          } else {
+            this.currentLevel++;
+          }
         } else if (this.currentLevel < this.stageList[this.currentWorld].length - 1) {
           this.currentLevel++;
         }
       }
-      if (this.inputHandler.first("left") && !this.selectWorldFile) {
+      if (inputHandler.first("left")) {
         if (this.currentLevel > 0) {
           this.currentLevel--;
         } else {
-          this.selectWorldFile = true;
+          this.specialActionsWorld = true;
         }
       }
-      if (this.selectWorldFile) {
-        if (this.inputHandler.first("debug")) {
-          (async () => {
-            const [handle] = await window.showOpenFilePicker();
-            const file = await handle.getFile();
-            const { stage, name } = await importStage(
-              createImportStageGenerator(file)
-            );
-            this.inputHandler.kill("debug");
-            this.state.set("play");
-            this.startLevel(stage, name);
-          })();
-        }
+      if (this.specialActionsWorld) {
       } else {
-        if (this.inputHandler.first("down") && this.currentWorld < this.stageList.length - 1) {
+        if (inputHandler.first("down") && this.currentWorld < this.stageList.length - 1) {
           this.currentWorld++;
         }
-        if (this.inputHandler.first("up") && this.currentWorld > 0) {
+        if (inputHandler.first("up") && this.currentWorld > 0) {
           this.currentWorld--;
         }
       }
     }
     winLogic() {
-      if (this.validRun && this.inputHandler.first("debug")) {
+      const inputHandler = this.player.inputHandler;
+      if (this.validRun && inputHandler.first("debug")) {
         const sendResult = confirm("Do you want to send your run?");
-        document.getElementById("savingRun")?.classList.remove("hidden");
-        this.inputHandler.saveRecord(this.stageName, this.gameChrono).then((f) => {
-          document.getElementById("savingRun")?.classList.add("hidden");
+        getElementById("savingRun")?.classList.remove("hidden");
+        inputHandler.saveRecord(this.stageName, this.gameChrono).then((f) => {
+          getElementById("savingRun")?.classList.add("hidden");
           if (sendResult && f) {
             let playerUsername;
             if (this.playerUsername) {
@@ -4149,37 +5620,79 @@
               playerUsername = prompt("Enter your username");
               this.playerUsername = playerUsername;
             }
-            document.getElementById("sendingRun")?.classList.remove("hidden");
+            getElementById("sendingRun")?.classList.remove("hidden");
             sendRun(
               f,
               playerUsername,
               this.stageName ?? Date.now().toString(),
               this.gameChrono
             ).finally(() => {
-              document.getElementById("sendingRun")?.classList.add("hidden");
+              getElementById("sendingRun")?.classList.add("hidden");
             });
           }
         }).catch((e) => {
-          document.getElementById("savingRun")?.classList.add("hidden");
+          getElementById("savingRun")?.classList.add("hidden");
           console.error(e);
         });
       }
-      if (this.inputHandler.first("enter")) {
+      if (inputHandler.first("enter")) {
         this.state.set("menu");
       }
-      if (this.inputHandler.first("up")) {
+      if (inputHandler.first("up")) {
         this.resetStage();
         this.state.set("play");
       }
     }
+    onlineLobbyLogic() {
+      const inputHandler = this.player.inputHandler;
+      if (inputHandler.first("up") && this.currentLevel > 0) {
+        this.currentLevel--;
+      }
+      if (inputHandler.first("down") && this.currentLevel < this.clientNet.lobbyActions.length - 1) {
+        this.currentLevel++;
+      }
+      if (inputHandler.first("enter")) {
+        const clientNet = this.clientNet;
+        if (clientNet.isAdmin) {
+          switch (this.currentLevel) {
+            case 0:
+              console.log("Joined lobby:", clientNet.lobbyId);
+              if (clientNet.lobbyId) {
+                copyToClipboard(clientNet.lobbyId);
+              }
+              break;
+            case 1:
+              clientNet.startGame();
+              break;
+            case 2:
+              clientNet.deleteLobby();
+          }
+        } else {
+          switch (this.currentLevel) {
+            case 0:
+              console.log("Joined lobby:", clientNet.lobbyId);
+              if (clientNet.lobbyId) {
+                copyToClipboard(clientNet.lobbyId);
+              }
+              break;
+            case 1:
+              clientNet.quitLobby();
+              break;
+          }
+        }
+      }
+    }
     gameLogic() {
-      this.inputHandler.update();
+      this.player?.inputHandler?.update();
+      if (this.player?.inputHandler?.first("enter") && this.clientNet) {
+        this.clientNet.sendRestart();
+      }
       switch (this.state.get()) {
         case "play":
-          this.playLogic(true);
+          this.playLogic_solo(this.player, true);
           break;
         case "playToWin":
-          this.playLogic(false);
+          this.playLogic_solo(this.player, false);
           break;
         case "menu":
           this.menuLogic();
@@ -4187,13 +5700,27 @@
         case "win":
           this.winLogic();
           break;
+        case "onlineLobby":
+          this.onlineLobbyLogic();
+          break;
+        case "onlinePlay":
+          this.clientPlayLogic_multi(true);
+          break;
+        case "servPlay":
+          this.servPlayLogic_multi(true);
+          break;
+        case "servPlayToWin":
+          this.servPlayLogic_multi(false);
+          break;
+        case "servWin":
+          break;
       }
       this.frame++;
       this.state.update();
     }
     generateChronoText() {
       const gameState = this.state.get();
-      if (gameState !== "play" && gameState !== "playToWin" && gameState !== "win") {
+      if (gameState !== "play" && gameState !== "playToWin" && gameState !== "onlinePlay" && gameState !== "win") {
         return "";
       }
       if (!this.validRun)
@@ -4206,11 +5733,20 @@
       return `${pad(minutes, 2)}:${pad(seconds, 2)}.${pad(millis, 3)}`;
     }
     resetStage() {
-      this.inputHandler.restartRecord();
-      this.stage.reset();
       const gameState = this.state.get();
-      if (gameState === "play" || gameState === "win") {
-        this.player.respawn();
+      if (this.player && this.player.inputHandler && gameState !== "onlinePlay")
+        this.player.inputHandler.restartRecord();
+      const stage = this.stage;
+      stage.reset();
+      stage.appendIfServMode(() => {
+        const writer = new DataWriter();
+        writer.writeInt8(4);
+        return writer;
+      });
+      if (gameState === "play" || gameState === "win" || gameState === "onlinePlay" || gameState === "servPlay") {
+        for (let p of this.players) {
+          p.respawn(stage.firstRoom);
+        }
         this.camera.reset();
         this.validRun = true;
         this.gameChrono = 0;
@@ -4218,80 +5754,72 @@
       }
     }
     handleRoom() {
-      const size = this.player.getSize();
-      const getCamera = (room) => {
-        let camX;
-        let camY;
-        if (room.w <= _Game.WIDTH) {
-          camX = room.x + room.w / 2;
-        } else if (this.player.x - _Game.WIDTH_2 <= room.x) {
-          camX = room.x + _Game.WIDTH_2;
-        } else if (this.player.x + _Game.WIDTH_2 >= room.x + room.w) {
-          camX = room.x + room.w - _Game.WIDTH_2;
-        } else {
-          camX = this.player.x;
-        }
-        if (room.h <= _Game.HEIGHT) {
-          camY = room.y + room.h / 2;
-        } else if (this.player.y - _Game.HEIGHT_2 <= room.y) {
-          camY = room.y + _Game.HEIGHT_2;
-        } else if (this.player.y + _Game.HEIGHT_2 >= room.y + room.h) {
-          camY = room.y + room.h - _Game.HEIGHT_2;
-        } else {
-          camY = this.player.y;
-        }
-        return { camX, camY };
-      };
-      switch (this.stage.update(this.player.x, this.player.y, size.x, size.y)) {
-        case "same": {
-          const cam = getCamera(this.stage.currentRoom);
-          this.camera.move(cam.camX, cam.camY);
-          break;
-        }
-        case "new": {
-          const cam = getCamera(this.stage.currentRoom);
-          this.camera.startTracker(cam.camX, cam.camY);
-          this.player.restoreJumps();
-          break;
-        }
-        case "out":
-          this.player.kill();
-          break;
+      const stage = this.stage;
+      const camera = this.player ? this.camera : null;
+      for (let p of this.players) {
+        p.handleRoom(stage, camera);
       }
+    }
+    drawWinMenu(ctx) {
+      ctx.fillStyle = "black";
+      ctx.fillRect(0, 0, _Game.WIDTH, _Game.HEIGHT);
+      ctx.font = "30px Arial";
+      ctx.fillStyle = "white";
+      ctx.textAlign = "center";
+      ctx.fillText("Press P to save", _Game.WIDTH_2, _Game.HEIGHT_2 - 20);
+      ctx.fillStyle = "white";
+      ctx.fillText("Press SPACE to restart", _Game.WIDTH_2, _Game.HEIGHT_2 + 20);
+      ctx.fillStyle = "white";
+      ctx.fillText("Press ENTER to select level", _Game.WIDTH_2, _Game.HEIGHT_2 + 60);
     }
     drawMethod(ctx, followCamera, unfollowCamera) {
       const state = this.state.get();
       switch (this.state.get()) {
         case "play":
         case "playToWin":
+        case "onlinePlay":
           {
+            let playToWinChrono = -1;
+            if (state === "playToWin") {
+              playToWinChrono = this.state.getChrono();
+            } else if (this.clientNet) {
+              playToWinChrono = this.clientNet.chrono;
+              if (playToWinChrono === -2) {
+                this.drawWinMenu(ctx);
+                break;
+              }
+            }
             followCamera();
+            const player = this.player;
+            const currentRoom = player.currentRoom;
             ctx.fillStyle = "#111";
             ctx.fillRect(
-              this.stage.currentRoom.x,
-              this.stage.currentRoom.y,
-              this.stage.currentRoom.w,
-              this.stage.currentRoom.h
+              currentRoom.x,
+              currentRoom.y,
+              currentRoom.w,
+              currentRoom.h
             );
             ctx.fillStyle = "#1a1a1a";
-            for (let room of this.stage.currentRoom.adjacentRooms) {
+            for (let room of currentRoom.adjacentRooms) {
               ctx.fillRect(room.x, room.y, room.w, room.h);
             }
-            this.stage.currentRoom.drawBlocks(ctx);
-            for (let room of this.stage.currentRoom.adjacentRooms) {
+            currentRoom.drawBlocks(ctx);
+            for (let room of currentRoom.adjacentRooms) {
               room.drawBlocks(ctx);
             }
-            this.stage.drawAdjacenceRects(ctx, this.player);
-            this.stage.currentRoom.drawEntites(ctx);
-            for (let room of this.stage.currentRoom.adjacentRooms) {
+            this.stage.drawAdjacenceRects(ctx, player);
+            currentRoom.drawEntites(ctx);
+            for (let room of currentRoom.adjacentRooms) {
               room.drawEntites(ctx);
             }
-            this.player.draw(ctx);
+            for (let p of this.players) {
+              p.draw(ctx);
+            }
             unfollowCamera();
-            this.player.drawInfos(ctx);
-            this.player.drawDeathTransition(ctx);
-            if (state === "playToWin") {
-              let ratio = 1.5 * this.state.getChrono() / State.PLAY_TO_WIN_DURATION;
+            player.drawInfos(ctx);
+            player.drawDeathTransition(ctx);
+            if (playToWinChrono >= 0) {
+              let ratio = 1.5 * playToWinChrono / State.PLAY_TO_WIN_DURATION;
               if (ratio < 1) {
                 ratio = Math.sin(ratio * Math.PI / 2);
               } else {
@@ -4310,8 +5838,17 @@
           ctx.textBaseline = "bottom";
           ctx.font = "30px Arial";
           ctx.fillStyle = "white";
-          if (this.selectWorldFile) {
-            ctx.fillText(`Select file (press P)`, _Game.WIDTH_2, 100);
+          if (this.specialActionsWorld) {
+            ctx.fillText(`Special`, _Game.WIDTH_2, 100);
+            for (let i = 0; i < _Game.SPECIAL_ACTIONS.length; i++) {
+              ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+              let x = 400 + 200 * (i % 5);
+              let y = 300 + Math.floor(i / 5) * 100;
+              ctx.font = "30px Arial";
+              ctx.fillText(`#${i}`, x, y);
+              ctx.font = "italic 16px Arial";
+              ctx.fillText(`${_Game.SPECIAL_ACTIONS[i]}`, x, y + 25);
+            }
           } else {
             ctx.fillText(`World ${this.currentWorld + 1}`, _Game.WIDTH_2, 100);
             if (this.currentWorld < this.stageList.length) {
@@ -4337,16 +5874,47 @@
           break;
         }
         case "win": {
-          ctx.fillStyle = "black";
-          ctx.fillRect(0, 0, _Game.WIDTH, _Game.HEIGHT);
-          ctx.font = "30px Arial";
+          this.drawWinMenu(ctx);
+          break;
+        }
+        case "onlineLobbyConnecting": {
+          ctx.font = "italic 30px Arial";
           ctx.fillStyle = "white";
           ctx.textAlign = "center";
-          ctx.fillText("Press P to save", _Game.WIDTH_2, _Game.HEIGHT_2 - 20);
+          ctx.fillText("Connecting to room...", _Game.WIDTH_2, _Game.HEIGHT_2);
+          break;
+        }
+        case "onlineCouldown": {
+          const clientNet = this.clientNet;
+          if (clientNet.startCouldown >= 0) {
+            ctx.font = "50px monospace";
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.fillText(clientNet.startCouldown.toFixed(2), _Game.WIDTH_2, _Game.HEIGHT_2 / 10);
+          } else {
+            ctx.font = "italic 30px monospace";
+            ctx.fillStyle = "white";
+            ctx.textAlign = "center";
+            ctx.fillText("Getting time left", _Game.WIDTH_2, _Game.HEIGHT_2 / 10);
+          }
+          break;
+        }
+        case "onlineLobby": {
+          ctx.font = "50px Arial";
           ctx.fillStyle = "white";
-          ctx.fillText("Press SPACE to restart", _Game.WIDTH_2, _Game.HEIGHT_2 + 20);
-          ctx.fillStyle = "white";
-          ctx.fillText("Press ENTER to select level", _Game.WIDTH_2, _Game.HEIGHT_2 + 60);
+          ctx.textAlign = "left";
+          ctx.fillText("Lobby", _Game.WIDTH_2, _Game.HEIGHT_2 / 10);
+          const clientNet = this.clientNet;
+          for (let i = 0; i < clientNet.lobbyActions.length; i++) {
+            const selected = i == this.currentLevel;
+            ctx.fillStyle = selected ? "yellow" : "white";
+            let y = 300 + i * 100;
+            ctx.font = "30px Arial";
+            ctx.fillText(clientNet.lobbyActions[i], 400, y);
+            if (selected) {
+              ctx.fillText(">", 370, y);
+            }
+          }
           break;
         }
       }
@@ -4360,9 +5928,10 @@
       ctx.save();
       ctx.translate(offsetX, offsetY);
       ctx.scale(scale, scale);
+      const player = this.player;
       ctx.fillStyle = "black";
       ctx.fillRect(0, 0, _Game.WIDTH, _Game.HEIGHT);
-      this.camera.update(new Vector(this.player.x, this.player.y));
+      this.camera.update(new Vector(player.x, player.y));
       const followCamera = () => {
         ctx.save();
         ctx.translate(_Game.WIDTH_2 - this.camera.x, _Game.HEIGHT_2 - this.camera.y);
@@ -4391,13 +5960,13 @@
       }
     }
     startLoading() {
-      const loadingIcon = document.getElementById("loadingIcon");
+      const loadingIcon = getElementById("loadingIcon");
       if (loadingIcon) {
         loadingIcon.classList.remove("hidden");
       }
     }
     finishLoading() {
-      const loadingIcon = document.getElementById("loadingIcon");
+      const loadingIcon = getElementById("loadingIcon");
       if (loadingIcon) {
         loadingIcon.classList.add("hidden");
       }
@@ -4405,11 +5974,13 @@
     searchNearestEntity(x, y, filter, room) {
       let nearest = null;
       let bestDist = Infinity;
-      if (filter(this.player)) {
-        const dx = this.player.x - x;
-        const dy = this.player.y - y;
-        bestDist = dx * dx + dy * dy;
-        nearest = this.player;
+      for (let p of this.players) {
+        if (filter(p)) {
+          const dx = p.x - x;
+          const dy = p.y - y;
+          bestDist = dx * dx + dy * dy;
+          nearest = p;
+        }
       }
       if (!room || !room.contains(x, y)) {
         const r = this.stage.findRoom(x, y);
@@ -4434,6 +6005,18 @@
         for (let r of room.adjacentRooms)
           apply(r);
       return nearest;
+    }
+    askClientNet() {
+      if (this.clientNet) {
+        return this.clientNet;
+      }
+      if (this.networkAddress) {
+        const cn = new ClientNet(this.networkAddress, this);
+        this.clientNet = cn;
+        return cn;
+      }
+      alert("Connection to the server failed");
+      return null;
     }
     debug() {
     }
@@ -4512,6 +6095,7 @@
         newLevels.push({
           name: remoteLevel.name,
           filename: remoteLevel.filename,
+          hash: remoteLevel.hash,
           version: remoteLevel.version
         });
       }
@@ -4542,7 +6126,7 @@
     for (let world of worlds) {
       const line = [];
       for (let level of world.levels) {
-        line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name));
+        line.push(new WeakStage(`#${world.name}#${level.filename}`, null, level.name, level.hash));
       }
       container.push(line);
     }
@@ -4595,8 +6179,16 @@
       document.getElementById("fullyLoadingGame")?.classList.remove("hidden");
       document.getElementById("fullyLoadingGame")?.classList.add("hidden");
     }
+    const NETWORK_ADDRESS = window.NETWORK_ADDRESS;
+    console.log(NETWORK_ADDRESS);
     const canvasContext = canvas.getContext("2d");
-    game = new Game(realKeyboardMode, document, weakStages);
+    game = new Game({
+      keyboardMode: realKeyboardMode,
+      eventTarget: document,
+      stageList: weakStages,
+      networkAddress: NETWORK_ADDRESS,
+      architecture
+    }, "GameClassicContructor");
     const chronoDiv = document.getElementById("chrono");
     function runGameLoop() {
       game.gameLogic();
@@ -4610,7 +6202,11 @@
       );
       chronoDiv.innerHTML = game.generateChronoText();
       if (window.running) {
-        requestAnimationFrame(runGameLoop);
+        if (window.useRequestAnimationFrame) {
+          requestAnimationFrame(runGameLoop);
+        } else {
+          setTimeout(runGameLoop, 1e3 / 60);
+        }
       }
       countedFps++;
     }
@@ -4621,23 +6217,23 @@
   window.game = null;
   window.running = false;
   window.startGame = startGame;
+  window.useRequestAnimationFrame = true;
 
   // game/editor.ts
   var levelName = null;
   var {
     MovingPath: MovingPath3,
     MovingModule: MovingModule3,
-    CouldownedAttackModule: CouldownedAttackModule3,
-    ContinuousAttackModule: ContinuousAttackModule3,
-    BounceModule: BounceModule3,
-    KillModule: KillModule3,
-    CouldownDespawnModule: CouldownDespawnModule3,
-    TouchDespawnModule: TouchDespawnModule3,
-    HealModule: HealModule3,
-    SpeedModule: SpeedModule3,
-    AccelerationModule: AccelerationModule3,
-    RestoreJumpModule: RestoreJumpModule3,
-    RotationModule: RotationModule3,
+    CouldownedAttackModule: CouldownedAttackModule2,
+    ContinuousAttackModule: ContinuousAttackModule2,
+    BounceModule: BounceModule2,
+    KillModule: KillModule2,
+    TouchDespawnModule: TouchDespawnModule2,
+    HealModule: HealModule2,
+    SpeedModule: SpeedModule2,
+    AccelerationModule: AccelerationModule2,
+    RestoreJumpModule: RestoreJumpModule2,
+    RotationModule: RotationModule2,
     GoalModule: GoalModule2,
     SpawnerModule: SpawnerModule3,
     TextModule: TextModule3
@@ -4646,6 +6242,7 @@
     id;
     name;
     prop;
+    // module name for getModule(name)
     // label: string;
     default;
     constructor(id, name, prop, _default) {
@@ -4656,29 +6253,31 @@
     }
   };
   var moduleList = [
-    new ModuleInfo("modCooldownAttack", "Cooldown Attack", "couldownedAttack", () => new CouldownedAttackModule3(1, 100)),
-    new ModuleInfo("modContinuousAttack", "Continuous Attack", "continuousAttack", () => new ContinuousAttackModule3(0.02)),
-    new ModuleInfo("modBounce", "Bounce", "bounce", () => new BounceModule3(3e-3, 1)),
-    new ModuleInfo("modKill", "Kill", "kill", () => new KillModule3()),
-    new ModuleInfo("modTouchDespawn", "Touch Despawn", "touchDespawn", () => new TouchDespawnModule3()),
-    new ModuleInfo("modHeal", "Heal", "heal", () => new HealModule3(2)),
-    new ModuleInfo("modSpeed", "Speed", "speed", () => new SpeedModule3(0, 0)),
-    new ModuleInfo("modAcceleration", "Acceleration", "acceleration", () => new AccelerationModule3(0, 0)),
-    new ModuleInfo("modRestoreJump", "Restore Jump", "restoreJump", () => new RestoreJumpModule3(1)),
-    new ModuleInfo("modRotation", "Rotation", "rotation", () => new RotationModule3(0, 0.01)),
+    new ModuleInfo("modCooldownAttack", "Cooldown Attack", "couldownedAttack", () => new CouldownedAttackModule2(1, 100)),
+    new ModuleInfo("modContinuousAttack", "Continuous Attack", "continuousAttack", () => new ContinuousAttackModule2(0.02)),
+    new ModuleInfo("modBounce", "Bounce", "bounce", () => new BounceModule2(3e-3, 1)),
+    new ModuleInfo("modKill", "Kill", "kill", () => new KillModule2()),
+    new ModuleInfo("modTouchDespawn", "Touch Despawn", "touchDespawn", () => new TouchDespawnModule2()),
+    new ModuleInfo("modHeal", "Heal", "heal", () => new HealModule2(2)),
+    new ModuleInfo("modSpeed", "Speed", "speed", () => new SpeedModule2(0, 0)),
+    new ModuleInfo("modAcceleration", "Acceleration", "acceleration", () => new AccelerationModule2(0, 0)),
+    new ModuleInfo("modRestoreJump", "Restore Jump", "restoreJump", () => new RestoreJumpModule2(1)),
+    new ModuleInfo("modRotation", "Rotation", "rotation", () => new RotationModule2(0, 0.01)),
     new ModuleInfo("modGoal", "Goal", "goal", () => 1),
     new ModuleInfo("modText", "Text", "text", () => new TextModule3())
   ];
   async function exportBlockModule(m, writeln, indent) {
-    if (m.moving) {
-      await writeln(`${indent}moving ${m.moving.times} ${m.moving.patterns.length}`);
-      for (const pattern of m.moving.patterns) {
+    const moving = m.getModule("moving");
+    if (moving) {
+      await writeln(`${indent}moving ${moving.times} ${moving.patterns.length}`);
+      for (const pattern of moving.patterns) {
         await writeln(`${indent}	${pattern.dx} ${pattern.dy} ${pattern.duration}`);
       }
     }
-    if (m.spawner) {
-      await writeln(`${indent}spawner ${m.spawner.rythm} ${m.spawner.blocks.length}`);
-      for (const builder of m.spawner.blocks) {
+    const spawner = m.getModule("spawner");
+    if (spawner) {
+      await writeln(`${indent}spawner ${spawner.rythm} ${spawner.blocks.length}`);
+      for (const builder of spawner.blocks) {
         await writeln(`${indent}	${builder.dx} ${builder.dy} ${builder.w} ${builder.h} ${builder.keepRotation ? 1 : 0} ${builder.goal}`);
         if (builder.module) {
           await exportBlockModule(builder.module, writeln, indent + "		");
@@ -4686,14 +6285,15 @@
         await writeln(`${indent}	endbuilder`);
       }
     }
-    if (m.couldownDespawn) {
-      await writeln(`${indent}couldownDespawn ${m.couldownDespawn.duration ?? 0}`);
+    const couldownDespawn = m.getModule("couldownDespawn");
+    if (couldownDespawn) {
+      await writeln(`${indent}couldownDespawn ${couldownDespawn.duration ?? 0}`);
     }
     for (let i of moduleList) {
       if (i.prop === "goal")
         continue;
       const line = [indent + i.prop];
-      const obj = m[i.prop];
+      const obj = m.getModule(i.prop);
       if (!obj)
         continue;
       for (let arg of obj.enumArgs()) {
@@ -4712,18 +6312,25 @@
       }
       await writeln(line.join(" "));
     }
-    if (m.speed) {
-      await writeln(`${indent}speed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
+    const speed = m.getModule("speed");
+    if (speed) {
+      await writeln(`${indent}speed ${speed.vx ?? 0} ${speed.vy ?? 0}`);
     }
-    if (m.acceleration) {
-      await writeln(`${indent}acceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
+    const acceleration = m.getModule("acceleration");
+    if (acceleration) {
+      await writeln(`${indent}acceleration ${acceleration.ax ?? 0} ${acceleration.ay ?? 0}`);
     }
-    if (m.goal) {
-      const t = m.goal.type;
-      if (t instanceof GoalModule2) {
-        await writeln(`${indent}goal ${t.type}`);
+    const goal = m.getModule("goal");
+    if (goal !== null && goal !== void 0) {
+      if (typeof goal === "object" && "type" in goal) {
+        const t = goal.type;
+        if (t instanceof GoalModule2) {
+          await writeln(`${indent}goal ${t.type}`);
+        } else {
+          await writeln(`${indent}goal ${t}`);
+        }
       } else {
-        await writeln(`${indent}goal ${t}`);
+        await writeln(`${indent}goal ${goal}`);
       }
     }
   }
@@ -4749,12 +6356,6 @@
     const ctx = canvas.getContext("2d");
     let selectedBlocks = [];
     let clipboardBlocks = [];
-    function destroyGame() {
-      if (playGame) {
-      }
-      playGame = null;
-      window.game = null;
-    }
     function resizeCanvas() {
       canvas.width = window.innerWidth;
       canvas.height = window.innerHeight;
@@ -4781,7 +6382,7 @@
     let playGame = null;
     let currentCursor = "default";
     const rooms = [new Room(-800, -450, 1600, 900, [], [])];
-    const stageContainer = [new Stage(rooms)];
+    const stageContainer = [new Stage(rooms, /* @__PURE__ */ new Map(), Date.now())];
     const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
     function snapToGrid(value) {
       return Math.round(value / PIXEL_SIZE - 0.5) * PIXEL_SIZE;
@@ -4798,11 +6399,6 @@
       const x = ((canvasX - offsetX) / scale - Game.WIDTH_2) / camera.zoom + camera.x;
       const y = ((canvasY - offsetY) / scale - Game.HEIGHT_2) / camera.zoom + camera.y;
       return { x, y };
-    }
-    function updateMouseWorld() {
-      const world = screenToWorld(mouse.sx, mouse.sy);
-      mouse.wx = snapToGrid(world.x);
-      mouse.wy = snapToGrid(world.y);
     }
     function findBlockAt(x, y) {
       const stage = stageContainer[0];
@@ -4901,21 +6497,6 @@
       }
       newRoom.blocks.push(block);
     }
-    function getSelectionBounds(blocks) {
-      if (blocks.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-      for (const block of blocks) {
-        const left = block.x - block.w / 2;
-        const right = block.x + block.w / 2;
-        const top = block.y - block.h / 2;
-        const bottom = block.y + block.h / 2;
-        minX = Math.min(minX, left);
-        maxX = Math.max(maxX, right);
-        minY = Math.min(minY, top);
-        maxY = Math.max(maxY, bottom);
-      }
-      return { minX, minY, maxX, maxY };
-    }
     function canMoveSelection(blocks, dx, dy) {
       const stage = stageContainer[0];
       const selectedSet = new Set(blocks);
@@ -4942,7 +6523,6 @@
       return true;
     }
     function moveSelection(blocks, dx, dy) {
-      const stage = stageContainer[0];
       for (const block of blocks) {
         const newX = block.x + dx;
         const newY = block.y + dy;
@@ -5000,7 +6580,7 @@
           let moduleOptionsHTML = "";
           for (const moduleInfo of moduleList) {
             const propName = moduleInfo.prop;
-            const currentModule = b.module?.[propName];
+            const currentModule = b.module?.getModule(propName);
             const isChecked = !!currentModule ? "checked" : "";
             const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
             let moduleHtml = `
@@ -5030,22 +6610,21 @@
             }
             moduleOptionsHTML += moduleHtml;
           }
-          const movingChecked2 = b.module?.moving ? "checked" : "";
-          const movingDisplay2 = b.module?.moving ? "block" : "none";
-          const movingTimes2 = b.module?.moving?.times || -1;
-          const movingPatterns2 = b.module?.moving?.patterns || [];
-          const movingIdPrefix = `modMoving-${depth}-${idx}`;
+          const _bMoving = b.module?.getModule("moving");
+          const movingChecked2 = _bMoving ? "checked" : "";
+          const movingDisplay2 = _bMoving ? "block" : "none";
+          const movingTimes2 = _bMoving?.times || -1;
+          const movingPatterns2 = _bMoving?.patterns || [];
           let movingPatternsHTML2 = "";
           movingPatterns2.forEach((p, pIdx) => {
-            const patternIdPrefix = `${movingIdPrefix}-pat-${pIdx}`;
             movingPatternsHTML2 += `
-						<div class="pattern-row spawn-pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
-							<input type="number" class="spawn-pattern-dx" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
-							<input type="number" class="spawn-pattern-dy" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
-							<input type="number" class="spawn-pattern-duration" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
-							<button class="spawn-pattern-remove" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
-						</div>
-					`;
+					<div class="pattern-row spawn-pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
+						<input type="number" class="spawn-pattern-dx" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
+						<input type="number" class="spawn-pattern-dy" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
+						<input type="number" class="spawn-pattern-duration" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
+						<button class="spawn-pattern-remove" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">\u2715</button>
+					</div>
+				`;
           });
           moduleOptionsHTML += `
 					<label style="display: block; font-weight: bold; color: #cc6600;">
@@ -5060,8 +6639,9 @@
 						<button class="spawn-addPattern" ${dataAttrs} style="background: #cc6600; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Pattern</button>
 					</div>
 				`;
-          const hasSpawner = b.module?.spawner ? "checked" : "";
-          const spawnerRythm2 = b.module?.spawner?.rythm || 60;
+          const _bSpawner = b.module?.getModule("spawner");
+          const hasSpawner = _bSpawner ? "checked" : "";
+          const spawnerRythm2 = _bSpawner?.rythm || 60;
           moduleOptionsHTML += `
 					<label style="display: block; font-weight: bold; color: #6600cc;">
 						<input type="checkbox" class="spawn-hasSpawner" ${dataAttrs} ${hasSpawner}> Spawner (nested)
@@ -5069,7 +6649,7 @@
 					<div class="spawn-spawner-opts" ${dataAttrs} style="display: ${hasSpawner ? "block" : "none"}; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
 						<label>Rythm: <input type="number" class="spawn-spawnerRythm" ${dataAttrs} value="${spawnerRythm2}" step="1" style="width: 80px;"></label><br>
 						<div class="spawn-spawner-blocks" ${dataAttrs}>
-							${b.module?.spawner ? generateSpawnerBlockHTML(b.module.spawner.blocks, depth + 1) : ""}
+							${_bSpawner ? generateSpawnerBlockHTML(_bSpawner.blocks, depth + 1) : ""}
 						</div>
 						<button class="spawn-addNestedBlock" ${dataAttrs} style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
 					</div>
@@ -5098,7 +6678,7 @@
       const moduleSections = [];
       for (const moduleInfo of moduleList) {
         const propName = moduleInfo.prop;
-        const currentModule = block.module[propName];
+        const currentModule = block.module.getModule(propName);
         const isChecked = !!currentModule ? "checked" : "";
         const displayStyle = !!currentModule ? "block" : "none";
         let optionsHTML = "";
@@ -5123,10 +6703,11 @@
 				</div>
 			`);
       }
-      const movingChecked = block.module.moving ? "checked" : "";
-      const movingDisplay = block.module.moving ? "block" : "none";
-      const movingTimes = block.module.moving?.times || -1;
-      const movingPatterns = block.module.moving?.patterns || [];
+      const _moving = block.module.getModule("moving");
+      const movingChecked = _moving ? "checked" : "";
+      const movingDisplay = _moving ? "block" : "none";
+      const movingTimes = _moving?.times || -1;
+      const movingPatterns = _moving?.patterns || [];
       let movingPatternsHTML = "";
       movingPatterns.forEach((p, idx) => {
         movingPatternsHTML += `
@@ -5153,10 +6734,11 @@
 				</div>
 			</div>
 		`);
-      const spawnerChecked = block.module.spawner ? "checked" : "";
-      const spawnerDisplay = block.module.spawner ? "block" : "none";
-      const spawnerRythm = block.module.spawner?.rythm || 60;
-      const spawnerBlocks = block.module.spawner?.blocks || [];
+      const _spawner = block.module.getModule("spawner");
+      const spawnerChecked = _spawner ? "checked" : "";
+      const spawnerDisplay = _spawner ? "block" : "none";
+      const spawnerRythm = _spawner?.rythm || 60;
+      const spawnerBlocks = _spawner?.blocks || [];
       moduleSections.push(`
 			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
 				<label style="font-weight: bold;">
@@ -5268,7 +6850,7 @@
             }
           } catch (e) {
             console.error("Error parsing moving patterns:", e);
-            movingModule = block.module.moving;
+            movingModule = block.module.getModule("moving");
           }
         }
         newBlockModule.moving = movingModule;
@@ -5380,13 +6962,13 @@
             }
           } catch (e) {
             console.error("Error parsing spawner blocks:", e);
-            spawnerModule = block.module.spawner;
+            spawnerModule = block.module.getModule("spawner");
           }
         }
         newBlockModule.spawner = spawnerModule;
         const newModule = new BlockModule(newBlockModule);
         block.module = newModule;
-        block.drawMode = newModule.getDrawModule(0);
+        block.drawMode = newModule.getDrawModule();
         if (block.drawMode) {
           block.drawAnimator = block.drawMode.generateAnimator(block);
         }
@@ -5530,7 +7112,6 @@
             e.stopPropagation();
             const btn = e.target;
             const depth2 = parseInt(btn.getAttribute("data-depth") || "0");
-            const idx2 = btn.getAttribute("data-idx");
             const container = blockElement.querySelector(`.spawn-spawner-blocks${dataAttrsSelector}`);
             if (container) {
               const newDepth = depth2 + 1;
@@ -5915,7 +7496,9 @@
               centerY,
               w,
               h,
-              new BlockModule({})
+              new BlockModule({}),
+              Date.now()
+              // unique id
             );
             const room = findRoomAt(block.x, block.y);
             if (room) {
@@ -6372,13 +7955,26 @@
             if (keyboardMode === "zqsd" || keyboardMode === "wasd") {
               realKeyboardMode = keyboardMode;
             }
-            const stageCopy = new Stage(stageContainer[0].rooms.map(
+            const roomsCopy = stageContainer[0].rooms.map(
               (room) => new Room(room.x, room.y, room.w, room.h, room.blocks.map(
-                (block) => new Block(block.x, block.y, block.w, block.h, block.module.copy())
-              ), [])
-            ));
+                (block) => new Block(block.x, block.y, block.w, block.h, block.module.copy(), block.id)
+              ), room.entityGenerators)
+            );
+            const blockMapCopy = /* @__PURE__ */ new Map();
+            for (const room of roomsCopy) {
+              for (const block of room.blocks) {
+                blockMapCopy.set(block.id, block);
+              }
+            }
+            const stageCopy = new Stage(roomsCopy, blockMapCopy, Math.max(...Array.from(blockMapCopy.keys())) + 1);
             const name = levelName ?? "edited";
-            playGame = new Game(realKeyboardMode, document, [[new WeakStage("", stageCopy, name)]]);
+            playGame = new Game({
+              keyboardMode: realKeyboardMode,
+              eventTarget: document,
+              stageList: [[new WeakStage("", stageCopy, name)]],
+              networkAddress: null,
+              architecture: null
+            }, "GameClassicContructor");
             window.game = playGame;
             playGame.state.set("play");
             playGame.startLevel(stageCopy, name);
@@ -6492,12 +8088,11 @@
                 baseY + clipBlock.dy,
                 clipBlock.w,
                 clipBlock.h,
-                clipBlock.module.copy()
+                clipBlock.module.copy(),
+                Date.now()
+                // unique id
               );
-              if (isBlockInRoom(newBlock, targetRoom)) {
-                targetRoom.blocks.push(newBlock);
-                selectedBlocks.push(newBlock);
-              }
+              targetRoom.blocks.push(newBlock);
             }
           }
           break;
@@ -6506,9 +8101,6 @@
     });
     document.addEventListener("wheel", (e) => {
       e.preventDefault();
-      const p = screenToWorld(e.clientX, e.clientY);
-      const worldX = p.x;
-      const worldY = p.y;
       const ZF = 1.12;
       const zoomFactor = e.deltaY < 0 ? ZF : 1 / ZF;
       camera.zoom = clamp(camera.zoom * zoomFactor, 0.2, 8);
@@ -6646,7 +8238,7 @@
       }
     }
     function drawRotationHitbox(ctx2, block) {
-      if (!block.module.rotation) return;
+      if (!block.module.getModule("rotation")) return;
       ctx2.save();
       ctx2.strokeStyle = "rgba(255, 165, 0, 0.5)";
       ctx2.lineWidth = 2 / camera.zoom;
@@ -6661,7 +8253,7 @@
       ctx2.restore();
     }
     function drawSpawnerIndicator(ctx2, block) {
-      if (!block.module.spawner) return;
+      if (!block.module.getModule("spawner")) return;
       ctx2.save();
       ctx2.fillStyle = "rgba(255, 0, 255, 0.3)";
       ctx2.fillRect(
@@ -6703,10 +8295,10 @@
       }
       for (const room of stage.rooms) {
         for (const block of room.blocks) {
-          if (block.module.rotation) {
+          if (block.module.getModule("rotation")) {
             drawRotationHitbox(ctx2, block);
           }
-          if (block.module.spawner) {
+          if (block.module.getModule("spawner")) {
             drawSpawnerIndicator(ctx2, block);
           }
         }
