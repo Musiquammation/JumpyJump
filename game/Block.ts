@@ -47,6 +47,7 @@ interface ArgumentModule {
 	enumArgs(): {name: string, type: 'number' | 'boolean' | 'text', step?: number}[]
 	getArg(name: string): any;
 	setArg(name: string, value: any): void;
+	moduleEditorName(): string;
 }
 
 
@@ -430,6 +431,8 @@ class CouldownedAttackModule extends AbstractModule implements SendableModule, D
 		if (name === 'playerOnly') this.playerOnly = value;
 	}
 
+	moduleEditorName() {return "Couldowned Attack";}
+
 
 	receive(reader: DataReader, _: Block, player: Player) {
 		this.couldowns.set(player as Entity, reader.readFloat32());
@@ -603,6 +606,8 @@ class ContinuousAttackModule extends AbstractModule implements SendableModule, D
 		if (name === "damages") {this.damages = value;}
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
+
+	moduleEditorName() {return "Continous Attack";}
 
 
 	receive(_: DataReader, __: Block, ___: Player) {
@@ -783,6 +788,8 @@ class BounceModule extends AbstractModule implements SendableModule, DrawableMod
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 
+	moduleEditorName() {return "Bounce";}
+
 
 	receive(_: DataReader, __: Block, ___: Player) {
 
@@ -922,6 +929,8 @@ class KillModule extends AbstractModule implements DrawableModule<KillAnimator>,
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 
+	moduleEditorName() {return "Kill";}
+
 	generateAnimator(_: Block) {
 		return new KillAnimator();
 	}
@@ -1040,6 +1049,8 @@ class TouchDespawnModule extends AbstractModule implements SendableModule, Argum
 	setArg(name: string, value: any) {
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
+
+	moduleEditorName() {return "Touch Despawn";}
 
 
 	receive(_reader: DataReader, _block: Block, _player: Player) {
@@ -1255,6 +1266,8 @@ class HealModule extends AbstractModule implements SendableModule, DrawableModul
 		if (name === "playerOnly") {this.playerOnly = value;}
 	}
 
+	moduleEditorName() {return "Heal";}
+
 
 	receive(reader: DataReader, _block: Block, _player: Player) {
 		this.playerHasTouched = reader.readInt8() === 1;
@@ -1358,6 +1371,8 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 		if (name === "vy") {this.vy = value;}
 	}
 
+	moduleEditorName() {return "Speed";}
+
 
 	receive(reader: DataReader, block: Block, _: Player) {
 		block.x = reader.readFloat32();
@@ -1444,6 +1459,8 @@ class AccelerationModule extends AbstractModule implements SendableModule, Drawa
 		if (name === "ax") {this.ax = value;}
 		if (name === "ay") {this.ay = value;}
 	}
+
+	moduleEditorName() {return "Acceleration";}
 
 
 	receive(_reader: DataReader, _block: Block, _: Player) {
@@ -1614,6 +1631,8 @@ class RestoreJumpModule extends AbstractModule implements SendableModule, Drawab
 		if (name === "gain") {this.gain = value;}
 	}
 
+	moduleEditorName() {return "Restore Jump";}
+
 	receive(_reader: DataReader, _block: Block, _: Player) {
 
 	}
@@ -1692,6 +1711,8 @@ class RotationModule extends AbstractModule implements SendableModule, ArgumentM
 		if (name === "start") {this.start = value;}
 		if (name === "speed") {this.speed = value;}
 	}
+
+	moduleEditorName() {return "Rotation";}
 
 
 	receive(reader: DataReader, _block: Block, _: Player) {
@@ -1805,6 +1826,8 @@ class GoalModule extends AbstractModule implements DrawableModule<GoalAnimator>,
 		if (name === "type") {this.type = value;}
 	}
 
+	moduleEditorName() {return "Goal";}
+
 	onTouch(entity: Entity, _block: Block, _frameNumber: number): void {
 		if (!(entity instanceof Player)) return;
 		entity.goalComplete = this.type;
@@ -1898,6 +1921,8 @@ class TextModule extends AbstractModule implements DrawableModule<void>, Argumen
 		if (name === "fontSize") {return this.fontSize};
 		if (name === "text") {return this.text};
 	}
+
+	moduleEditorName() {return "Text";}
 }
 
 
