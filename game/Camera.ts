@@ -120,12 +120,3 @@ export class Camera {
 }
 
 
-function wrapCoordinate(coord: number, targetCoord: number, maxHalf: number): number {
-    const delta = targetCoord - coord;
-    if (delta <= -maxHalf) {
-        return targetCoord + maxHalf;
-    } else if (delta >= maxHalf) {
-        return targetCoord - maxHalf;
-    }
-    return coord;
-}

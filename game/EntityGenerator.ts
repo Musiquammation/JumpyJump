@@ -1,4 +1,4 @@
-import { Entity, HumanFollower } from "./Entity";
+import { HumanFollower } from "./Entity";
 
 export class EntityGenerator {
     name: string;

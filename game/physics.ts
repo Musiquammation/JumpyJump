@@ -1,5 +1,3 @@
-import { Vector } from "./Vector";
-
 type Vec2 = { x: number; y: number };
 
 interface Rect {
@@ -134,17 +132,6 @@ export const physics = {
 			return Math.hypot(px - projX, py - projY);
 		}
 		
-		// Test si un point est dans un rectangle (SAT - Separating Axis Theorem)
-		function isPointInRect(px: number, py: number, rect: Rect): boolean {
-			const cos = Math.cos(-rect.r);
-			const sin = Math.sin(-rect.r);
-			
-			// Transforme le point dans le repère local du rectangle
-			const localX = (px - rect.x) * cos - (py - rect.y) * sin;
-			const localY = (px - rect.x) * sin + (py - rect.y) * cos;
-			
-			return Math.abs(localX) <= rect.w / 2 && Math.abs(localY) <= rect.h / 2;
-		}
 		
 		// Test si les rectangles se chevauchent (SAT)
 		function doRectanglesOverlap(r1: Rect, r2: Rect): boolean {
