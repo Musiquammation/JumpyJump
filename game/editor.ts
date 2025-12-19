@@ -1,5 +1,5 @@
 import { createImportStageGenerator, importStage } from "./importStage";
-import { Block, BlockBuilder, BlockModule, bmodules, ArgumentModule } from "./Block";
+import { Block, BlockBuilder, BlockModule, bmodules } from "./Block";
 import { Game } from "./Game";
 import { Room } from "./Room";
 import { Stage, WeakStage } from "./Stage";
@@ -14,7 +14,6 @@ const {
 	ContinuousAttackModule,
 	BounceModule,
 	KillModule,
-	CouldownDespawnModule,
 	TouchDespawnModule,
 	HealModule,
 	SpeedModule,
@@ -28,12 +27,6 @@ const {
 
 type EditorMode = "default" | "rooms" | "play";
 
-interface SelectionState {
-	blocks: Block[];
-	rooms: Room[];
-	startX: number;
-	startY: number;
-}
 
 
 interface MouseState {
@@ -73,14 +66,14 @@ interface DragState {
 class ModuleInfo {
 	id: string;
 	name: string;
-	prop: keyof BlockModule;
+	prop: string; // module name for getModule(name)
 	// label: string;
 	default: () => ArgumentModule | number;
 
 	constructor(
 		id: string,
 		name: string,
-		prop: keyof BlockModule,
+		prop: string, // module name for getModule(name)
 		// label: string,
 		_default: () => ArgumentModule | number
 	) {
@@ -89,6 +82,13 @@ class ModuleInfo {
 		this.prop = prop;
 		this.default = _default;
 	}
+}
+
+// Local ArgumentModule interface (Block.ts no longer exports this type)
+interface ArgumentModule {
+	enumArgs(): { name: string; type: 'number' | 'boolean' | 'text'; step?: number }[];
+	getArg(name: string): any;
+	setArg(name: string, value: any): void;
 }
 
 const moduleList: ModuleInfo[] = [
@@ -109,30 +109,33 @@ const moduleList: ModuleInfo[] = [
 
 // Helper function to export a BlockModule recursively
 async function exportBlockModule(m: BlockModule, writeln: Function, indent: string) {
-	if (m.moving) {
-		await writeln(`${indent}moving ${m.moving.times} ${m.moving.patterns.length}`);
-		for (const pattern of m.moving.patterns) {
+	const moving = m.getModule<any>("moving");
+	if (moving) {
+		await writeln(`${indent}moving ${moving.times} ${moving.patterns.length}`);
+		for (const pattern of moving.patterns) {
 			await writeln(`${indent}\t${pattern.dx} ${pattern.dy} ${pattern.duration}`);
 		}
 	}
 
-	if (m.spawner) {
-		await writeln(`${indent}spawner ${m.spawner.rythm} ${m.spawner.blocks.length}`);
-		for (const builder of m.spawner.blocks) {
+	const spawner = m.getModule<any>("spawner");
+	if (spawner) {
+		await writeln(`${indent}spawner ${spawner.rythm} ${spawner.blocks.length}`);
+		for (const builder of spawner.blocks) {
 			await writeln(`${indent}\t${builder.dx} ${builder.dy} ${builder.w} ${builder.h} ${builder.keepRotation ? 1 : 0} ${builder.goal}`);
-			
+
 			// Recursively export builder module
 			if (builder.module) {
 				await exportBlockModule(builder.module, writeln, indent + "\t\t");
 			}
-			
+
 			await writeln(`${indent}\tendbuilder`);
 		}
 	}
 
 	/// TODO: add argumentmodule
-	if (m.couldownDespawn) {
-		await writeln(`${indent}couldownDespawn ${m.couldownDespawn.duration ?? 0}`);
+	const couldownDespawn = m.getModule<any>("couldownDespawn");
+	if (couldownDespawn) {
+		await writeln(`${indent}couldownDespawn ${couldownDespawn.duration ?? 0}`);
 	}
 
 
@@ -143,7 +146,7 @@ async function exportBlockModule(m: BlockModule, writeln: Function, indent: stri
 			continue;
 
 		const line = [indent + i.prop];
-		const obj = m[i.prop] as any;
+		const obj = m.getModule<any>(i.prop as string) as any;
 
 		if (!obj)
 			continue;
@@ -172,20 +175,27 @@ async function exportBlockModule(m: BlockModule, writeln: Function, indent: stri
 
 	
 
-	if (m.speed) {
-		await writeln(`${indent}speed ${m.speed.vx ?? 0} ${m.speed.vy ?? 0}`);
+	const speed = m.getModule<any>("speed");
+	if (speed) {
+		await writeln(`${indent}speed ${speed.vx ?? 0} ${speed.vy ?? 0}`);
 	}
 
-	if (m.acceleration) {
-		await writeln(`${indent}acceleration ${m.acceleration.ax ?? 0} ${m.acceleration.ay ?? 0}`);
+	const acceleration = m.getModule<any>("acceleration");
+	if (acceleration) {
+		await writeln(`${indent}acceleration ${acceleration.ax ?? 0} ${acceleration.ay ?? 0}`);
 	}
 
-	if (m.goal) {
-		const t = m.goal.type as any;
-		if (t instanceof GoalModule) {
-			await writeln(`${indent}goal ${t.type}`);
+	const goal = m.getModule<any>("goal");
+	if (goal !== null && goal !== undefined) {
+		if (typeof goal === 'object' && 'type' in goal) {
+			const t = (goal as any).type as any;
+			if (t instanceof GoalModule) {
+				await writeln(`${indent}goal ${t.type}`);
+			} else {
+				await writeln(`${indent}goal ${t}`);
+			}
 		} else {
-			await writeln(`${indent}goal ${t}`);
+			await writeln(`${indent}goal ${goal}`);
 		}
 	}
 
@@ -225,13 +235,6 @@ export function startEditor() {
 	let selectedBlocks: Block[] = [];
 	let clipboardBlocks: { module: BlockModule, dx: number, dy: number, w: number, h: number }[] = [];
 
-	function destroyGame() {
-		if (playGame) {
-			
-		}
-		playGame = null;
-		window.game = null;
-	}
 
 	// Setup canvas
 	function resizeCanvas() {
@@ -297,11 +300,6 @@ export function startEditor() {
 		return { x, y };
 	}
 
-	function updateMouseWorld() {
-		const world = screenToWorld(mouse.sx, mouse.sy);
-		mouse.wx = snapToGrid(world.x);
-		mouse.wy = snapToGrid(world.y);
-	}
 
 	function findBlockAt(x: number, y: number): Block | null {
 		const stage = stageContainer[0];
@@ -431,25 +429,6 @@ export function startEditor() {
 		newRoom.blocks.push(block);
 	}
 
-	function getSelectionBounds(blocks: Block[]): { minX: number, minY: number, maxX: number, maxY: number } {
-		if (blocks.length === 0) return { minX: 0, minY: 0, maxX: 0, maxY: 0 };
-		
-		let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
-		
-		for (const block of blocks) {
-			const left = block.x - block.w / 2;
-			const right = block.x + block.w / 2;
-			const top = block.y - block.h / 2;
-			const bottom = block.y + block.h / 2;
-			
-			minX = Math.min(minX, left);
-			maxX = Math.max(maxX, right);
-			minY = Math.min(minY, top);
-			maxY = Math.max(maxY, bottom);
-		}
-		
-		return { minX, minY, maxX, maxY };
-	}
 
 	function canMoveSelection(blocks: Block[], dx: number, dy: number): boolean {
 		const stage = stageContainer[0];
@@ -490,7 +469,6 @@ export function startEditor() {
 	}
 
 	function moveSelection(blocks: Block[], dx: number, dy: number) {
-		const stage = stageContainer[0];
 		
 		// Déplacer tous les blocs
 		for (const block of blocks) {
@@ -583,7 +561,7 @@ export function startEditor() {
 				// --- Génération dynamique des modules simples (imbriqués) ---
 				for (const moduleInfo of moduleList) {
 					const propName = moduleInfo.prop;
-					const currentModule = b.module?.[propName] as ArgumentModule | number | undefined;
+					const currentModule = b.module?.getModule<any>(propName) as ArgumentModule | number | undefined;
 					
 					const isChecked = !!currentModule ? 'checked' : '';
 					const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
@@ -629,25 +607,22 @@ export function startEditor() {
 
 
 				// --- Moving module imbriqué (CONSERVÉ COMME SPÉCIFIQUE) ---
-				const movingChecked = b.module?.moving ? "checked" : "";
-				const movingDisplay = b.module?.moving ? "block" : "none";
-				const movingTimes = b.module?.moving?.times || -1;
-				const movingPatterns = b.module?.moving?.patterns || [];
-				const movingIdPrefix = `modMoving-${depth}-${idx}`;
-
+			const _bMoving = b.module?.getModule<any>("moving");
+			const movingChecked = _bMoving ? "checked" : "";
+			const movingDisplay = _bMoving ? "block" : "none";
+			const movingTimes = _bMoving?.times || -1;
+			const movingPatterns = _bMoving?.patterns || [];
 				let movingPatternsHTML = '';
-				movingPatterns.forEach((p, pIdx) => {
-					const patternIdPrefix = `${movingIdPrefix}-pat-${pIdx}`;
-					movingPatternsHTML += `
-						<div class="pattern-row spawn-pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
-							<input type="number" class="spawn-pattern-dx" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
-							<input type="number" class="spawn-pattern-dy" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
-							<input type="number" class="spawn-pattern-duration" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
-							<button class="spawn-pattern-remove" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
-						</div>
-					`;
-				});
-
+			movingPatterns.forEach((p: any, pIdx: number) => {
+				movingPatternsHTML += `
+					<div class="pattern-row spawn-pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
+						<input type="number" class="spawn-pattern-dx" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
+						<input type="number" class="spawn-pattern-dy" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.dy}" step="0.1" style="width: 60px;" placeholder="dy">
+						<input type="number" class="spawn-pattern-duration" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" value="${p.duration}" step="1" style="width: 60px;" placeholder="dur">
+						<button class="spawn-pattern-remove" data-depth="${depth}" data-idx="${idx}" data-pat-idx="${pIdx}" style="background: red; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px;">✕</button>
+					</div>
+				`;
+			});
 				moduleOptionsHTML += `
 					<label style="display: block; font-weight: bold; color: #cc6600;">
 						<input type="checkbox" class="spawn-modMoving" ${dataAttrs} ${movingChecked}> Moving
@@ -665,9 +640,9 @@ export function startEditor() {
 
 
 				// --- Spawner module imbriqué (CONSERVÉ COMME SPÉCIFIQUE) ---
-				const hasSpawner = b.module?.spawner ? 'checked' : '';
-				const spawnerRythm = b.module?.spawner?.rythm || 60;
-
+			const _bSpawner = b.module?.getModule<any>("spawner");
+			const hasSpawner = _bSpawner ? 'checked' : '';
+			const spawnerRythm = _bSpawner?.rythm || 60;
 				moduleOptionsHTML += `
 					<label style="display: block; font-weight: bold; color: #6600cc;">
 						<input type="checkbox" class="spawn-hasSpawner" ${dataAttrs} ${hasSpawner}> Spawner (nested)
@@ -675,7 +650,7 @@ export function startEditor() {
 					<div class="spawn-spawner-opts" ${dataAttrs} style="display: ${hasSpawner ? 'block' : 'none'}; padding-left: 20px; border-left: 2px solid #6600cc; margin-top: 5px;">
 						<label>Rythm: <input type="number" class="spawn-spawnerRythm" ${dataAttrs} value="${spawnerRythm}" step="1" style="width: 80px;"></label><br>
 						<div class="spawn-spawner-blocks" ${dataAttrs}>
-							${b.module?.spawner ? generateSpawnerBlockHTML(b.module.spawner.blocks, depth + 1) : ''}
+							${_bSpawner ? generateSpawnerBlockHTML(_bSpawner.blocks, depth + 1) : ''}
 						</div>
 						<button class="spawn-addNestedBlock" ${dataAttrs} style="background: #6600cc; color: white; border: none; padding: 5px 10px; cursor: pointer; border-radius: 3px; margin-top: 5px;">+ Add Nested Block</button>
 					</div>
@@ -713,7 +688,7 @@ export function startEditor() {
 		// --- Dynamic Modules (from moduleList - Bloc principal) ---
 		for (const moduleInfo of moduleList) {
 			const propName = moduleInfo.prop;
-			const currentModule = block.module[propName] as (ArgumentModule | undefined | number);
+			const currentModule = block.module.getModule<any>(propName) as (ArgumentModule | undefined | number);
 			const isChecked = !!currentModule ? "checked" : "";
 			const displayStyle = !!currentModule ? "block" : "none";
 
@@ -749,13 +724,14 @@ export function startEditor() {
 		}
 
 		// --- Moving module (CONSERVÉ COMME SPÉCIFIQUE) ---
-		const movingChecked = block.module.moving ? "checked" : "";
-		const movingDisplay = block.module.moving ? "block" : "none";
-		const movingTimes = block.module.moving?.times || -1;
-		const movingPatterns = block.module.moving?.patterns || [];
+		const _moving = block.module.getModule<any>("moving");
+		const movingChecked = _moving ? "checked" : "";
+		const movingDisplay = _moving ? "block" : "none";
+		const movingTimes = _moving?.times || -1;
+		const movingPatterns = _moving?.patterns || [];
 
 		let movingPatternsHTML = '';
-		movingPatterns.forEach((p, idx) => {
+		movingPatterns.forEach((p: any, idx: number) => {
 			movingPatternsHTML += `
 				<div class="pattern-row" style="display: flex; gap: 5px; margin-bottom: 5px; align-items: center;">
 					<input type="number" class="pattern-dx" data-idx="${idx}" value="${p.dx}" step="0.1" style="width: 60px;" placeholder="dx">
@@ -783,10 +759,11 @@ export function startEditor() {
 		`);
 
 		// --- Spawner module (CONSERVÉ COMME SPÉCIFIQUE) ---
-		const spawnerChecked = block.module.spawner ? "checked" : "";
-		const spawnerDisplay = block.module.spawner ? "block" : "none";
-		const spawnerRythm = block.module.spawner?.rythm || 60;
-		const spawnerBlocks = block.module.spawner?.blocks || [];
+		const _spawner = block.module.getModule<any>("spawner");
+		const spawnerChecked = _spawner ? "checked" : "";
+		const spawnerDisplay = _spawner ? "block" : "none";
+		const spawnerRythm = _spawner?.rythm || 60;
+		const spawnerBlocks = _spawner?.blocks || [];
 
 		moduleSections.push(`
 			<div style="margin: 10px 0; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
@@ -859,7 +836,7 @@ export function startEditor() {
 
 		// Update module parameters - RECREATE THE OBJECT ON EVERY MODIFICATION
 		const recreateBlockModule = () => {
-			let newBlockModule: Partial<BlockModule> = {};
+			let newBlockModule: Record<string, any> = {};
 
 			// --- 1. Modules simples (Dynamic via moduleList - Bloc principal) ---
 			for (const moduleInfo of moduleList) {
@@ -926,7 +903,7 @@ export function startEditor() {
 					}
 				} catch (e) {
 					console.error("Error parsing moving patterns:", e);
-					movingModule = block.module.moving; // Revert to old value on error
+					movingModule = block.module.getModule<any>("moving"); // Revert to old value on error
 				}
 			}
 			newBlockModule.moving = movingModule;
@@ -969,8 +946,7 @@ export function startEditor() {
 								let moduleIsPresent = false;
 								
 								// Collecter les modules imbriqués (dynamique)
-								let collectedNestedModules: Partial<BlockModule> = {};
-								
+							let collectedNestedModules: Record<string, any> = {};
 								for (const moduleInfo of moduleList) {
 									const propName = moduleInfo.prop;
 									const idPrefix = `${moduleInfo.id}-${depth}-${idx}`;
@@ -1073,7 +1049,7 @@ export function startEditor() {
 					}
 				} catch (e) {
 					console.error("Error parsing spawner blocks:", e);
-					spawnerModule = block.module.spawner; // Revert to old value on error
+					spawnerModule = block.module.getModule<any>("spawner"); // Revert to old value on error
 				}
 			}
 			newBlockModule.spawner = spawnerModule;
@@ -1276,7 +1252,6 @@ export function startEditor() {
 					e.stopPropagation();
 					const btn = e.target as HTMLElement;
 					const depth = parseInt(btn.getAttribute('data-depth') || '0');
-					const idx = btn.getAttribute('data-idx');
 					const container = blockElement.querySelector(`.spawn-spawner-blocks${dataAttrsSelector}`);
 					
 					if (container) {
@@ -1740,7 +1715,8 @@ export function startEditor() {
 						centerY,
 						w,
 						h,
-						new BlockModule({})
+						new BlockModule({}),
+						Date.now() // unique id
 					);
 
 					const room = findRoomAt(block.x, block.y);
@@ -2277,12 +2253,21 @@ export function startEditor() {
 				}
 
 				// Create deep copy of stage
-				const stageCopy = new Stage(stageContainer[0].rooms.map(room => 
+				const roomsCopy = stageContainer[0].rooms.map(room => 
 					new Room(room.x, room.y, room.w, room.h, room.blocks.map(block => 
-						new Block(block.x, block.y, block.w, block.h, block.module.copy())
-					), [])
-				));
-
+						new Block(block.x, block.y, block.w, block.h, block.module.copy(), block.id)
+					), room.entityGenerators)
+				);
+				
+				const blockMapCopy = new Map<number, Block>();
+				for (const room of roomsCopy) {
+					for (const block of room.blocks) {
+						blockMapCopy.set(block.id, block);
+					}
+				}
+				
+				const stageCopy = new Stage(roomsCopy, blockMapCopy, Math.max(...Array.from(blockMapCopy.keys())) + 1);
+				
 				const name = levelName ?? "edited";
 				playGame = new Game({
 					keyboardMode: realKeyboardMode,
@@ -2429,14 +2414,10 @@ export function startEditor() {
 							baseY + clipBlock.dy,
 							clipBlock.w,
 							clipBlock.h,
-							clipBlock.module.copy()
+							clipBlock.module.copy(),
+							Date.now() // unique id
 						);
-						
-						// Vérifier que le bloc est bien dans la room
-						if (isBlockInRoom(newBlock, targetRoom)) {
-							targetRoom.blocks.push(newBlock);
-							selectedBlocks.push(newBlock);
-						}
+						targetRoom.blocks.push(newBlock);
 					}
 				}
 				break;
@@ -2447,9 +2428,6 @@ export function startEditor() {
 	document.addEventListener("wheel", (e) => {
 		e.preventDefault();
 
-		const p = screenToWorld(e.clientX, e.clientY);
-		const worldX = p.x;
-		const worldY = p.y;
 
 		const ZF = 1.12;
 		const zoomFactor = e.deltaY < 0 ? ZF : 1 / ZF;
@@ -2609,7 +2587,7 @@ export function startEditor() {
 	}
 
 	function drawRotationHitbox(ctx: CanvasRenderingContext2D, block: Block) {
-		if (!block.module.rotation) return;
+		if (!block.module.getModule("rotation")) return;
 
 		// Draw the actual hitbox rectangle (non-rotated)
 		ctx.save();
@@ -2627,7 +2605,7 @@ export function startEditor() {
 	}
 
 	function drawSpawnerIndicator(ctx: CanvasRenderingContext2D, block: Block) {
-		if (!block.module.spawner) return;
+		if (!block.module.getModule("spawner")) return;
 
 		ctx.save();
 		ctx.fillStyle = "rgba(255, 0, 255, 0.3)";
@@ -2688,10 +2666,10 @@ export function startEditor() {
 		// Draw rotation hitboxes
 		for (const room of stage.rooms) {
 			for (const block of room.blocks) {
-				if (block.module.rotation) {
+				if (block.module.getModule("rotation")) {
 					drawRotationHitbox(ctx, block);
 				}
-				if (block.module.spawner) {
+				if (block.module.getModule("spawner")) {
 					drawSpawnerIndicator(ctx, block);
 				}
 			}

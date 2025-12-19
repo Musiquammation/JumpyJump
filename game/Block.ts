@@ -1270,6 +1270,8 @@ class HealModule extends AbstractModule implements SendableModule, DrawableModul
 }
 
 class SpeedModule extends AbstractModule implements SendableModule, DrawableModule<null>, ArgumentModule, FrameModule {
+	start_vx: number;
+	start_vy: number;
 	vx: number;
 	vy: number;
 
@@ -1277,6 +1279,8 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 		super();
 		this.vx = vx;
 		this.vy = vy;
+		this.start_vx = vx;
+		this.start_vy = vy;
 	}
 
 	static {
@@ -1312,8 +1316,8 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 	}
 
 	reset() {
-		this.vx = 0;
-		this.vy = 0;
+		this.vx = this.start_vx;
+		this.vy = this.start_vy;
 	}
 
 	override getImportArgsCount() {return 2;}
@@ -1321,7 +1325,7 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 
 
 	override copy() {
-		return new SpeedModule(this.vx, this.vy);
+		return new SpeedModule(this.start_vx, this.start_vy);
 	}
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
@@ -2095,7 +2099,7 @@ export class BlockModule {
 		for (let module of AbstractModule.getRegisteredModules()) {
 			const name = module.prototype.getModuleName();
 			const key: keyof typeof this = name;
-			const obj = (this[key] as AbstractModule | undefined);
+			const obj = (this.record[key] as AbstractModule | undefined);
 			if (!obj)
 				continue;
 
@@ -2114,7 +2118,7 @@ export class BlockModule {
 		for (let module of AbstractModule.getRegisteredModules()) {
 			const name = module.prototype.getModuleName();
 			const key: keyof typeof this = name;
-			const obj = (this[key] as AbstractModule | undefined);
+			const obj = (this.record[key] as AbstractModule | undefined);
 			if (!obj)
 				continue;
 
@@ -2135,7 +2139,7 @@ export class BlockModule {
 			for (let module of AbstractModule.getRegisteredModules()) {
 				const name = module.prototype.getModuleName();
 				const key: keyof typeof this = name;
-				const obj = (this[key] as AbstractModule | undefined);
+				const obj = (this.record[key] as AbstractModule | undefined);
 				if (!obj)
 					continue;
 

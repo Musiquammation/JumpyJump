@@ -249,7 +249,6 @@ export class ClientNet {
 		if (this.chrono === -2)
 			return;
 
-		console.log(this.chrono);
 		for (let player of this.game.players) {
 			player.x = reader.readFloat32();
 			player.y = reader.readFloat32();
