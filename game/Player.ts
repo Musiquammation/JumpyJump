@@ -26,6 +26,7 @@ export class Player extends Entity {
 	vy = 0;
 	eternalMode = false;
 	protectFromEjection = false;
+	goalComplete = 0;
 
 	jumps = Player.JUMP_COUNT;
 	respawnCouldown = -1;
@@ -148,6 +149,7 @@ export class Player extends Entity {
 		this.vx = 0;
 		this.vy = -Player.JUMP;
 		this.currentRoom = room;
+		this.goalComplete = 0;
 		this.restoreHp();
 		this.restoreJumps();
 	}

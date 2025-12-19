@@ -1,4 +1,4 @@
-import { bmodules, Block, BlockModule, BlockBuilder } from "./Block";
+import { bmodules, Block, BlockModule, BlockBuilder, AbstractModule, BlockModuleRecord } from "./Block";
 import { EntityGenerator } from "./EntityGenerator";
 import { Room } from "./Room";
 import { Stage } from "./Stage";
@@ -6,17 +6,6 @@ import { Stage } from "./Stage";
 const {
 	MovingModule,
 	MovingPath,
-	CouldownedAttackModule,
-	ContinuousAttackModule,
-	BounceModule,
-	KillModule,
-	CouldownDespawnModule,
-	TouchDespawnModule,
-	HealModule,
-	SpeedModule,
-	AccelerationModule,
-	RestoreJumpModule,
-	RotationModule,
 	TextModule,
 
 	SpawnerModule,
@@ -46,28 +35,7 @@ export async function importStage(read: Function) {
 	let blockId = 0;
 	const blockMap = new Map<number, Block>();
 
-	class BlockModuleArg {
-		moving?: InstanceType<typeof MovingModule>;
-		rotation?: InstanceType<typeof RotationModule>;
-		couldownedAttack?: InstanceType<typeof CouldownedAttackModule>;
-		continuousAttack?: InstanceType<typeof ContinuousAttackModule>;
-		bounce?: InstanceType<typeof BounceModule>;
-		kill?: InstanceType<typeof KillModule>;
-		heal?: InstanceType<typeof HealModule>;
-		touchDespawn?: InstanceType<typeof TouchDespawnModule>;
-		restoreJump?: InstanceType<typeof RestoreJumpModule>;
-		couldownDespawn?: InstanceType<typeof CouldownDespawnModule>;
-		spawner?: InstanceType<typeof SpawnerModule>;
-		speed?: InstanceType<typeof SpeedModule>;
-		acceleration?: InstanceType<typeof AccelerationModule>;
-		text?: InstanceType<typeof TextModule>;
-		
-		goal: number = 0;
-		checkCollision: boolean = false;
-		runInAdjacentRoom: boolean = false;
-	}
-
-	let blockToPush: BlockModuleArg | null = null;
+	let blockToPush: BlockModuleRecord | null = null;
 
 	// For moving patterns
 	let movingPatterns: InstanceType<typeof MovingPath>[] = [];
@@ -82,8 +50,8 @@ export async function importStage(read: Function) {
 		blocks: BlockBuilder[];
 		currentBuilderBuffer: number[];
 		currentBuilderStep: number;
-		currentBuilderModule: BlockModuleArg | null;
-		parentModule: BlockModuleArg;
+		currentBuilderModule: BlockModuleRecord | null;
+		parentModule: BlockModuleRecord;
 	}
 	
 	let spawnerStack: SpawnerContext[] = [];
@@ -139,11 +107,11 @@ export async function importStage(read: Function) {
 		}
 	}
 
-	function getCurrentModule(): BlockModuleArg {
+	function getCurrentModule(): BlockModuleRecord {
 		if (spawnerStack.length > 0) {
 			const ctx = spawnerStack[spawnerStack.length - 1];
 			if (!ctx.currentBuilderModule) {
-				ctx.currentBuilderModule = new BlockModuleArg();
+				ctx.currentBuilderModule = {};
 			}
 			return ctx.currentBuilderModule;
 		}
@@ -213,7 +181,7 @@ export async function importStage(read: Function) {
 				if (ctx.blocks.length >= ctx.blockCount) {
 					// Pop context and create SpawnerModule
 					const finished = spawnerStack.pop()!;
-					finished.parentModule.spawner = new SpawnerModule(finished.rythm, false, finished.blocks);
+					finished.parentModule['spawner'] = new SpawnerModule(finished.rythm, false, finished.blocks);
 					currentMode = null;
 				} else {
 					currentMode = "spawnerBuilder";
@@ -263,7 +231,7 @@ export async function importStage(read: Function) {
 			if (step === 4) {
 				currentMode = null;
 				step = 0;
-				blockToPush = new BlockModuleArg();
+				blockToPush = {};
 			}
 
 			break;
@@ -314,78 +282,6 @@ export async function importStage(read: Function) {
 			break;
 		}
 
-		case "rotation":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().rotation = new RotationModule(moduleBuffer[0], moduleBuffer[1]);
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "couldownedAttack":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 3) { break; }
-			getCurrentModule().couldownedAttack = new CouldownedAttackModule(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "continuousAttack":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().continuousAttack = new ContinuousAttackModule(moduleBuffer[0], toBool(moduleBuffer[1]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "bounce":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 3) { break; }
-			getCurrentModule().bounce = new BounceModule(moduleBuffer[0], moduleBuffer[1], toBool(moduleBuffer[2]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "kill":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().kill = new KillModule(toBool(moduleBuffer[0]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "heal":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().heal = new HealModule(moduleBuffer[0], toBool(moduleBuffer[1]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "touchDespawn":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().touchDespawn = new TouchDespawnModule(toBool(moduleBuffer[0]));
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "restoreJump":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().restoreJump = new RestoreJumpModule(moduleBuffer[0]);
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "couldownDespawn":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().couldownDespawn = new CouldownDespawnModule(moduleBuffer[0]);
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
 		case "spawner":
 		{
 			// First two numbers: rythm and block count
@@ -433,29 +329,7 @@ export async function importStage(read: Function) {
 			break;
 		}
 
-		case "speed":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().speed = new SpeedModule(moduleBuffer[0], moduleBuffer[1]);
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "acceleration":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 2) { break; }
-			getCurrentModule().acceleration = new AccelerationModule(moduleBuffer[0], moduleBuffer[1]);
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
-
-		case "goal":
-			moduleBuffer.push(take(word));
-			if (moduleBuffer.length < 1) { break; }
-			getCurrentModule().goal = moduleBuffer[0];
-			moduleBuffer.length = 0;
-			currentMode = null;
-			break;
+		
 
 		case "text":
 			if (moduleBuffer.length < 1) {
@@ -474,7 +348,7 @@ export async function importStage(read: Function) {
 			if (Number.isFinite(num)) {
 				pushBlock();
 
-				blockToPush = new BlockModuleArg();
+				blockToPush = {};
 				blockBuffer[0] = take(word);
 				step = 1;
 				currentMode = "block";
@@ -482,6 +356,30 @@ export async function importStage(read: Function) {
 			} else {
 				currentMode = word;
 			}
+			break;
+		}
+
+
+		default:
+		{
+			let obj = null;
+			for (let c of AbstractModule.getRegisteredModules()) {
+				if (currentMode !== c.prototype.getModuleName())
+					continue;
+				
+				obj = c;
+				break;
+			}
+
+			if (!obj) {
+				throw new Error(`Unknown module type: ${currentMode}`);
+			}
+			const importableArgsCount = obj.prototype.getImportArgsCount();
+			moduleBuffer.push(take(word));
+			if (moduleBuffer.length < importableArgsCount) { break; }
+			getCurrentModule()[obj.prototype.getModuleName()] = obj.prototype.importModule(moduleBuffer);
+			moduleBuffer.length = 0;
+			currentMode = null;
 			break;
 		}
 		

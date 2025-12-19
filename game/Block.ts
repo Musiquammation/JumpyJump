@@ -9,11 +9,60 @@ import type { Room } from "./Room";
 
 
 
-export interface ArgumentModule {
+
+export abstract class AbstractModule {
+	private static registry: Array<new (...args: any[]) => AbstractModule> = [];
+
+	protected static register(module: new (...args: any[]) => AbstractModule): void {
+		AbstractModule.registry.push(module);
+	}
+
+	static getRegisteredModules() {
+		return AbstractModule.registry;
+	}
+
+	abstract getArgumentInterface(): ArgumentModule | null;
+	abstract getDrawableInterface(): DrawableModule<any> | null;
+	abstract getSendableInterface(): SendableModule | null;
+	abstract getFrameInterface(): FrameModule | null;
+	abstract getCollisionInterface(): CollisionModule | null;
+	abstract getImportArgsCount(): number;
+	abstract importModule(buffer: number[]): AbstractModule | null;
+
+	
+	abstract copy(): AbstractModule;
+	abstract reset(): void;
+	abstract getModuleName(): string;
+}
+
+interface FrameModule {
+	update(block: Block, room: Room): void;
+}
+
+interface CollisionModule {
+	onTouch(entity: Entity, block: Block, frameNumber: number): void;
+}
+
+interface ArgumentModule {
 	enumArgs(): {name: string, type: 'number' | 'boolean' | 'text', step?: number}[]
 	getArg(name: string): any;
 	setArg(name: string, value: any): void;
 }
+
+
+interface DrawableModule<T> {
+	generateAnimator(_: Block): T;
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: T): void;
+	getDrawLevel(): number;
+}
+
+interface SendableModule {
+	receive(reader: DataReader, block: Block, player: Player): void;
+	send(writer: DataWriter, block: Block, player: Player): void;
+	getSendFlag(): number;
+}
+
+
 
 class MovingPath {
 	dx: number;
@@ -49,18 +98,8 @@ class EntityCouldownHelper {
 
 
 
-interface DrawableModule<T> {
-	generateAnimator(_: Block): T;
-	draw(block: Block, ctx: CanvasRenderingContext2D, animator: T): void;
-}
 
-interface SendableModule {
-	receive(reader: DataReader, block: Block, player: Player): void;
-	send(writer: DataWriter, block: Block, player: Player): void;
-	getSendFlag(): number;
-}
-
-class MovingModule implements SendableModule, DrawableModule<null> {
+class MovingModule extends AbstractModule implements SendableModule, DrawableModule<null>, FrameModule {
 	readonly patterns: MovingPath[];
 	readonly times: number; // -1 means infinite
 	private currentPattern: number;
@@ -69,6 +108,7 @@ class MovingModule implements SendableModule, DrawableModule<null> {
 	private active: boolean;
 
 	constructor(patterns: MovingPath[], times: number) {
+		super();
 		this.patterns = patterns;
 		this.times = times;
 		this.currentPattern = 0;
@@ -132,7 +172,7 @@ class MovingModule implements SendableModule, DrawableModule<null> {
 		this.active = true;
 	}
 
-	copy() {
+	override copy() {
 		const copy = new MovingModule(this.patterns, this.times);
 		copy.currentPattern = this.currentPattern;
 		copy.currentTime = this.currentTime;
@@ -140,6 +180,7 @@ class MovingModule implements SendableModule, DrawableModule<null> {
 		copy.active = this.active;
 		return copy;
 	}
+
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
 		ctx.fillStyle = "#555";
@@ -150,7 +191,22 @@ class MovingModule implements SendableModule, DrawableModule<null> {
 		return null;
 	}
 
+	getDrawLevel(): number {
+		return 120;
+	}
 
+	static {
+		AbstractModule.register(MovingModule);
+	}
+
+	override getArgumentInterface() {return null;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return this;}
+	override getModuleName() {return "moving";}
+	override getCollisionInterface() {return null;}
+	override getImportArgsCount() {return -1;}
+	override importModule() {return null;}
 
 	receive(reader: DataReader, block: Block, _: Player) {
 		block.x = reader.readFloat32();
@@ -165,7 +221,6 @@ class MovingModule implements SendableModule, DrawableModule<null> {
 	getSendFlag() {
 		return 0;
 	}
-
 }
 
 
@@ -189,17 +244,29 @@ class CouldownedAttackAnimator {
 }
 
 
-class CouldownedAttackModule implements SendableModule, DrawableModule<CouldownedAttackAnimator>, ArgumentModule {
+class CouldownedAttackModule extends AbstractModule implements SendableModule, DrawableModule<CouldownedAttackAnimator>, ArgumentModule, FrameModule, CollisionModule {
 	damages: number;
 	duration: number;
 	playerOnly: boolean;
 	couldowns = new Map<Entity, number>();
 
 	constructor(damages: number, duration: number, playerOnly = true) {
+		super();
 		this.damages = damages;
 		this.duration = duration;
 		this.playerOnly = playerOnly;
 	}
+
+	static {
+		AbstractModule.register(CouldownedAttackModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return this;}
+	override getCollisionInterface() {return this;}
+	override getModuleName() {return "couldownedAttack";}
 
 	update(_: Block) {
 		for (let [e, d] of this.couldowns) {
@@ -226,11 +293,15 @@ class CouldownedAttackModule implements SendableModule, DrawableModule<Couldowne
 		}
 	}
 
-	copy() {
+	override copy() {
 		const copy = new CouldownedAttackModule(this.damages, this.duration, this.playerOnly);
 		copy.couldowns = new Map(this.couldowns);
 		return copy;
 	}
+
+	// ImportableModule
+	override getImportArgsCount(): number { return 3; }
+	override importModule(buffer: number[]): AbstractModule { return new CouldownedAttackModule(buffer[0], buffer[1], !!buffer[2]); }
 
 
 
@@ -335,8 +406,9 @@ class CouldownedAttackModule implements SendableModule, DrawableModule<Couldowne
 		return new CouldownedAttackAnimator(block.w, block.h);
 	}
 
-
-
+	getDrawLevel(): number {
+		return 160;
+	}
 
 	enumArgs() {
 		return [
@@ -453,15 +525,27 @@ class ContinuousAttackAnimator {
 	
 }
 
-class ContinuousAttackModule implements SendableModule, DrawableModule<ContinuousAttackAnimator>, ArgumentModule {
+class ContinuousAttackModule extends AbstractModule implements SendableModule, DrawableModule<ContinuousAttackAnimator>, ArgumentModule, CollisionModule {
 	damages: number;
 	playerOnly: boolean;
 
 
 	constructor(damages: number, playerOnly = true) {
+		super();
 		this.damages = damages;
 		this.playerOnly = playerOnly;
 	}
+
+	static {
+		AbstractModule.register(ContinuousAttackModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getCollisionInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getModuleName() {return "continuousAttack";}
 
 	reset() {
 		
@@ -472,10 +556,14 @@ class ContinuousAttackModule implements SendableModule, DrawableModule<Continuou
 		entity.hit(this.damages, null);
 	}
 
-	copy() {
+	override copy() {
 		const copy = new ContinuousAttackModule(this.damages, this.playerOnly);
 		return copy;
 	}
+
+	// ImportableModule
+	override getImportArgsCount(): number { return 2; }
+	override importModule(buffer: number[]): AbstractModule { return new ContinuousAttackModule(buffer[0], !!buffer[1]); }
 
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: ContinuousAttackAnimator) {
@@ -495,7 +583,10 @@ class ContinuousAttackModule implements SendableModule, DrawableModule<Continuou
 		return new ContinuousAttackAnimator();
 	}
 
-	
+	getDrawLevel(): number {
+		return 150;
+	}
+
 	enumArgs() {
 		return [
 			{ name: "damages", type: 'number' as const },
@@ -577,32 +668,48 @@ class BounceAnimator {
 }
 
 
-class BounceModule implements SendableModule, DrawableModule<BounceAnimator>, ArgumentModule {
+class BounceModule extends AbstractModule implements SendableModule, DrawableModule<BounceAnimator>, ArgumentModule, FrameModule, CollisionModule {
 	cost: number;
 	factor: number;
 	playerOnly: boolean;
 	helper: EntityCouldownHelper;
 
 	constructor(cost: number, factor: number, playerOnly = true, liberationCouldown = 12) {
+		super();
 		this.factor = factor;
 		this.cost = cost;
 		this.playerOnly = playerOnly;
 		this.helper = new EntityCouldownHelper(liberationCouldown);
 	}
 
+	static {
+		AbstractModule.register(BounceModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return this;}
+	override getCollisionInterface() {return this;}
+	override getModuleName() {return "bounce";}
+	
 	reset() { this.helper.reset(); }
 
-	onTouch(entity: Entity, frameNumber: number) {
+	onTouch(entity: Entity, _block: Block, frameNumber: number) {
 		if (this.playerOnly && !(entity instanceof Player)) return;
 		if (this.helper.track(entity, frameNumber)) entity.bounce(this.factor, this.cost);
 	}
 
 	update() {}
 
-	copy() {
+	override copy() {
 		const copy = new BounceModule(this.cost, this.factor, this.playerOnly);
 		return copy;
 	}
+
+	// ImportableModule
+	override getImportArgsCount(): number { return 3; }
+	override importModule(buffer: number[]): AbstractModule { return new BounceModule(buffer[0], buffer[1], !!buffer[2]); }
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: BounceAnimator) {
 		animator.update(block.h);
@@ -650,6 +757,10 @@ class BounceModule implements SendableModule, DrawableModule<BounceAnimator>, Ar
 
 	generateAnimator(block: Block) {
 		return new BounceAnimator(block.h);
+	}
+
+	getDrawLevel(): number {
+		return 130;
 	}
 
 	enumArgs() {
@@ -749,13 +860,25 @@ class KillAnimator {
 	}
 }
 
-class KillModule implements DrawableModule<KillAnimator>, ArgumentModule {
+class KillModule extends AbstractModule implements DrawableModule<KillAnimator>, ArgumentModule, CollisionModule {
 	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
+		super();
 		this.playerOnly = playerOnly;
 	}
 
+	static {
+		AbstractModule.register(KillModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface() {return null;}
+	override getFrameInterface() {return null;}
+	override getCollisionInterface() {return this;}
+	override getModuleName() {return "kill";}
+	
 	reset() {}
 
 	onTouch(entity: Entity) {
@@ -765,9 +888,13 @@ class KillModule implements DrawableModule<KillAnimator>, ArgumentModule {
 		entity.hit(Infinity, null);
 	}
 
-	copy() {
+	override copy() {
 		return new KillModule(this.playerOnly);
 	}
+
+	// ImportableModule
+	override getImportArgsCount(): number { return 1; }
+	override importModule(buffer: number[]): AbstractModule { return new KillModule(!!buffer[0]); }
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: KillAnimator) {
 		ctx.save();
@@ -798,19 +925,35 @@ class KillModule implements DrawableModule<KillAnimator>, ArgumentModule {
 	generateAnimator(_: Block) {
 		return new KillAnimator();
 	}
+
+	getDrawLevel(): number {
+		return 180;
+	}
 }
 
 
 
-class CouldownDespawnModule implements SendableModule, DrawableModule<null> {
+class CouldownDespawnModule extends AbstractModule implements SendableModule {
 	duration: number;
 	private couldown: number;
 
 	constructor(duration: number) {
+		super();
 		this.duration = duration;
 		this.couldown = duration;
 	}
 
+	static {
+		AbstractModule.register(CouldownDespawnModule);
+	}
+
+	override getArgumentInterface() {return null;}
+	override getDrawableInterface() {return null;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return null;}
+	override getCollisionInterface() {return null;}
+	override getModuleName() {return "couldownDespawn";}
+	
 	update(block: Block) {
 		if (--this.couldown <= 0) {
 			block.toRemove = true;
@@ -821,26 +964,23 @@ class CouldownDespawnModule implements SendableModule, DrawableModule<null> {
 		this.couldown = this.duration;
 	}
 
-	copy() {
+	override copy() {
 		const copy = new CouldownDespawnModule(this.duration);
 		copy.couldown = this.couldown;
 		return copy;
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
-		ctx.fillStyle = "#555";
-		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
-	}
+	// ImportableModule
+	override getImportArgsCount(): number { return 1; }
+	override importModule(buffer: number[]): AbstractModule { return new CouldownDespawnModule(buffer[0]); }
 
-	generateAnimator(_: Block) {
-		return null;
-	}
 
-	receive(reader: DataReader, block: Block, player: Player) {
+
+	receive(_reader: DataReader, _block: Block, _player: Player) {
 
 	}
 
-	send(writer: DataWriter, block: Block, player: Player) {
+	send(_writer: DataWriter, _block: Block, _player: Player) {
 
 	}
 
@@ -849,13 +989,25 @@ class CouldownDespawnModule implements SendableModule, DrawableModule<null> {
 	}
 }
 
-class TouchDespawnModule implements SendableModule, DrawableModule<null>, ArgumentModule {
+class TouchDespawnModule extends AbstractModule implements SendableModule, ArgumentModule, TouchDespawnModule {
 	playerOnly: boolean;
 
 	constructor(playerOnly = true) {
+		super();
 		this.playerOnly = playerOnly;
 	}
 
+	static {
+		AbstractModule.register(TouchDespawnModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return null;}
+	override getSendableInterface(){return this;}
+	override getCollisionInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getModuleName() {return "touchDespawn";}
+	
 	reset() {}
 
 	onTouch(entity: Entity, block: Block) {
@@ -866,18 +1018,14 @@ class TouchDespawnModule implements SendableModule, DrawableModule<null>, Argume
 		block.toRemove = true;
 	}
 
-	copy() {
+	override copy() {
 		return new TouchDespawnModule(this.playerOnly);
 	}
 
-	draw(block: Block, ctx: CanvasRenderingContext2D, _: null) {
-		ctx.fillStyle = "#555";
-		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
-	}
+	// ImportableModule
+	override getImportArgsCount(): number { return 1; }
+	override importModule(buffer: number[]): AbstractModule { return new TouchDespawnModule(!!buffer[0]); }
 
-	generateAnimator(_: Block) {
-		return null;
-	}
 
 	enumArgs() {
 		return [
@@ -894,11 +1042,11 @@ class TouchDespawnModule implements SendableModule, DrawableModule<null>, Argume
 	}
 
 
-	receive(reader: DataReader, block: Block, player: Player) {
+	receive(_reader: DataReader, _block: Block, _player: Player) {
 
 	}
 
-	send(writer: DataWriter, block: Block, player: Player) {
+	send(_writer: DataWriter, _block: Block, _player: Player) {
 
 	}
 
@@ -928,7 +1076,8 @@ class HealAnimator {
 	update(block: Block) {
 		// --- color transition ---
 		const factor = 0.05;
-		if (block.module.heal?.playerHasTouched) {
+		const heal = block.module.record.heal as HealModule;
+		if (heal.playerHasTouched) {
 			this.currentColor.r += (this.touchedColor.r - this.currentColor.r) * factor;
 			this.currentColor.g += (this.touchedColor.g - this.currentColor.g) * factor;
 			this.currentColor.b += (this.touchedColor.b - this.currentColor.b) * factor;
@@ -939,14 +1088,14 @@ class HealAnimator {
 		}
 
 		// --- shadow blur animation ---
-		if (!block.module.heal?.playerHasTouched) {
+		if (!heal.playerHasTouched) {
 			this.shadowPulse += 0.04;
 		} else {
 			this.shadowPulse = 0; // reset pulse when used
 		}
 
 		// --- particle generation ---
-		if (!block.module.heal?.playerHasTouched) {
+		if (!heal.playerHasTouched) {
 			this.production += block.w * block.h;
 			if (this.production > HealAnimator.PRODUCTION) {
 				this.production -= HealAnimator.PRODUCTION;
@@ -975,7 +1124,8 @@ class HealAnimator {
 	}
 
 	getShadowBlur(block: Block): number {
-		if (block.module.heal?.playerHasTouched) {
+		const heal = block.module.record.heal as HealModule;
+		if (heal.playerHasTouched) {
 			return this.baseShadowBlur * 0.1; // reduced glow when used
 		} else {
 			// animate pulse
@@ -986,17 +1136,29 @@ class HealAnimator {
 
 
 
-class HealModule implements SendableModule, DrawableModule<HealAnimator>, ArgumentModule {
+class HealModule extends AbstractModule implements SendableModule, DrawableModule<HealAnimator>, ArgumentModule, CollisionModule {
 	hp: number;
 	playerOnly: boolean;
 	touched = new Set<Entity>();
 	playerHasTouched = false;
 
 	constructor(hp: number, playerOnly = true) {
+		super();
 		this.hp = hp;
 		this.playerOnly = playerOnly;
 	}
 
+	static {
+		AbstractModule.register(HealModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getCollisionInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getModuleName() {return "heal";}
+	
 	reset() {
 		this.touched.clear();
 		this.playerHasTouched = false;
@@ -1018,11 +1180,15 @@ class HealModule implements SendableModule, DrawableModule<HealAnimator>, Argume
 		}
 	}
 
-	copy() {
+	override copy() {
 		const copy = new HealModule(this.hp, this.playerOnly);
 		copy.touched = new Set(this.touched);
 		return copy;
 	}
+
+	// ImportableModule
+	override getImportArgsCount(): number { return 2; }
+	override importModule(buffer: number[]): AbstractModule { return new HealModule(buffer[0], !!buffer[1]); }
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: HealAnimator) {
 		animator.update(block);
@@ -1068,6 +1234,10 @@ class HealModule implements SendableModule, DrawableModule<HealAnimator>, Argume
 		return new HealAnimator();
 	}
 
+	getDrawLevel(): number {
+		return 170;
+	}
+
 	enumArgs() {
 		return [
 			{ name: "hp", type: 'number' as const },
@@ -1086,11 +1256,11 @@ class HealModule implements SendableModule, DrawableModule<HealAnimator>, Argume
 	}
 
 
-	receive(reader: DataReader, block: Block, player: Player) {
+	receive(reader: DataReader, _block: Block, _player: Player) {
 		this.playerHasTouched = reader.readInt8() === 1;
 	}
 
-	send(writer: DataWriter, block: Block, player: Player) {
+	send(writer: DataWriter, _block: Block, _player: Player) {
 		writer.writeInt8(this.playerHasTouched ? 1:0);
 	}
 
@@ -1099,15 +1269,27 @@ class HealModule implements SendableModule, DrawableModule<HealAnimator>, Argume
 	}
 }
 
-class SpeedModule implements SendableModule, DrawableModule<null>, ArgumentModule {
+class SpeedModule extends AbstractModule implements SendableModule, DrawableModule<null>, ArgumentModule, FrameModule {
 	vx: number;
 	vy: number;
 
 	constructor(vx = 0, vy = 0) {
+		super();
 		this.vx = vx;
 		this.vy = vy;
 	}
 
+	static {
+		AbstractModule.register(SpeedModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return this;}
+	override getCollisionInterface() {return null;}
+	override getModuleName() {return "speed";}
+	
 	update(block: Block, room: Room) {
 		block.x += this.vx;
 		block.y += this.vy;
@@ -1134,7 +1316,11 @@ class SpeedModule implements SendableModule, DrawableModule<null>, ArgumentModul
 		this.vy = 0;
 	}
 
-	copy() {
+	override getImportArgsCount() {return 2;}
+	override importModule(buffer: number[]) {return new SpeedModule(buffer[0], buffer[1]);}
+
+
+	override copy() {
 		return new SpeedModule(this.vx, this.vy);
 	}
 
@@ -1145,6 +1331,10 @@ class SpeedModule implements SendableModule, DrawableModule<null>, ArgumentModul
 
 	generateAnimator(_: Block) {
 		return null;
+	}
+
+	getDrawLevel(): number {
+		return 110;
 	}
 
 	enumArgs() {
@@ -1180,27 +1370,44 @@ class SpeedModule implements SendableModule, DrawableModule<null>, ArgumentModul
 	}
  }
 
-class AccelerationModule implements SendableModule, DrawableModule<null>, ArgumentModule {
+class AccelerationModule extends AbstractModule implements SendableModule, DrawableModule<null>, ArgumentModule, FrameModule {
 	ax: number;
 	ay: number;
 
 	constructor(ax: number, ay: number) {
+		super();
 		this.ax = ax;
 		this.ay = ay;
 	}
 
-	update(block: Block) {
-		if (!block.module.speed) {
+	static {
+		AbstractModule.register(AccelerationModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return this;}
+	override getFrameInterface() {return this;}
+	override getCollisionInterface() {return null;}
+	override getModuleName() {return "acceleration";}
+	
+	update(block: Block, _room: Room) {
+		const sm = block.module.getModule<SpeedModule>("speed");
+		if (!sm) {
 			throw new Error("AccelerationModule requires SpeedModule to be used");
 		}
 
-		block.module.speed.vx += this.ax;
-		block.module.speed.vy += this.ay;
+		sm.vx += this.ax;
+		sm.vy += this.ay;
 	}
 
 	reset() {}
 
-	copy() {
+	override getImportArgsCount() {return 2;}
+	override importModule(buffer: number[]) {return new AccelerationModule(buffer[0], buffer[1]);}
+
+
+	override copy() {
 		return new AccelerationModule(this.ax, this.ay);
 	}
 
@@ -1211,6 +1418,10 @@ class AccelerationModule implements SendableModule, DrawableModule<null>, Argume
 
 	generateAnimator(_: Block) {
 		return null;
+	}
+
+	getDrawLevel(): number {
+		return 100;
 	}
 
 	enumArgs() {
@@ -1231,11 +1442,11 @@ class AccelerationModule implements SendableModule, DrawableModule<null>, Argume
 	}
 
 
-	receive(reader: DataReader, block: Block, _: Player) {
+	receive(_reader: DataReader, _block: Block, _: Player) {
 
 	}
 
-	send(writer: DataWriter, block: Block, _: Player) {
+	send(_writer: DataWriter, _block: Block, _: Player) {
 
 	}
 
@@ -1322,20 +1533,38 @@ class RestoreJumpAnimator {
 	}
 }
 
-class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAnimator>, ArgumentModule {
+class RestoreJumpModule extends AbstractModule implements SendableModule, DrawableModule<RestoreJumpAnimator>, ArgumentModule, CollisionModule {
 	gain: number;
 	helper: EntityCouldownHelper;
 
 	constructor(gain: number, liberationCouldown = 12) {
+		super();
 		this.gain = gain;
 		this.helper = new EntityCouldownHelper(liberationCouldown);
 	}
+
+	static {
+		AbstractModule.register(RestoreJumpModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getCollisionInterface() {return this;}
+	override getModuleName() {return "restoreJump";}
+	
+
+
+	override getImportArgsCount() {return 1;}
+	override importModule(buffer: number[]) {return new RestoreJumpModule(buffer[0]);}
+
 
 	reset() {
 		this.helper.reset();
 	}
 
-	onTouch(entity: Entity, frameNumber: number) {
+	onTouch(entity: Entity, _block: Block, frameNumber: number) {
 		if (!(entity instanceof Player)) return;
 
 		if (this.helper.track(entity, frameNumber)) {
@@ -1343,7 +1572,7 @@ class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAni
 		}
 	}
 
-	copy() {
+	override copy() {
 		return new RestoreJumpModule(this.gain);
 	}
 
@@ -1363,6 +1592,10 @@ class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAni
 		return new RestoreJumpAnimator();
 	}
 
+	getDrawLevel(): number {
+		return 140;
+	}
+
 	enumArgs() {
 		return [
 			{ name: "gain", type: 'number' as const },
@@ -1377,11 +1610,11 @@ class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAni
 		if (name === "gain") {this.gain = value;}
 	}
 
-	receive(reader: DataReader, block: Block, _: Player) {
+	receive(_reader: DataReader, _block: Block, _: Player) {
 
 	}
 
-	send(writer: DataWriter, block: Block, _: Player) {
+	send(_writer: DataWriter, _block: Block, _: Player) {
 
 	}
 
@@ -1391,16 +1624,33 @@ class RestoreJumpModule implements SendableModule, DrawableModule<RestoreJumpAni
 }
 
 
-class RotationModule implements SendableModule, ArgumentModule {
+class RotationModule extends AbstractModule implements SendableModule, ArgumentModule, FrameModule {
 	start: number;
 	speed: number;
 	angle: number;
 
 	constructor(start: number, speed: number) {
+		super();
 		this.start = start;
 		this.speed = speed;
 		this.angle = start;
 	}
+
+	static {
+		AbstractModule.register(RotationModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return null;}
+	override getSendableInterface(){return this;}
+	override getCollisionInterface() {return null;}
+	override getFrameInterface() {return this;}
+	override getModuleName() {return "rotation";}
+	
+
+	override getImportArgsCount() {return 2;}
+	override importModule(buffer: number[]) {return new SpeedModule(buffer[0], buffer[1]);}
+
 
 	update() {
 		this.angle += this.speed;
@@ -1416,7 +1666,7 @@ class RotationModule implements SendableModule, ArgumentModule {
 		return ((this.angle % twoPi) + twoPi) % twoPi;
 	}
 
-	copy() {
+	override copy() {
 		const copy = new RotationModule(this.start, this.speed);
 		copy.angle = this.angle;
 		return copy;
@@ -1440,11 +1690,11 @@ class RotationModule implements SendableModule, ArgumentModule {
 	}
 
 
-	receive(reader: DataReader, block: Block, _: Player) {
+	receive(reader: DataReader, _block: Block, _: Player) {
 		this.angle = reader.readFloat32();
 	}
 
-	send(writer: DataWriter, block: Block, _: Player) {
+	send(writer: DataWriter, _block: Block, _: Player) {
 		writer.writeFloat32(this.angle);
 	}
 
@@ -1474,12 +1724,35 @@ class GoalAnimator {
 	}
 }
 
-class GoalModule implements DrawableModule<GoalAnimator>, ArgumentModule {
+class GoalModule extends AbstractModule implements DrawableModule<GoalAnimator>, ArgumentModule, CollisionModule {
 	type: number;
 
 	constructor(type: number) {
+		super();
 		this.type = type;
 	}
+
+	static {
+		AbstractModule.register(GoalModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return null;}
+	override getCollisionInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getModuleName() {return "goal";}
+	
+	override reset() {
+	}
+
+	override copy(): AbstractModule {
+		return new GoalModule(this.type);
+	}
+
+	override getImportArgsCount() {return 1;}
+	override importModule(buffer: number[]) {return new GoalModule(buffer[0]);}
+
 
 	draw(block: Block, ctx: CanvasRenderingContext2D, animator: GoalAnimator): void {
 		animator.time += 0.015;
@@ -1510,6 +1783,10 @@ class GoalModule implements DrawableModule<GoalAnimator>, ArgumentModule {
 		return new GoalAnimator();
 	}
 
+	getDrawLevel(): number {
+		return 190;
+	}
+
 	enumArgs() {
 		return [
 			{ name: "type", type: 'number' as const },
@@ -1524,29 +1801,55 @@ class GoalModule implements DrawableModule<GoalAnimator>, ArgumentModule {
 		if (name === "type") {this.type = value;}
 	}
 
+	onTouch(entity: Entity, _block: Block, _frameNumber: number): void {
+		if (!(entity instanceof Player)) return;
+		entity.goalComplete = this.type;
+	}
 
 }
 
 
 
 
-class TextModule implements DrawableModule<void>, ArgumentModule {
+class TextModule extends AbstractModule implements DrawableModule<void>, ArgumentModule {
 	text: string;
 	fontSize: number;
 
 
 	constructor(text = "Some text...", fontSize = 100) {
+		super();
 		this.text = text;
 		this.fontSize = fontSize;
 	}
 
-	copy() {
+	static {
+		AbstractModule.register(TextModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return null;}
+	override getFrameInterface() {return null;}
+	override getCollisionInterface() {return null;}
+	override getModuleName() {return "text";}
+	
+	override getImportArgsCount() {return -1;}
+	override importModule() {return null;}
+
+	override reset() {
+	}
+
+	override copy() {
 		return new TextModule(this.text, this.fontSize);
 	}
 
 	
 
 	generateAnimator(_: Block): void {}
+	
+	getDrawLevel(): number {
+		return 200;
+	}
 	
 	draw(__: Block, ctx: CanvasRenderingContext2D, _: void) {
 		ctx.font = this.fontSize + "px monospace";
@@ -1596,13 +1899,14 @@ class TextModule implements DrawableModule<void>, ArgumentModule {
 
 
 
-class SpawnerModule {
+class SpawnerModule extends AbstractModule  {
 	readonly rythm: number;
 	couldown: number;
 	blocks: BlockBuilder[];
 	index = 0;
 
 	constructor(rythm: number, startInstantly: boolean, blocks: BlockBuilder[]) {
+		super();
 		this.rythm = rythm;
 		this.couldown = startInstantly ? 1 : rythm;
 		this.blocks = blocks;
@@ -1623,7 +1927,12 @@ class SpawnerModule {
 		}
 	}
 
-	copy(): SpawnerModule {
+	override reset() {
+		this.index = 0;
+		this.couldown = 0;
+	}
+
+	override copy(): SpawnerModule {
 		const copy = new SpawnerModule(
 			this.rythm,
 			false,
@@ -1634,6 +1943,17 @@ class SpawnerModule {
 
 		return copy;
 	}
+
+
+	override getArgumentInterface() { return null;}
+	override getDrawableInterface() { return null;}
+	override getSendableInterface() { return null;}
+	override getFrameInterface() { return null;}
+	override getCollisionInterface() { return null;}
+	override getImportArgsCount() { return -1;}
+	override importModule(_buffer: number[]) { return null;}
+	override getModuleName() { return "spawner";}
+
  }
 
 
@@ -1691,138 +2011,95 @@ export class BlockBuilder {
 
 
 
-
-
+export type BlockModuleRecord = Record<string, AbstractModule | null>;
 
 export class BlockModule {
-	moving?: MovingModule;
-	rotation?: RotationModule;
-	couldownedAttack?: CouldownedAttackModule;
-	continuousAttack?: ContinuousAttackModule;
-	bounce?: BounceModule;
-	kill?: KillModule;
-	heal?: HealModule;
-	touchDespawn?: TouchDespawnModule;
-	restoreJump?: RestoreJumpModule;
-	couldownDespawn?: CouldownDespawnModule;
-	spawner?: SpawnerModule;
-	speed?: SpeedModule;
-	acceleration?: AccelerationModule;
-	goal?: GoalModule;
-	text?: TextModule;
-
-	checkCollision: boolean;
+	record: BlockModuleRecord;
 	runInAdjacentRoom: boolean;
+	checkCollision: boolean;
 
-	constructor(args: {
-		moving?: MovingModule,
-		rotation?: RotationModule,
-		couldownedAttack?: CouldownedAttackModule,
-		continuousAttack?: ContinuousAttackModule,
-		bounce?: BounceModule,
-		kill?: KillModule,
-		heal?: HealModule,
-		touchDespawn?: TouchDespawnModule,
-		restoreJump?: RestoreJumpModule,
-		couldownDespawn?: CouldownDespawnModule,
-		spawner?: SpawnerModule,
-		speed?: SpeedModule,
-		acceleration?: AccelerationModule,
-		runInAdjacentRoom?: boolean,
-		goal?: number,
-		text?: TextModule
-	}) {
-		this.moving = args.moving;
-		this.rotation = args.rotation;
-		this.couldownedAttack = args.couldownedAttack;
-		this.continuousAttack = args.continuousAttack;
-		this.bounce = args.bounce;
-		this.kill = args.kill;
-		this.heal = args.heal;
-		this.touchDespawn = args.touchDespawn;
-		this.restoreJump = args.restoreJump;
-		this.couldownDespawn = args.couldownDespawn;
-		this.spawner = args.spawner;
-		this.speed = args.speed;
-		this.acceleration = args.acceleration;
-		this.text = args.text;
-
-		if (this.acceleration && !this.speed) {
-			this.speed = new SpeedModule(0, 0);
+	constructor(args: BlockModuleRecord) {
+		const record: BlockModuleRecord = {};
+		this.record = record;
+		for (let i in args) {
+			record[i] = args[i];
 		}
 
-		this.runInAdjacentRoom = args.runInAdjacentRoom ? true : false;
-		if (args.goal) {
-			this.goal = new GoalModule(args.goal);
+		if (args && typeof args === "object") {
+			for (const k in args) {
+				if (k === 'runInAdjacentRoom') continue;
+				this.record[k] = (args as any)[k] ?? null;
+			}
+			this.runInAdjacentRoom = !!(args as any).runInAdjacentRoom;
+		} else {
+			this.runInAdjacentRoom = false;
+		}
+
+		if (this.record.acceleration && !this.record.speed) {
+			this.record.speed = new SpeedModule(0, 0);
 		}
 
 		this.checkCollision = [
-			args.couldownedAttack,
-			args.continuousAttack,
-			args.bounce,
-			args.kill,
-			args.heal,
-			args.touchDespawn,
-			args.restoreJump,
-			args.goal
-		].some(x => x);
+			this.record.couldownedAttack,
+			this.record.continuousAttack,
+			this.record.bounce,
+			this.record.kill,
+			this.record.heal,
+			this.record.touchDespawn,
+			this.record.restoreJump,
+			this.record.goal
+		].some(x => !!x);
+	}
+
+	getModule<T>(name?: string): T | null {
+		if (!name) return null;
+		return (this.record[name] as unknown as T) ?? null;
 	}
 
 	copy() {
-		return new BlockModule({
-			moving: this.moving?.copy(),
-			rotation: this.rotation?.copy(),
-			couldownedAttack: this.couldownedAttack?.copy(),
-			continuousAttack: this.continuousAttack?.copy(),
-			bounce: this.bounce?.copy(),
-			kill: this.kill?.copy(),
-			heal: this.heal?.copy(),
-			touchDespawn: this.touchDespawn?.copy(),
-			restoreJump: this.restoreJump?.copy(),
-			couldownDespawn: this.couldownDespawn?.copy(),
-			spawner: this.spawner?.copy(),
-			speed: this.speed?.copy(),
-			acceleration: this.acceleration?.copy(),
-			text: this.text?.copy(),
-			runInAdjacentRoom: this.runInAdjacentRoom,
-			goal: this.goal?.type
-		});
+		const out = {} as Record<string, AbstractModule | null>;
+
+		for (const key in this.record) {
+			out[key] = this.record[key]?.copy() ?? null;
+		}
+
+		return new BlockModule(out);
 	}
 
 
-	getDrawModule(level: number): DrawableModule<any> | null {
-		const list = [
-			this.text,
-			this.goal,
-			this.kill,
-			this.heal,
-			this.couldownedAttack,
-			this.continuousAttack,
-			this.restoreJump,
-			this.bounce,
-			this.moving,
-			this.speed,
-			this.acceleration
-		];
+	getDrawModule(): DrawableModule<any> | null {
+		let bestModule: DrawableModule<any> | null = null;
+		let bestLevel: number = -Infinity;
 
-		let idx = level;
-		for (let i of list) {
-			if (i) {
-				if (idx === 0)
-					return i;
-				idx--;
+
+		for (const key in this.record) {
+			const module = this.record[key];
+			if (!module) continue;
+
+			const drawable = module.getDrawableInterface();
+			if (!drawable) continue;
+
+			const level = drawable.getDrawLevel();
+			if (level > bestLevel) {
+				bestLevel = level;
+				bestModule = drawable;
 			}
 		}
 
-		return null;
+		return bestModule;
 	}
 
 	send(writer: DataWriter, block: Block, player: Player) {
 		const id = block.id;
 		let flag = 0;
-		for (let name of SENDABLE_MODULE_NAMES) {
+		for (let module of AbstractModule.getRegisteredModules()) {
+			const name = module.prototype.getModuleName();
 			const key: keyof typeof this = name;
-			const value = this[key] as SendableModule | undefined;
+			const obj = (this[key] as AbstractModule | undefined);
+			if (!obj)
+				continue;
+
+			const value = obj.getSendableInterface();
 			if (value) {
 				flag |= 1 << value.getSendFlag();
 			}
@@ -1834,9 +2111,14 @@ export class BlockModule {
 		writer.writeInt32(id);
 		writer.writeInt32(flag);
 
-		for (let name of SENDABLE_MODULE_NAMES) {
+		for (let module of AbstractModule.getRegisteredModules()) {
+			const name = module.prototype.getModuleName();
 			const key: keyof typeof this = name;
-			const value = this[key] as SendableModule | undefined;
+			const obj = (this[key] as AbstractModule | undefined);
+			if (!obj)
+				continue;
+
+			const value = obj.getSendableInterface();
 			if (value) {
 				value.send(writer, block, player);
 			}
@@ -1850,17 +2132,65 @@ export class BlockModule {
 			if ((flag & mask) === 0)
 				continue;
 
-			for (let name of SENDABLE_MODULE_NAMES) {
+			for (let module of AbstractModule.getRegisteredModules()) {
+				const name = module.prototype.getModuleName();
 				const key: keyof typeof this = name;
-				const value = this[key] as SendableModule | undefined;
+				const obj = (this[key] as AbstractModule | undefined);
+				if (!obj)
+					continue;
+
+				const value = obj.getSendableInterface();
 				if (value && (value?.getSendFlag() === counter)) {
 					value.receive(reader, block, player);
 				}
 			}
 
 		}
-		
+	}
 
+	update(block: Block, room: Room) {
+		for (const key in this.record) {
+			const module = this.record[key];
+			if (!module) continue;
+
+			const frameModule = module.getFrameInterface();
+			if (frameModule) {
+				frameModule.update(block, room);
+			}
+		}
+	}
+
+	reset() {
+		for (const key in this.record) {
+			const module = this.record[key];
+			if (!module) continue;
+			module.reset();
+		}
+	}
+
+	handleTouch(entity: Entity, block: Block, game: Game) {
+		const entitySize = entity.getSize();
+		if (!physics.checkRectRectCollision(
+			{x: block.x, y: block.y, w: block.w, h: block.h, r: block.getRotation()},
+			{x: entity.x, y: entity.y, w: entitySize.x, h: entitySize.y, r: entity.getRotation()},
+		)) {
+			return; // no collision
+		}
+
+		for (const key in this.record) {
+			const module = this.record[key];
+			if (!module) continue;
+
+			const collisionModule = module.getCollisionInterface();
+			if (collisionModule) {
+				collisionModule.onTouch(entity, block, game.frame);
+			}
+		}
+
+		if (this.record.goal) {
+			const goal = this.record.goal as any;
+			game.goalComplete = goal.type;
+		}
 	}
 }
 
@@ -1910,7 +2240,7 @@ export class Block {
 		this.start_h = h;
 
 		this.module = module;
-		this.drawMode = drawModule ? module.getDrawModule(0) : null;
+		this.drawMode = drawModule ? module.getDrawModule() : null;
 
 		if (this.drawMode) {
 			this.drawAnimator = this.drawMode.generateAnimator(this);
@@ -1920,29 +2250,8 @@ export class Block {
 	}
 
 	getRotation() {
-		return this.module.rotation ? this.module.rotation.getAngle() : 0;
-	}
-
-	handleTouch(entity: Entity, game: Game) {
-		const entitySize = entity.getSize();
-		if (!physics.checkRectRectCollision(
-			{x: this.x, y: this.y, w: this.w, h: this.h, r: this.getRotation()},
-			{x: entity.x, y: entity.y, w: entitySize.x, h: entitySize.y, r: entity.getRotation()},
-		)) {
-			return; // collision
-		}
-
-		this.module.couldownedAttack?.onTouch(entity);
-		this.module.continuousAttack?.onTouch(entity);
-		this.module.bounce?.onTouch(entity, game.frame);
-		this.module.kill?.onTouch(entity);
-		this.module.heal?.onTouch(entity);
-		this.module.touchDespawn?.onTouch(entity, this);
-		this.module.restoreJump?.onTouch(entity, game.frame);
-
-		if (this.module.goal) {
-			game.goalComplete = this.module.goal.type;
-		}
+		const rm = this.module.getModule<RotationModule>("rotation");
+		return rm ? rm.getAngle() : 0;
 	}
 
 	init(room: Room) {
@@ -1950,20 +2259,19 @@ export class Block {
 	}
 
 	frame(game: Game, room: Room, blf: BlockLifeHandler): void {
-		// Frame
-		this.module.moving?.update(this, room);
-		this.module.speed?.update(this, room);
-		this.module.acceleration?.update(this);
-		this.module.rotation?.update();
-		this.module.couldownedAttack?.update(this);
-		this.module.couldownDespawn?.update(this);
-		this.module.spawner?.update(this, room, blf);
-		this.module.bounce?.update();
+		// Frame updates
+		this.module.update(this, room);
+
+		if (this.module.record.spawner) {
+			const spawner = this.module.record.spawner as SpawnerModule;
+			spawner.update(this, room, blf);
+		}
+
 
 		// Collisions
 		if (this.module.checkCollision) {
 			for (let player of game.players) {
-				this.handleTouch(player, game);
+				this.module.handleTouch(player, this, game);
 			}
 
 			if (this.toRemove && !this.fromSpawner) {
@@ -1979,18 +2287,7 @@ export class Block {
 		this.w = this.start_w;
 		this.h = this.start_h;
 
-		this.module.moving?.reset();
-		this.module.couldownedAttack?.reset();
-		this.module.rotation?.reset();
-		this.module.continuousAttack?.reset();
-		this.module.bounce?.reset();
-		this.module.kill?.reset();
-		this.module.heal?.reset();
-		this.module.speed?.reset();
-		this.module.acceleration?.reset();
-		this.module.touchDespawn?.reset();
-		this.module.restoreJump?.reset();
-		this.module.couldownDespawn?.reset();
+		this.module.reset();
 	}
 
 	deepCopy() {
@@ -2005,8 +2302,9 @@ export class Block {
 
 		ctx.save();
 		ctx.translate(this.x, this.y);
-		if (this.module.rotation) {
-			ctx.rotate(this.module.rotation.getAngle());
+		const rm = this.module.getModule<RotationModule>("rotation");
+		if (rm) {
+			ctx.rotate(rm.getAngle());
 		}
 		
 		if (this.drawMode) {
@@ -2026,9 +2324,10 @@ export class Block {
 
 
 	cancelRotation(ctx: CanvasRenderingContext2D, callback: any) {
-		if (this.module.rotation) {
+		const rm = this.module.getModule<RotationModule>("rotation");
+		if (rm) {
 			ctx.save();
-			ctx.rotate(-this.module.rotation.getAngle());
+			ctx.rotate(-rm.getAngle());
 			callback();
 			ctx.restore();
 		} else {
@@ -2037,6 +2336,9 @@ export class Block {
 		}
 	}
 }
+
+
+
 
 export const bmodules = {
 	MovingPath,
@@ -2066,16 +2368,3 @@ export const bmodules = {
 
 
 
-export const SENDABLE_MODULE_NAMES = [
-	"moving" as const, 
-	"couldownedAttack" as const, 
-	"continuousAttack" as const, 
-	"bounce" as const, 
-	"couldownDespawn" as const ,
-	"touchDespawn" as const, 
-	"heal" as const, 
-	"speed" as const, 
-	"acceleration" as const, 
-	"restoreJump" as const, 
-	"rotation" as const, 
-];

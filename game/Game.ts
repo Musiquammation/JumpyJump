@@ -298,8 +298,7 @@ export class Game {
 			roomSet.add(r);
 
 		stage.frame(this, roomSet);
-
-
+		
 		if (player.isAlive()) {
 			player.handleRoom(stage, this.camera);
 		}
@@ -310,6 +309,14 @@ export class Game {
 
 			if (player.respawnCouldown <= Player.RESPAWN_COULDOWN)
 				this.gameChrono++;
+		}
+
+		// Check for goalComplete
+		for (let p of this.players) {
+			if (p.goalComplete) {
+				this.goalComplete = p.goalComplete;
+				break;
+			}
 		}
 	}
 

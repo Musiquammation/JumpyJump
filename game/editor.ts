@@ -1083,7 +1083,7 @@ export function startEditor() {
 
 			// Replace the module entirely
 			block.module = newModule;
-			block.drawMode = newModule.getDrawModule(0);
+			block.drawMode = newModule.getDrawModule();
 			if (block.drawMode) {
 				block.drawAnimator = block.drawMode.generateAnimator(block);
 			}
