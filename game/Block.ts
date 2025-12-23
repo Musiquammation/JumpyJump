@@ -1362,13 +1362,13 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 	}
 
 	getArg(name: string) {
-		if (name === "vx") return this.vx;
-		if (name === "vy") return this.vy;
+		if (name === "vx") return this.start_vx;
+		if (name === "vy") return this.start_vy;
 	}
 	
 	setArg(name: string, value: any) {
-		if (name === "vx") {this.vx = value;}
-		if (name === "vy") {this.vy = value;}
+		if (name === "vx") {this.start_vx = value;}
+		if (name === "vy") {this.start_vy = value;}
 	}
 
 	moduleEditorName() {return "Speed";}
