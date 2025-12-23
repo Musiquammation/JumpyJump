@@ -6,7 +6,7 @@
 		{"filename": "prove_yourself.txt", 		"hash": "92c329f66323fc13", 	"name": "Prove yourself", 		"author": "Musiquammation",		"version": 3},
 		{"filename": "extreme_climb.txt", 		"hash": "75b6e71fde8f69da", 	"name": "Extreme climb", 		"author": "Bastidou", 			"version": 3},
 		{"filename": "infested_tutorial.txt", 	"hash": "73c76c2415d389d3", 	"name": "Infested tutorial", 	"author": "Musiquammation", 	"version": 2},
-		{"filename": "bounce_to_sky.txt", 		"hash": "389e942e10354c46", 	"name": "Bounce to sky", 		"author": "Musiquammation",		"version": 2},
+		{"filename": "bounce_to_sky.txt", 		"hash": "389e942e10354c46", 	"name": "Bounce to sky", 		"author": "Musiquammation",		"version": 3},
 		{"filename": "infinity.txt",	 		"hash": "b5636b1cab1a8970", 	"name": "Infinity", 			"author": "Cafki", 				"version": 2}
 	]}
 ]
