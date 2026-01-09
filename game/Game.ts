@@ -149,7 +149,7 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.6.0";
+	static GAME_VERSION = "1.6.1";
 
 	static SPECIAL_ACTIONS = [
 		"Open file",
