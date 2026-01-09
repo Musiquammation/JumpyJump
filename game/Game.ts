@@ -37,7 +37,19 @@ class State {
 		switch (this.type) {
 		case 'playToWin':
 			if (this.chrono >= State.PLAY_TO_WIN_DURATION) {
-				this.set('win');
+				if (this.game.inChain) {
+					this.game.currentLevel++;
+					const length = this.game.stageList[this.game.currentWorld].length;
+					if (this.game.currentLevel >= length) {
+						this.game.inChain = false;
+						this.set('win');
+					} else {
+						this.game.directStart();
+					}
+					
+				} else {
+					this.set('win');
+				}
 			}
 			break;
 
@@ -165,6 +177,7 @@ export class Game {
 	stageName: string | null = null;
 	clientNet: ClientNet | null = null;
 	networkAddress: string | null;
+	inChain = false;
 
 	constructor(
 		data: GameClassicContructor | GameServConstructor,
@@ -203,6 +216,19 @@ export class Game {
 
 	
 
+	directStart() {
+		this.player!.inputHandler!.kill('debug');
+		const weakStage = this.stageList[this.currentWorld][this.currentLevel];
+		getElementById("loadingIcon")?.classList.remove("hidden");
+		weakStage.load().then(({stage, name}) => {
+			this.state.set('play');
+			this.startLevel(stage, name);
+		}).catch(e => {
+			console.error(e);
+		}).finally(() => {
+			getElementById("loadingIcon")?.classList.add("hidden");
+		})
+	}
 
 	startLevel(stage: Stage, stageName: string) {
 		this.stage = stage;
@@ -262,7 +288,6 @@ export class Game {
 
 	playLogic_solo(player: Player, checkComplete: boolean) {
 		const resetStage = player.reduceCouldown();
-
 
 		const inputHandler = this.player!.inputHandler!;
 		if (checkComplete) {
@@ -453,16 +478,7 @@ export class Game {
 				inputHandler.kill('enter');
 				
 			} else {
-				const weakStage = this.stageList[this.currentWorld][this.currentLevel];
-				getElementById("loadingIcon")?.classList.remove("hidden");
-				weakStage.load().then(({stage, name}) => {
-					this.state.set('play');
-					this.startLevel(stage, name);
-				}).catch(e => {
-					console.error(e);
-				}).finally(() => {
-					getElementById("loadingIcon")?.classList.add("hidden");
-				})
+				this.directStart();
 			}
 		}
 
@@ -502,6 +518,12 @@ export class Game {
 				inputHandler.first('up') &&
 				this.currentWorld > 0
 			) {this.currentWorld--;}
+
+			if (inputHandler.first('debug')) {
+				this.inChain = true;
+				this.currentLevel = 0;
+				this.directStart();
+			}
 		}
 	}
 
@@ -706,7 +728,9 @@ export class Game {
 			for (let p of this.players) {p.respawn(stage.firstRoom);}
 			this.camera.reset();
 			this.validRun = true;
-			this.gameChrono = 0;
+			if (!this.inChain) {
+				this.gameChrono = 0;
+			}
 			this.goalComplete = 0;
 		}
 	}
@@ -862,6 +886,8 @@ export class Game {
 
 					}
 				}
+
+				ctx.fillText("Press P to start an %any", Game.WIDTH_2, 800);
 			}
 
 			// Show version

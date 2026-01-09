@@ -2431,7 +2431,7 @@ export function startEditor() {
 
 		const ZF = 1.12;
 		const zoomFactor = e.deltaY < 0 ? ZF : 1 / ZF;
-		camera.zoom = clamp(camera.zoom * zoomFactor, 0.2, 8);
+		camera.zoom = clamp(camera.zoom * zoomFactor, 0.02, 30);
 	}, { passive: false });
 
 	// Disable context menu on right click
