@@ -1,5 +1,6 @@
+"use strict";
 (() => {
-  // game/physics.ts
+  // src/physics.ts
   var physics = {
     checkRectRectCollision(a, b) {
       const dot = (u, v) => u.x * v.x + u.y * v.y;
@@ -88,13 +89,6 @@
         const projX = x1 + t * dx;
         const projY = y1 + t * dy;
         return Math.hypot(px - projX, py - projY);
-      }
-      function isPointInRect(px, py, rect) {
-        const cos = Math.cos(-rect.r);
-        const sin = Math.sin(-rect.r);
-        const localX = (px - rect.x) * cos - (py - rect.y) * sin;
-        const localY = (px - rect.x) * sin + (py - rect.y) * cos;
-        return Math.abs(localX) <= rect.w / 2 && Math.abs(localY) <= rect.h / 2;
       }
       function doRectanglesOverlap(r1, r2) {
         const corners12 = getRectCorners(r1);
@@ -208,43 +202,11 @@
     }
   };
 
-  // game/GAME_GRAVITY.ts
+  // src/GAME_GRAVITY.ts
   var GAME_GRAVITY = 0.9;
 
-  // game/LeveledBar.ts
-  var LelevedBar = class _LelevedBar {
-    static FAST_DURATION = 10;
-    // frames
-    static SLOW_DURATION = 60;
-    // frames
-    orientation;
-    x;
-    y;
-    w;
-    h;
-    sections;
-    background;
-    borderColor;
-    animColor;
-    value;
-    valueReference;
-    timer;
-    animDuration;
-    mode;
-    // Membres ajoutés pour gérer les animations
-    fastValue;
-    // Valeur qui évolue rapidement
-    slowValue;
-    // Valeur qui évolue lentement
-    fastTimer;
-    // Timer pour l'animation rapide
-    slowTimer;
-    // Timer pour l'animation lente
-    targetValue;
-    // Valeur cible
-    fastStartValue;
-    // Valeur de départ pour l'animation rapide
-    slowStartValue;
+  // src/LeveledBar.ts
+  var _LelevedBar = class _LelevedBar {
     // Valeur de départ pour l'animation lente
     constructor(orientation, initialValue, x, y, w, h, sections, animColor, background, borderColor) {
       this.orientation = orientation;
@@ -422,18 +384,20 @@
       }
     }
   };
+  _LelevedBar.FAST_DURATION = 10;
+  // frames
+  _LelevedBar.SLOW_DURATION = 60;
+  var LelevedBar = _LelevedBar;
 
-  // game/Vector.ts
+  // src/Vector.ts
   var Vector = class {
-    x;
-    y;
     constructor(x, y) {
       this.x = x;
       this.y = y;
     }
   };
 
-  // game/Entity.ts
+  // src/Entity.ts
   function drawTriangle(ctx, x, y, vx, vy, w, h, fillColor, strokeColor) {
     const targetAngle = Math.atan2(vy, vx);
     ctx.save();
@@ -454,13 +418,8 @@
     ctx.restore();
   }
   var Entity = class {
-    x;
-    y;
-    hp;
-    initialHp;
-    currentRoom = null;
-    hpBar;
     constructor(x, y, hp) {
+      this.currentRoom = null;
       this.x = x;
       this.y = y;
       this.hp = hp;
@@ -527,27 +486,14 @@
     bounce(_factor, _cost) {
     }
   };
-  var HumanFollower = class _HumanFollower extends Entity {
-    static SPEED_FACTOR = 0.1;
-    static MAX_SPEED = 15;
-    static JUMP = 25;
-    static DASH = 60;
-    static MIN_VY = 10;
-    static DIST_ACTIVATION = 200;
-    static HAPPY_TIME = 20;
-    static FORGET_DIST = 700;
-    jumpCouldown = 0;
-    target = null;
-    vx = 0;
-    vy = 0;
-    damages;
-    intialJumps;
-    jumps;
-    evil;
-    happyTime = -1;
-    jumpBar;
+  var _HumanFollower = class _HumanFollower extends Entity {
     constructor(x, y, hp, damages, jumps, evil) {
       super(x, y, hp);
+      this.jumpCouldown = 0;
+      this.target = null;
+      this.vx = 0;
+      this.vy = 0;
+      this.happyTime = -1;
       this.vy = -_HumanFollower.JUMP;
       this.intialJumps = jumps;
       this.jumps = jumps;
@@ -682,56 +628,53 @@
       }
     }
   };
+  _HumanFollower.SPEED_FACTOR = 0.1;
+  _HumanFollower.MAX_SPEED = 15;
+  _HumanFollower.JUMP = 25;
+  _HumanFollower.DASH = 60;
+  _HumanFollower.MIN_VY = 10;
+  _HumanFollower.DIST_ACTIVATION = 200;
+  _HumanFollower.HAPPY_TIME = 20;
+  _HumanFollower.FORGET_DIST = 700;
+  var HumanFollower = _HumanFollower;
 
-  // game/Player.ts
-  var Player = class _Player extends Entity {
-    static DASH = 20;
-    static JUMP = 25;
-    static MAX_SPEED = 25;
-    static SPEED_INC = 3;
-    static SPEED_DEC = 10;
-    static JUMP_COUNT = 3;
-    static HP = 3;
-    static JUMP_HP_COST = 1;
-    static RESPAWN_COULDOWN = 30;
-    static DEATH_ANIM_COULDOWN = 60;
-    static SIZE = 40;
-    static SIZE_2 = _Player.SIZE / 2;
-    vx = 0;
-    vy = 0;
-    eternalMode = false;
-    protectFromEjection = false;
-    goalComplete = 0;
-    jumps = _Player.JUMP_COUNT;
-    respawnCouldown = -1;
-    visualRespawnCouldown = -1;
-    inputHandler = null;
-    jump_leveledBar = new LelevedBar(
-      "vertical",
-      1,
-      1500,
-      150,
-      30,
-      600,
-      ["#FFA800", "#FFD000", "#FFF200"],
-      "#fffdceff",
-      null,
-      "black"
-    );
-    hp_leveledBar = new LelevedBar(
-      "horizontal",
-      1,
-      300,
-      100,
-      1e3,
-      30,
-      ["#ff0044", "#ff002f", "#ff001a"],
-      "#ffb1c5",
-      null,
-      "black"
-    );
+  // src/Player.ts
+  var _Player = class _Player extends Entity {
     constructor() {
       super(0, 0, _Player.HP);
+      this.vx = 0;
+      this.vy = 0;
+      this.eternalMode = false;
+      this.protectFromEjection = false;
+      this.goalComplete = 0;
+      this.jumps = _Player.JUMP_COUNT;
+      this.respawnCouldown = -1;
+      this.visualRespawnCouldown = -1;
+      this.inputHandler = null;
+      this.jump_leveledBar = new LelevedBar(
+        "vertical",
+        1,
+        1500,
+        150,
+        30,
+        600,
+        ["#FFA800", "#FFD000", "#FFF200"],
+        "#fffdceff",
+        null,
+        "black"
+      );
+      this.hp_leveledBar = new LelevedBar(
+        "horizontal",
+        1,
+        300,
+        100,
+        1e3,
+        30,
+        ["#ff0044", "#ff002f", "#ff001a"],
+        "#ffb1c5",
+        null,
+        "black"
+      );
       this.respawn(null);
     }
     getSize() {
@@ -985,10 +928,22 @@
       }
     }
   };
+  _Player.DASH = 20;
+  _Player.JUMP = 25;
+  _Player.MAX_SPEED = 25;
+  _Player.SPEED_INC = 3;
+  _Player.SPEED_DEC = 10;
+  _Player.JUMP_COUNT = 3;
+  _Player.HP = 3;
+  _Player.JUMP_HP_COST = 1;
+  _Player.RESPAWN_COULDOWN = 30;
+  _Player.DEATH_ANIM_COULDOWN = 60;
+  _Player.SIZE = 40;
+  _Player.SIZE_2 = _Player.SIZE / 2;
+  var Player = _Player;
 
-  // game/Block.ts
-  var AbstractModule = class _AbstractModule {
-    static registry = [];
+  // src/Block.ts
+  var _AbstractModule = class _AbstractModule {
     static register(module) {
       _AbstractModule.registry.push(module);
     }
@@ -996,10 +951,9 @@
       return _AbstractModule.registry;
     }
   };
+  _AbstractModule.registry = [];
+  var AbstractModule = _AbstractModule;
   var MovingPath = class {
-    dx;
-    dy;
-    duration;
     // -1 means infinite
     constructor(dx, dy, duration = -1) {
       this.dx = dx;
@@ -1008,9 +962,8 @@
     }
   };
   var EntityCouldownHelper = class {
-    liberationCouldown;
-    usages = /* @__PURE__ */ new Map();
     constructor(liberationCouldown) {
+      this.usages = /* @__PURE__ */ new Map();
       this.liberationCouldown = liberationCouldown;
     }
     track(entity, frameNumber) {
@@ -1022,14 +975,7 @@
       this.usages.clear();
     }
   };
-  var MovingModule = class _MovingModule extends AbstractModule {
-    patterns;
-    times;
-    // -1 means infinite
-    currentPattern;
-    currentTime;
-    loopCount;
-    active;
+  var _MovingModule = class _MovingModule extends AbstractModule {
     constructor(patterns, times) {
       super();
       this.patterns = patterns;
@@ -1095,9 +1041,6 @@
     getDrawLevel() {
       return 120;
     }
-    static {
-      AbstractModule.register(_MovingModule);
-    }
     getArgumentInterface() {
       return null;
     }
@@ -1134,11 +1077,9 @@
       return 0;
     }
   };
+  AbstractModule.register(_MovingModule);
+  var MovingModule = _MovingModule;
   var CouldownedAttackAnimator = class {
-    spikes_x;
-    spikes_y;
-    spikes_w;
-    spikes_h;
     constructor(w, h, defaultSpike_w = 32, defaultSpike_h = 32) {
       this.spikes_x = Math.max(1, Math.ceil(w / defaultSpike_w));
       this.spikes_w = w / this.spikes_x;
@@ -1146,19 +1087,13 @@
       this.spikes_h = h / this.spikes_y;
     }
   };
-  var CouldownedAttackModule = class _CouldownedAttackModule extends AbstractModule {
-    damages;
-    duration;
-    playerOnly;
-    couldowns = /* @__PURE__ */ new Map();
+  var _CouldownedAttackModule = class _CouldownedAttackModule extends AbstractModule {
     constructor(damages, duration, playerOnly = true) {
       super();
+      this.couldowns = /* @__PURE__ */ new Map();
       this.damages = damages;
       this.duration = duration;
       this.playerOnly = playerOnly;
-    }
-    static {
-      AbstractModule.register(_CouldownedAttackModule);
     }
     getArgumentInterface() {
       return this;
@@ -1333,15 +1268,9 @@
       return 1;
     }
   };
+  AbstractModule.register(_CouldownedAttackModule);
+  var CouldownedAttackModule = _CouldownedAttackModule;
   var ContinousAttackParticle = class {
-    x;
-    y;
-    size;
-    vx;
-    vy;
-    alpha;
-    rotation;
-    vr;
     constructor(w, h) {
       this.x = (Math.random() - 0.5) * w;
       this.y = (Math.random() - 0.5) * h;
@@ -1380,10 +1309,11 @@
       ctx.restore();
     }
   };
-  var ContinuousAttackAnimator = class _ContinuousAttackAnimator {
-    particles = [];
-    production = 0;
-    static PRODUCTION = 2e5;
+  var _ContinuousAttackAnimator = class _ContinuousAttackAnimator {
+    constructor() {
+      this.particles = [];
+      this.production = 0;
+    }
     update(w, h) {
       this.production += w * h;
       if (this.production > _ContinuousAttackAnimator.PRODUCTION) {
@@ -1396,16 +1326,13 @@
       this.particles.forEach((p) => p.draw(ctx));
     }
   };
-  var ContinuousAttackModule = class _ContinuousAttackModule extends AbstractModule {
-    damages;
-    playerOnly;
+  _ContinuousAttackAnimator.PRODUCTION = 2e5;
+  var ContinuousAttackAnimator = _ContinuousAttackAnimator;
+  var _ContinuousAttackModule = class _ContinuousAttackModule extends AbstractModule {
     constructor(damages, playerOnly = true) {
       super();
       this.damages = damages;
       this.playerOnly = playerOnly;
-    }
-    static {
-      AbstractModule.register(_ContinuousAttackModule);
     }
     getArgumentInterface() {
       return this;
@@ -1487,11 +1414,12 @@
       return 2;
     }
   };
+  AbstractModule.register(_ContinuousAttackModule);
+  var ContinuousAttackModule = _ContinuousAttackModule;
   var BounceAnimator = class {
-    arrows = [];
-    spacing;
-    time = 0;
     constructor(blockHeight, spacing = 30) {
+      this.arrows = [];
+      this.time = 0;
       const count = Math.ceil(blockHeight / spacing);
       this.spacing = blockHeight / count;
       for (let i = 0; i < count; i++) {
@@ -1520,20 +1448,13 @@
       return 1;
     }
   };
-  var BounceModule = class _BounceModule extends AbstractModule {
-    cost;
-    factor;
-    playerOnly;
-    helper;
+  var _BounceModule = class _BounceModule extends AbstractModule {
     constructor(cost, factor, playerOnly = true, liberationCouldown = 12) {
       super();
       this.factor = factor;
       this.cost = cost;
       this.playerOnly = playerOnly;
       this.helper = new EntityCouldownHelper(liberationCouldown);
-    }
-    static {
-      AbstractModule.register(_BounceModule);
     }
     getArgumentInterface() {
       return this;
@@ -1646,13 +1567,9 @@
       return 3;
     }
   };
+  AbstractModule.register(_BounceModule);
+  var BounceModule = _BounceModule;
   var LavaBubble = class {
-    x;
-    y;
-    r;
-    vx;
-    vy;
-    alpha;
     constructor(w, h) {
       this.x = (Math.random() - 0.5) * w;
       this.y = (Math.random() - 0.5) * h;
@@ -1677,10 +1594,11 @@
       ctx.fill();
     }
   };
-  var KillAnimator = class _KillAnimator {
-    bubbles = [];
-    production = 0;
-    static PRODUCTION = 2e5;
+  var _KillAnimator = class _KillAnimator {
+    constructor() {
+      this.bubbles = [];
+      this.production = 0;
+    }
     update(w, h) {
       this.production += w * h;
       if (this.production > _KillAnimator.PRODUCTION) {
@@ -1695,14 +1613,12 @@
       this.bubbles.forEach((b) => b.draw(ctx));
     }
   };
-  var KillModule = class _KillModule extends AbstractModule {
-    playerOnly;
+  _KillAnimator.PRODUCTION = 2e5;
+  var KillAnimator = _KillAnimator;
+  var _KillModule = class _KillModule extends AbstractModule {
     constructor(playerOnly = true) {
       super();
       this.playerOnly = playerOnly;
-    }
-    static {
-      AbstractModule.register(_KillModule);
     }
     getArgumentInterface() {
       return this;
@@ -1773,16 +1689,13 @@
       return 180;
     }
   };
-  var CouldownDespawnModule = class _CouldownDespawnModule extends AbstractModule {
-    duration;
-    couldown;
+  AbstractModule.register(_KillModule);
+  var KillModule = _KillModule;
+  var _CouldownDespawnModule = class _CouldownDespawnModule extends AbstractModule {
     constructor(duration) {
       super();
       this.duration = duration;
       this.couldown = duration;
-    }
-    static {
-      AbstractModule.register(_CouldownDespawnModule);
     }
     getArgumentInterface() {
       return null;
@@ -1830,14 +1743,12 @@
       return 4;
     }
   };
-  var TouchDespawnModule = class _TouchDespawnModule extends AbstractModule {
-    playerOnly;
+  AbstractModule.register(_CouldownDespawnModule);
+  var CouldownDespawnModule = _CouldownDespawnModule;
+  var _TouchDespawnModule = class _TouchDespawnModule extends AbstractModule {
     constructor(playerOnly = true) {
       super();
       this.playerOnly = playerOnly;
-    }
-    static {
-      AbstractModule.register(_TouchDespawnModule);
     }
     getArgumentInterface() {
       return this;
@@ -1899,17 +1810,20 @@
       return 5;
     }
   };
-  var HealAnimator = class _HealAnimator {
-    particles = [];
-    usableColor = { r: 50, g: 150, b: 50 };
-    // green when usable
-    touchedColor = { r: 30, g: 100, b: 30 };
-    // darker green when used
-    currentColor = { r: 50, g: 150, b: 50 };
-    baseShadowBlur = 30;
-    shadowPulse = 0;
-    production = 0;
-    static PRODUCTION = 2e5;
+  AbstractModule.register(_TouchDespawnModule);
+  var TouchDespawnModule = _TouchDespawnModule;
+  var _HealAnimator = class _HealAnimator {
+    constructor() {
+      this.particles = [];
+      this.usableColor = { r: 50, g: 150, b: 50 };
+      // green when usable
+      this.touchedColor = { r: 30, g: 100, b: 30 };
+      // darker green when used
+      this.currentColor = { r: 50, g: 150, b: 50 };
+      this.baseShadowBlur = 30;
+      this.shadowPulse = 0;
+      this.production = 0;
+    }
     update(block) {
       const factor = 0.05;
       const heal = block.module.record.heal;
@@ -1958,18 +1872,15 @@
       }
     }
   };
-  var HealModule = class _HealModule extends AbstractModule {
-    hp;
-    playerOnly;
-    touched = /* @__PURE__ */ new Set();
-    playerHasTouched = false;
+  _HealAnimator.PRODUCTION = 2e5;
+  var HealAnimator = _HealAnimator;
+  var _HealModule = class _HealModule extends AbstractModule {
     constructor(hp, playerOnly = true) {
       super();
+      this.touched = /* @__PURE__ */ new Set();
+      this.playerHasTouched = false;
       this.hp = hp;
       this.playerOnly = playerOnly;
-    }
-    static {
-      AbstractModule.register(_HealModule);
     }
     getArgumentInterface() {
       return this;
@@ -2085,20 +1996,15 @@
       return 6;
     }
   };
-  var SpeedModule = class _SpeedModule extends AbstractModule {
-    start_vx;
-    start_vy;
-    vx;
-    vy;
+  AbstractModule.register(_HealModule);
+  var HealModule = _HealModule;
+  var _SpeedModule = class _SpeedModule extends AbstractModule {
     constructor(vx = 0, vy = 0) {
       super();
       this.vx = vx;
       this.vy = vy;
       this.start_vx = vx;
       this.start_vy = vy;
-    }
-    static {
-      AbstractModule.register(_SpeedModule);
     }
     getArgumentInterface() {
       return this;
@@ -2165,15 +2071,15 @@
       ];
     }
     getArg(name) {
-      if (name === "vx") return this.vx;
-      if (name === "vy") return this.vy;
+      if (name === "vx") return this.start_vx;
+      if (name === "vy") return this.start_vy;
     }
     setArg(name, value) {
       if (name === "vx") {
-        this.vx = value;
+        this.start_vx = value;
       }
       if (name === "vy") {
-        this.vy = value;
+        this.start_vy = value;
       }
     }
     moduleEditorName() {
@@ -2191,16 +2097,13 @@
       return 7;
     }
   };
-  var AccelerationModule = class _AccelerationModule extends AbstractModule {
-    ax;
-    ay;
+  AbstractModule.register(_SpeedModule);
+  var SpeedModule = _SpeedModule;
+  var _AccelerationModule = class _AccelerationModule extends AbstractModule {
     constructor(ax, ay) {
       super();
       this.ax = ax;
       this.ay = ay;
-    }
-    static {
-      AbstractModule.register(_AccelerationModule);
     }
     getArgumentInterface() {
       return this;
@@ -2278,15 +2181,9 @@
       return 8;
     }
   };
+  AbstractModule.register(_AccelerationModule);
+  var AccelerationModule = _AccelerationModule;
   var RestoreJumpParticle = class {
-    x;
-    y;
-    size;
-    vx;
-    vy;
-    alpha;
-    rotation;
-    vr;
     constructor(w, h) {
       this.x = (Math.random() - 0.5) * w;
       this.y = (Math.random() - 0.5) * h;
@@ -2326,9 +2223,10 @@
     }
   };
   var RestoreJumpAnimator = class {
-    particles = [];
-    production = 0;
-    static PRODUCTION = 2e5;
+    constructor() {
+      this.particles = [];
+      this.production = 0;
+    }
     update(w, h) {
       this.production += w * h;
       if (this.production > HealAnimator.PRODUCTION) {
@@ -2341,16 +2239,12 @@
       this.particles.forEach((p) => p.draw(ctx));
     }
   };
-  var RestoreJumpModule = class _RestoreJumpModule extends AbstractModule {
-    gain;
-    helper;
+  RestoreJumpAnimator.PRODUCTION = 2e5;
+  var _RestoreJumpModule = class _RestoreJumpModule extends AbstractModule {
     constructor(gain, liberationCouldown = 12) {
       super();
       this.gain = gain;
       this.helper = new EntityCouldownHelper(liberationCouldown);
-    }
-    static {
-      AbstractModule.register(_RestoreJumpModule);
     }
     getArgumentInterface() {
       return this;
@@ -2428,18 +2322,14 @@
       return 9;
     }
   };
-  var RotationModule = class _RotationModule extends AbstractModule {
-    start;
-    speed;
-    angle;
+  AbstractModule.register(_RestoreJumpModule);
+  var RestoreJumpModule = _RestoreJumpModule;
+  var _RotationModule = class _RotationModule extends AbstractModule {
     constructor(start, speed) {
       super();
       this.start = start;
       this.speed = speed;
       this.angle = start;
-    }
-    static {
-      AbstractModule.register(_RotationModule);
     }
     getArgumentInterface() {
       return this;
@@ -2512,8 +2402,12 @@
       return 10;
     }
   };
+  AbstractModule.register(_RotationModule);
+  var RotationModule = _RotationModule;
   var GoalAnimator = class {
-    time = 0;
+    constructor() {
+      this.time = 0;
+    }
     getColor() {
       const glow = 0.7 + 0.3 * Math.sin(this.time * 4);
       const r = 0;
@@ -2525,14 +2419,10 @@
       return base + 15 * Math.sin(this.time * 4);
     }
   };
-  var GoalModule = class _GoalModule extends AbstractModule {
-    type;
+  var _GoalModule = class _GoalModule extends AbstractModule {
     constructor(type) {
       super();
       this.type = type;
-    }
-    static {
-      AbstractModule.register(_GoalModule);
     }
     getArgumentInterface() {
       return this;
@@ -2607,16 +2497,13 @@
       entity.goalComplete = this.type;
     }
   };
-  var TextModule = class _TextModule extends AbstractModule {
-    text;
-    fontSize;
+  AbstractModule.register(_GoalModule);
+  var GoalModule = _GoalModule;
+  var _TextModule = class _TextModule extends AbstractModule {
     constructor(text = "Some text...", fontSize = 100) {
       super();
       this.text = text;
       this.fontSize = fontSize;
-    }
-    static {
-      AbstractModule.register(_TextModule);
     }
     getArgumentInterface() {
       return this;
@@ -2699,13 +2586,12 @@
       return "Text";
     }
   };
+  AbstractModule.register(_TextModule);
+  var TextModule = _TextModule;
   var SpawnerModule = class _SpawnerModule extends AbstractModule {
-    rythm;
-    couldown;
-    blocks;
-    index = 0;
     constructor(rythm, startInstantly, blocks) {
       super();
+      this.index = 0;
       this.rythm = rythm;
       this.couldown = startInstantly ? 1 : rythm;
       this.blocks = blocks;
@@ -2762,15 +2648,7 @@
       return "spawner";
     }
   };
-  var BlockBuilder = class _BlockBuilder {
-    static DEFAULT_SIZE = 50;
-    dx;
-    dy;
-    w;
-    h;
-    keepRotation;
-    goal;
-    module;
+  var _BlockBuilder = class _BlockBuilder {
     constructor(module, args = {}) {
       this.dx = args.dx ?? 0;
       this.dy = args.dy ?? 0;
@@ -2794,10 +2672,9 @@
       return block;
     }
   };
+  _BlockBuilder.DEFAULT_SIZE = 50;
+  var BlockBuilder = _BlockBuilder;
   var BlockModule = class _BlockModule {
-    record;
-    runInAdjacentRoom;
-    checkCollision;
     constructor(args) {
       const record = {};
       this.record = record;
@@ -2943,24 +2820,11 @@
     }
   };
   var Block = class _Block {
-    x;
-    y;
-    w;
-    h;
-    start_x;
-    start_y;
-    start_w;
-    start_h;
-    module;
-    toRemove = false;
-    addAtReset = false;
-    toMove = null;
-    spawnRoom;
-    fromSpawner = false;
-    drawMode;
-    drawAnimator;
-    id;
     constructor(x, y, w, h, module, id, drawModule = true) {
+      this.toRemove = false;
+      this.addAtReset = false;
+      this.toMove = null;
+      this.fromSpawner = false;
       this.x = x;
       this.y = y;
       this.w = w;
@@ -3067,10 +2931,8 @@
     SpawnerModule
   };
 
-  // game/EntityGenerator.ts
+  // src/EntityGenerator.ts
   var EntityGenerator = class {
-    name;
-    data;
     constructor(name, data) {
       this.name = name;
       this.data = data;
@@ -3097,19 +2959,13 @@
     }
   };
 
-  // game/Room.ts
+  // src/Room.ts
   var Room = class _Room {
-    x;
-    y;
-    w;
-    h;
-    blocks;
-    missingBlocks = [];
-    entites = [];
-    entityGenerators;
-    adjacentRooms = null;
-    adjacenceRects = null;
     constructor(x, y, w, h, blocks, entityGenerators) {
+      this.missingBlocks = [];
+      this.entites = [];
+      this.adjacentRooms = null;
+      this.adjacenceRects = null;
       this.x = x;
       this.y = y;
       this.w = w;
@@ -3309,12 +3165,10 @@
     }
   };
 
-  // game/net/DataWriter.ts
+  // src/net/DataWriter.ts
   var DataWriter = class _DataWriter {
-    buffer;
-    view;
-    offset = 0;
     constructor(size = 64) {
+      this.offset = 0;
       this.buffer = new ArrayBuffer(size);
       this.view = new DataView(this.buffer);
     }
@@ -3446,7 +3300,7 @@
     }
   };
 
-  // game/Stage.ts
+  // src/Stage.ts
   function openDB() {
     return new Promise((resolve, reject) => {
       const request = indexedDB.open("levels-db", 1);
@@ -3461,10 +3315,6 @@
     });
   }
   var WeakStage = class {
-    stage;
-    name;
-    key;
-    hash;
     constructor(key, stage = null, name = null, hash = null) {
       this.key = key;
       this.stage = stage;
@@ -3494,7 +3344,6 @@
     }
   };
   var ServMod = class {
-    writers;
     constructor(playerNumber) {
       const writers = [];
       for (let i = 0; i < playerNumber; i++) {
@@ -3518,12 +3367,8 @@
     }
   };
   var Stage = class _Stage {
-    rooms;
-    blockMap;
-    blockId;
-    firstRoom;
-    servMod = null;
     constructor(rooms, blockMap, nextBlockId) {
+      this.servMod = null;
       this.rooms = rooms;
       this.blockId = nextBlockId;
       this.blockMap = blockMap;
@@ -3764,7 +3609,7 @@
     }
   };
 
-  // game/importStage.ts
+  // src/importStage.ts
   var {
     MovingModule: MovingModule2,
     MovingPath: MovingPath2,
@@ -4262,19 +4107,17 @@
     return words;
   }
 
-  // game/Camera.ts
-  var Camera = class _Camera {
-    static TRANSITION_SPEED = 60;
-    static TRANSITION_DURATION = 25;
-    static VISION_RATIO_INIT = 1.2;
-    static VISION_RATIO_MIN = 0;
-    x = 0;
-    y = 0;
-    time = 0;
-    targetX = 0;
-    targetY = 0;
-    instant = true;
-    speed = 0;
+  // src/Camera.ts
+  var _Camera = class _Camera {
+    constructor() {
+      this.x = 0;
+      this.y = 0;
+      this.time = 0;
+      this.targetX = 0;
+      this.targetY = 0;
+      this.instant = true;
+      this.speed = 0;
+    }
     move(x, y) {
       this.targetX = x;
       this.targetY = y;
@@ -4352,78 +4195,115 @@
       this.teleport(0, 0);
     }
   };
+  _Camera.TRANSITION_SPEED = 60;
+  _Camera.TRANSITION_DURATION = 25;
+  _Camera.VISION_RATIO_INIT = 1.2;
+  _Camera.VISION_RATIO_MIN = 0;
+  var Camera = _Camera;
 
-  // game/getElementById.ts
+  // src/getElementById.ts
   function getElementById(elementId) {
     if (typeof window !== "undefined")
       return document.getElementById(elementId);
     return null;
   }
 
-  // game/InputHandler.ts
+  // src/InputHandler.ts
   var Keydown = class {
-    left = false;
-    right = false;
-    up = false;
-    down = false;
-    debug = false;
-    enter = false;
+    constructor() {
+      this.left = false;
+      this.right = false;
+      this.up = false;
+      this.down = false;
+      this.debug = false;
+      this.enter = false;
+    }
   };
   var KeyboardCollector = class {
-    left = 0 /* NONE */;
-    right = 0 /* NONE */;
-    up = 0 /* NONE */;
-    down = 0 /* NONE */;
-    debug = 0 /* NONE */;
-    enter = 0 /* NONE */;
+    constructor() {
+      this.left = 0 /* NONE */;
+      this.right = 0 /* NONE */;
+      this.up = 0 /* NONE */;
+      this.down = 0 /* NONE */;
+      this.debug = 0 /* NONE */;
+      this.enter = 0 /* NONE */;
+    }
   };
-  var InputHandler = class _InputHandler {
-    static CONTROLS = ["left", "right", "up", "down", "debug", "enter"];
-    static CONTROL_STACK_SIZE = 256;
-    keyboardUsed = false;
-    mobileUsed = false;
-    collectedKeys = new KeyboardCollector();
-    keysDown = new Keydown();
-    firstPress = new Keydown();
-    killedPress = new Keydown();
-    firstPressCapture = new Keydown();
-    killedPressCapture = new Keydown();
-    keyMap;
-    gameRecords = null;
-    frameCount = 0;
-    recordCompletion = -1;
-    recordState = "none";
-    firstRecordLine = 0;
-    firstRecordLineCount = 0;
-    static KEYBOARDS = {
-      zqsd: {
-        KeyZ: "up",
-        KeyQ: "left",
-        KeyS: "down",
-        KeyD: "right",
-        KeyP: "debug",
-        Space: "up",
-        ArrowUp: "up",
-        ArrowLeft: "left",
-        ArrowDown: "down",
-        ArrowRight: "right",
-        Enter: "enter"
-      },
-      wasd: {
-        KeyW: "up",
-        KeyA: "left",
-        KeyS: "down",
-        KeyD: "right",
-        KeyP: "debug",
-        Space: "up",
-        ArrowUp: "up",
-        ArrowLeft: "left",
-        ArrowDown: "down",
-        ArrowRight: "right",
-        Enter: "enter"
-      }
-    };
+  var _InputHandler = class _InputHandler {
     constructor(mode) {
+      this.keyboardUsed = false;
+      this.mobileUsed = false;
+      this.collectedKeys = new KeyboardCollector();
+      this.keysDown = new Keydown();
+      this.firstPress = new Keydown();
+      this.killedPress = new Keydown();
+      this.firstPressCapture = new Keydown();
+      this.killedPressCapture = new Keydown();
+      this.gameRecords = null;
+      this.frameCount = 0;
+      this.recordCompletion = -1;
+      this.recordState = "none";
+      this.firstRecordLine = 0;
+      this.firstRecordLineCount = 0;
+      this.onKeydown = (event) => {
+        const e = event;
+        const control = this.keyMap[e.code];
+        if (control) {
+          this.applyKeydown(control);
+        }
+      };
+      this.onKeyup = (event) => {
+        const e = event;
+        const control = this.keyMap[e.code];
+        if (control) {
+          this.applyKeyup(control);
+        }
+      };
+      this.onButtonTouchStart = (control, element) => {
+        element.classList.add("high");
+        if (control === "special") {
+          return;
+        }
+        switch (this.collectedKeys[control]) {
+          case 0 /* NONE */:
+            this.collectedKeys[control] = 1 /* DOWN */;
+            break;
+          case 1 /* DOWN */:
+            break;
+          case 2 /* UP */:
+            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+            break;
+          case 3 /* DOWN_THEN_UP */:
+            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+            break;
+          case 4 /* UP_THEN_DOWN */:
+            this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
+            break;
+        }
+      };
+      this.onButtonTouchEnd = (control, element) => {
+        element.classList.remove("high");
+        if (control === "special") {
+          getElementById("mobileEntry-specialContainer")?.classList.toggle("hidden");
+          return;
+        }
+        switch (this.collectedKeys[control]) {
+          case 0 /* NONE */:
+            this.collectedKeys[control] = 2 /* UP */;
+            break;
+          case 1 /* DOWN */:
+            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+            break;
+          case 2 /* UP */:
+            break;
+          case 3 /* DOWN_THEN_UP */:
+            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+            break;
+          case 4 /* UP_THEN_DOWN */:
+            this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
+            break;
+        }
+      };
       this.keyMap = _InputHandler.KEYBOARDS[mode];
     }
     applyKeydown(control) {
@@ -4462,65 +4342,6 @@
           break;
       }
     }
-    onKeydown = (event) => {
-      const e = event;
-      const control = this.keyMap[e.code];
-      if (control) {
-        this.applyKeydown(control);
-      }
-    };
-    onKeyup = (event) => {
-      const e = event;
-      const control = this.keyMap[e.code];
-      if (control) {
-        this.applyKeyup(control);
-      }
-    };
-    onButtonTouchStart = (control, element) => {
-      element.classList.add("high");
-      if (control === "special") {
-        return;
-      }
-      switch (this.collectedKeys[control]) {
-        case 0 /* NONE */:
-          this.collectedKeys[control] = 1 /* DOWN */;
-          break;
-        case 1 /* DOWN */:
-          break;
-        case 2 /* UP */:
-          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-          break;
-        case 3 /* DOWN_THEN_UP */:
-          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-          break;
-        case 4 /* UP_THEN_DOWN */:
-          this.collectedKeys[control] = 4 /* UP_THEN_DOWN */;
-          break;
-      }
-    };
-    onButtonTouchEnd = (control, element) => {
-      element.classList.remove("high");
-      if (control === "special") {
-        getElementById("mobileEntry-specialContainer")?.classList.toggle("hidden");
-        return;
-      }
-      switch (this.collectedKeys[control]) {
-        case 0 /* NONE */:
-          this.collectedKeys[control] = 2 /* UP */;
-          break;
-        case 1 /* DOWN */:
-          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-          break;
-        case 2 /* UP */:
-          break;
-        case 3 /* DOWN_THEN_UP */:
-          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-          break;
-        case 4 /* UP_THEN_DOWN */:
-          this.collectedKeys[control] = 3 /* DOWN_THEN_UP */;
-          break;
-      }
-    };
     startRecord() {
       if (this.recordState === "emulate" || this.recordState === "forbid")
         return;
@@ -4814,8 +4635,39 @@
       return gameFlag;
     }
   };
+  _InputHandler.CONTROLS = ["left", "right", "up", "down", "debug", "enter"];
+  _InputHandler.CONTROL_STACK_SIZE = 256;
+  _InputHandler.KEYBOARDS = {
+    zqsd: {
+      KeyZ: "up",
+      KeyQ: "left",
+      KeyS: "down",
+      KeyD: "right",
+      KeyP: "debug",
+      Space: "up",
+      ArrowUp: "up",
+      ArrowLeft: "left",
+      ArrowDown: "down",
+      ArrowRight: "right",
+      Enter: "enter"
+    },
+    wasd: {
+      KeyW: "up",
+      KeyA: "left",
+      KeyS: "down",
+      KeyD: "right",
+      KeyP: "debug",
+      Space: "up",
+      ArrowUp: "up",
+      ArrowLeft: "left",
+      ArrowDown: "down",
+      ArrowRight: "right",
+      Enter: "enter"
+    }
+  };
+  var InputHandler = _InputHandler;
 
-  // game/sendRun.ts
+  // src/sendRun.ts
   var URL = "https://jumpyjump-production.up.railway.app";
   async function sendRun(_, username, mapname, frames) {
     const res = await fetch(URL + "/pushRun", {
@@ -4833,11 +4685,10 @@
     console.log(data);
   }
 
-  // game/net/DataReader.ts
+  // src/net/DataReader.ts
   var DataReader = class {
-    view;
-    offset = 0;
     constructor(buffer) {
+      this.offset = 0;
       this.view = new DataView(buffer);
     }
     readInt8() {
@@ -4892,24 +4743,22 @@
     }
   };
 
-  // game/ClientNet.ts
+  // src/ClientNet.ts
   var ClientNet = class {
-    ws;
-    ready = false;
-    promises = [];
-    startCouldown = -1;
-    isAdmin = false;
-    lobbyId = null;
-    state = "none";
-    game;
-    stage = null;
-    stageName = null;
-    playerIndex = -1;
-    chrono = -1;
-    lobbyActions = [];
-    maxPingPong = 12;
-    lastDate = 0;
     constructor(networkAddress, game) {
+      this.ready = false;
+      this.promises = [];
+      this.startCouldown = -1;
+      this.isAdmin = false;
+      this.lobbyId = null;
+      this.state = "none";
+      this.stage = null;
+      this.stageName = null;
+      this.playerIndex = -1;
+      this.chrono = -1;
+      this.lobbyActions = [];
+      this.maxPingPong = 12;
+      this.lastDate = 0;
       const ws = new WebSocket(networkAddress);
       this.ws = ws;
       this.game = game;
@@ -5248,13 +5097,11 @@
     }
   };
 
-  // game/Game.ts
-  var State = class _State {
-    type = "menu";
-    chrono = 0;
-    static PLAY_TO_WIN_DURATION = 60;
-    game;
+  // src/Game.ts
+  var _State = class _State {
     constructor(game) {
+      this.type = "menu";
+      this.chrono = 0;
       this.game = game;
     }
     update() {
@@ -5262,7 +5109,18 @@
       switch (this.type) {
         case "playToWin":
           if (this.chrono >= _State.PLAY_TO_WIN_DURATION) {
-            this.set("win");
+            if (this.game.inChain) {
+              this.game.currentLevel++;
+              const length = this.game.stageList[this.game.currentWorld].length;
+              if (this.game.currentLevel >= length) {
+                this.game.inChain = false;
+                this.set("win");
+              } else {
+                this.game.directStart();
+              }
+            } else {
+              this.set("win");
+            }
           }
           break;
         case "servPlayToWin":
@@ -5298,6 +5156,8 @@
       return this.type;
     }
   };
+  _State.PLAY_TO_WIN_DURATION = 60;
+  var State = _State;
   function copyToClipboard(text) {
     if (!navigator.clipboard) {
       const textarea = document.createElement("textarea");
@@ -5319,36 +5179,22 @@
       console.error("Could not copy text: ", err);
     });
   }
-  var Game = class _Game {
-    static WIDTH = 1600;
-    static HEIGHT = 900;
-    static WIDTH_2 = _Game.WIDTH / 2;
-    static HEIGHT_2 = _Game.HEIGHT / 2;
-    static GAME_VERSION = "1.6.0";
-    static SPECIAL_ACTIONS = [
-      "Open file",
-      "Join multiplayer room",
-      "Create multiplayer room"
-    ];
-    players;
-    player;
-    camera = new Camera();
-    stageList;
-    architecture;
-    stage = null;
-    frame = 0;
-    goalComplete = 0;
-    gameChrono = 0;
-    state = new State(this);
-    validRun = true;
-    currentWorld = 0;
-    currentLevel = 0;
-    specialActionsWorld = false;
-    playerUsername = null;
-    stageName = null;
-    clientNet = null;
-    networkAddress;
+  var _Game = class _Game {
     constructor(data, constructorUsed) {
+      this.camera = new Camera();
+      this.stage = null;
+      this.frame = 0;
+      this.goalComplete = 0;
+      this.gameChrono = 0;
+      this.state = new State(this);
+      this.validRun = true;
+      this.currentWorld = 0;
+      this.currentLevel = 0;
+      this.specialActionsWorld = false;
+      this.playerUsername = null;
+      this.stageName = null;
+      this.clientNet = null;
+      this.inChain = false;
       if (constructorUsed === "GameClassicContructor") {
         data = data;
         this.stageList = data.stageList;
@@ -5374,6 +5220,19 @@
         this.startLevel(data.stage, "");
         data.stage.enableServMod(data.playerCount);
       }
+    }
+    directStart() {
+      this.player.inputHandler.kill("debug");
+      const weakStage = this.stageList[this.currentWorld][this.currentLevel];
+      getElementById("loadingIcon")?.classList.remove("hidden");
+      weakStage.load().then(({ stage, name }) => {
+        this.state.set("play");
+        this.startLevel(stage, name);
+      }).catch((e) => {
+        console.error(e);
+      }).finally(() => {
+        getElementById("loadingIcon")?.classList.add("hidden");
+      });
     }
     startLevel(stage, stageName) {
       this.stage = stage;
@@ -5564,16 +5423,7 @@
           }
           inputHandler.kill("enter");
         } else {
-          const weakStage = this.stageList[this.currentWorld][this.currentLevel];
-          getElementById("loadingIcon")?.classList.remove("hidden");
-          weakStage.load().then(({ stage, name }) => {
-            this.state.set("play");
-            this.startLevel(stage, name);
-          }).catch((e) => {
-            console.error(e);
-          }).finally(() => {
-            getElementById("loadingIcon")?.classList.add("hidden");
-          });
+          this.directStart();
         }
       }
       if (inputHandler.first("right")) {
@@ -5602,6 +5452,11 @@
         }
         if (inputHandler.first("up") && this.currentWorld > 0) {
           this.currentWorld--;
+        }
+        if (inputHandler.first("debug")) {
+          this.inChain = true;
+          this.currentLevel = 0;
+          this.directStart();
         }
       }
     }
@@ -5749,7 +5604,9 @@
         }
         this.camera.reset();
         this.validRun = true;
-        this.gameChrono = 0;
+        if (!this.inChain) {
+          this.gameChrono = 0;
+        }
         this.goalComplete = 0;
       }
     }
@@ -5863,6 +5720,7 @@
                 ctx.fillText(`${stage[i].name}`, x, y + 25);
               }
             }
+            ctx.fillText("Press P to start an %any", _Game.WIDTH_2, 800);
           }
           const pastBaseline = ctx.textBaseline;
           ctx.textBaseline = "bottom";
@@ -6021,8 +5879,19 @@
     debug() {
     }
   };
+  _Game.WIDTH = 1600;
+  _Game.HEIGHT = 900;
+  _Game.WIDTH_2 = _Game.WIDTH / 2;
+  _Game.HEIGHT_2 = _Game.HEIGHT / 2;
+  _Game.GAME_VERSION = "1.6.1";
+  _Game.SPECIAL_ACTIONS = [
+    "Open file",
+    "Join multiplayer room",
+    "Create multiplayer room"
+  ];
+  var Game = _Game;
 
-  // game/main.ts
+  // src/main.ts
   async function loadFetch(url) {
     console.log("fetch: " + url);
     const res = await fetch(url, { cache: "no-store" });
@@ -6219,7 +6088,7 @@
   window.startGame = startGame;
   window.useRequestAnimationFrame = true;
 
-  // game/editor.ts
+  // src/editor.ts
   var levelName = null;
   var {
     MovingPath: MovingPath3,
@@ -6239,12 +6108,6 @@
     TextModule: TextModule3
   } = bmodules;
   var ModuleInfo = class {
-    id;
-    name;
-    prop;
-    // module name for getModule(name)
-    // label: string;
-    default;
     constructor(id, name, prop, _default) {
       this.id = id;
       this.name = name;
@@ -6860,7 +6723,7 @@
           try {
             const spawnerRythmInput = document.getElementById("spawnerRythm");
             if (spawnerRythmInput) {
-              let parseSpawnerBlocks = function(container) {
+              let parseSpawnerBlocks2 = function(container) {
                 const builders = [];
                 const directChildren = container.querySelectorAll(":scope > .spawner-block");
                 directChildren.forEach((blockEl) => {
@@ -6938,7 +6801,7 @@
                     const nestedContainer = blockEl.querySelector(`.spawn-spawner-blocks${dataAttrsSelector}`);
                     if (spawnerRythmInput2 && nestedContainer) {
                       const nestedRythm = parseInt(spawnerRythmInput2.value);
-                      const nestedBuilders = parseSpawnerBlocks(nestedContainer);
+                      const nestedBuilders = parseSpawnerBlocks2(nestedContainer);
                       if (nestedBuilders.length > 0) {
                         collectedNestedModules.spawner = new SpawnerModule3(nestedRythm, false, nestedBuilders);
                       }
@@ -6951,10 +6814,11 @@
                 });
                 return builders;
               };
+              var parseSpawnerBlocks = parseSpawnerBlocks2;
               const spawnerRythm2 = parseInt(spawnerRythmInput.value);
               const mainContainer = document.getElementById("spawnerBlocksList");
               if (mainContainer) {
-                const blockBuilders = parseSpawnerBlocks(mainContainer);
+                const blockBuilders = parseSpawnerBlocks2(mainContainer);
                 if (blockBuilders.length > 0) {
                   spawnerModule = new SpawnerModule3(spawnerRythm2, false, blockBuilders);
                 }
@@ -8103,7 +7967,7 @@
       e.preventDefault();
       const ZF = 1.12;
       const zoomFactor = e.deltaY < 0 ? ZF : 1 / ZF;
-      camera.zoom = clamp(camera.zoom * zoomFactor, 0.2, 8);
+      camera.zoom = clamp(camera.zoom * zoomFactor, 0.02, 30);
     }, { passive: false });
     document.addEventListener("contextmenu", (e) => {
       if (mode !== "play") {
