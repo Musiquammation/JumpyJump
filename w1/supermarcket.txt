@@ -1,0 +1,71 @@
+Supermarcket
+room -800 -450 1600 900
+	475 325 75 225
+		bounce 0.003 3 1
+		speed 10 0
+		acceleration 0.15 0
+room 800 -450 4000 900
+	1625 -225 50 450
+		couldownedAttack 1.6 100 1
+	2425 225 50 450
+		couldownedAttack 1.616 100 1
+	3225 -225 50 450
+		couldownedAttack 1.6 100 1
+	4025 225 50 450
+		couldownedAttack 1.6 100 1
+emptyroom 3850 -3600 550 3150
+emptyroom 4400 -3600 800 900
+room 5200 -3600 1600 900
+	6150 -2750 200 50
+		bounce 0.003 2 1
+		speed 0 -5
+		acceleration 0 0
+room 6000 -7200 1600 3600
+	6600 -4187.5 1200 25
+		kill 1
+	7000 -4612.5 1200 25
+		kill 1
+	7375 -5837.5 450 325
+		restoreJump 3
+	6575 -5837.5 1150 25
+		kill 1
+	6800 -6287.5 200 25
+		bounce 0.003 1 2.2
+emptyroom 6000 -9900 400 2700
+emptyroom 3600 -9450 2400 900
+room 2400 -8550 1600 900
+	3800 -7762.5 400 225
+		heal 2 1
+room 2400 -7650 800 6975
+	2800 -900 800 450
+		kill 1
+	2800 -1237.5 800 225
+		goal 1
+	2600 -7425 400 50
+		couldownedAttack 0.81 100 1
+	3000 -6950 400 50
+		couldownedAttack 0.81 100 1
+	2800 -3600 400 50
+		couldownedAttack 0.81 100 1
+	2600 -6525 400 50
+		couldownedAttack 0.81 100 1
+	2800 -5850 400 50
+		couldownedAttack 0.81 100 1
+	3000 -5175 400 50
+		couldownedAttack 0.81 100 1
+	2600 -4725 400 50
+		couldownedAttack 0.81 100 1
+	3000 -4275 400 50
+		couldownedAttack 0.81 100 1
+	3000 -2250 400 50
+		couldownedAttack 0.81 100 1
+	2600 -2700 400 50
+		couldownedAttack 0.81 100 1
+	2800 -1800 800 450
+		couldownedAttack 1 20 1
+	2800 -6300 800 50
+		restoreJump 322
+	2800 -5400 800 50
+		restoreJump 32
+	2800 -4050 800 50
+		restoreJump 322

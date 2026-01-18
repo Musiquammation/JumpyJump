@@ -8,5 +8,11 @@
 		{"filename": "infested_tutorial.txt", 	"hash": "73c76c2415d389d3", 	"name": "Infested tutorial", 	"author": "Musiquammation", 	"version": 2},
 		{"filename": "bounce_to_sky.txt", 		"hash": "389e942e10354c46", 	"name": "Bounce to sky", 		"author": "Musiquammation",		"version": 3},
 		{"filename": "infinity.txt",	 		"hash": "b5636b1cab1a8970", 	"name": "Infinity", 			"author": "Cafki", 				"version": 2}
+	]},
+
+	{"name": "w1", "levels": [
+		{"filename": "supermarcket.txt",		"hash": "14919788f0547ee2", 	"name": "Supermarcket",			"author": "Musiquammation",		"version": 1},
+		{"filename": "cars.txt",	 			"hash": "9e499e4cdaf42f92", 	"name": "Cars", 				"author": "Musiquammation",		"version": 1},
+		{"filename": "rage_race.txt", 			"hash": "bab3df5695eda4f2", 	"name": "Rage race", 			"author": "Musiquammation",		"version": 1}
 	]}
 ]
