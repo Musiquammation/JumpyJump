@@ -1,3 +1,4 @@
+import { Dash } from "./Dash";
 import { Game } from "./Game";
 import { GAME_GRAVITY } from "./GAME_GRAVITY";
 import { LelevedBar as LeveledBar } from "./LeveledBar";
@@ -47,6 +48,7 @@ export abstract class Entity {
 	hp: number;
 	initialHp: number;
 	currentRoom: Room | null = null;
+	gravityEscapeCouldown = -1;
 
 	protected hpBar: LeveledBar;
 
@@ -101,6 +103,7 @@ export abstract class Entity {
 	abstract hit(damages: number, source: Entity | null): void;
 	abstract frame(game: Game): boolean;
 	abstract isMonster(): boolean;
+	abstract appendDash(dash: Dash): void;
 
 	
 	checkRoom(game: Game) {
@@ -190,6 +193,9 @@ export class HumanFollower extends Entity {
 	override isMonster(): boolean {
 		return this.evil;
 	}
+
+
+	override appendDash(_dash: Dash) {}
 
 
 	canForget(entity: Entity) {

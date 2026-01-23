@@ -7,7 +7,8 @@
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
-    "server": "tsx --tsconfig tsconfig.server.json game/server.ts"
+    "server": "tsx --tsconfig tsconfig.server.json game/server.ts",
+    "leaderboard": "nodejs leaderboard/server.js"
   },
   "devDependencies": {
     "@types/node": "^24.10.2",

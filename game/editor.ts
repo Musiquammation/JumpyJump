@@ -20,7 +20,12 @@ const {
 	AccelerationModule,
 	RestoreJumpModule,
 	RotationModule,
+	AntigravityModule,
 	GoalModule,
+	BlackHoleModule,
+	DashModule,
+	WindModule,
+	DirectionModule,
 	SpawnerModule,
 	TextModule,
 } = bmodules;
@@ -102,8 +107,13 @@ const moduleList: ModuleInfo[] = [
 	new ModuleInfo("modAcceleration", "Acceleration", "acceleration", () => new AccelerationModule(0, 0) ),
 	new ModuleInfo("modRestoreJump", "Restore Jump", "restoreJump", () => new RestoreJumpModule(1) ),
 	new ModuleInfo("modRotation", "Rotation", "rotation", () => new RotationModule(0, 0.01) ),
+	new ModuleInfo("modAntigravity", "Antigravity", "antigravity", () => new AntigravityModule(60, 15) ),
+	new ModuleInfo("modBlackhole", "Black hole", "blackhole", () => new BlackHoleModule(20, 80) ),
+	new ModuleInfo("modDash", "Dash", "dash", () => new DashModule(60, 0, 60, 50, 0) ),
 	new ModuleInfo("modGoal", "Goal", "goal", () => 1 ),
 	new ModuleInfo("modText", "Text", "text", () => new TextModule() ),
+	new ModuleInfo("modWind", "Wind", "wind", () => new WindModule(0, -10) ),
+	new ModuleInfo("modDirection", "Direction", "direction", () => new DirectionModule(0, 10, 3, 60) ),
 ];
 
 
@@ -132,16 +142,8 @@ async function exportBlockModule(m: BlockModule, writeln: Function, indent: stri
 		}
 	}
 
-	/// TODO: add argumentmodule
-	const couldownDespawn = m.getModule<any>("couldownDespawn");
-	if (couldownDespawn) {
-		await writeln(`${indent}couldownDespawn ${couldownDespawn.duration ?? 0}`);
-	}
-
-
 	
 	for (let i of moduleList) {
-
 		if (i.prop === 'goal')
 			continue;
 
@@ -170,20 +172,6 @@ async function exportBlockModule(m: BlockModule, writeln: Function, indent: stri
 
 	}
 	
-
-	
-
-	
-
-	const speed = m.getModule<any>("speed");
-	if (speed) {
-		await writeln(`${indent}speed ${speed.vx ?? 0} ${speed.vy ?? 0}`);
-	}
-
-	const acceleration = m.getModule<any>("acceleration");
-	if (acceleration) {
-		await writeln(`${indent}acceleration ${acceleration.ax ?? 0} ${acceleration.ay ?? 0}`);
-	}
 
 	const goal = m.getModule<any>("goal");
 	if (goal !== null && goal !== undefined) {
@@ -2274,7 +2262,9 @@ export function startEditor() {
 					eventTarget: document,
 					stageList: [[new WeakStage("", stageCopy, name)]],
 					networkAddress: null,
-					architecture: null
+					architecture: null,
+					progression: {world: 0, level: 0},
+					canProgress: false
 				}, 'GameClassicContructor');
 				window.game = playGame;
 				playGame.state.set('play');

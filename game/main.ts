@@ -149,12 +149,35 @@ function generateWeakStages(worlds: World[]) {
 
 
 export async function startGame() {
-	let countedFps = 0;
 	const FPS_FREQUENCY = 4;
+	const EXCESS_COUNT = 70;
+	const EXCESS_LIM = 4 * FPS_FREQUENCY;
+
+	let countedFps = 0;
+	let excessCount = 0;
+
 	setInterval(() => {
 		const e = document.getElementById("fps");
+		const count = countedFps * FPS_FREQUENCY;
+
+		if (excessCount >= 0) {
+			if (count > EXCESS_COUNT) {
+				excessCount++;
+				if (excessCount >= EXCESS_LIM) {
+					window.useRequestAnimationFrame = false;
+					excessCount = -1;
+				}
+			} else {
+				excessCount = 0;
+			}
+		}
+
 		if (e) {
-			e.textContent = countedFps*FPS_FREQUENCY + "fps";
+			let text = count + "fps";
+			if (!window.useRequestAnimationFrame) {
+				text += " (async)";
+			}
+			e.textContent = text;
 		}
 		countedFps = 0
 	}, 1000/FPS_FREQUENCY);
@@ -177,6 +200,16 @@ export async function startGame() {
 		realKeyboardMode = keyboardMode;
 	}
 	
+	const progressionStr = localStorage.getItem("progression");
+	let progression: {world: number, level: number};
+	if (progressionStr === null) {
+		progression = {world: 0, level: 0};
+		localStorage.setItem("progression", "0.0");
+	} else {
+		const s = progressionStr.split(".");
+		progression = {world: Number(s[0]) || 0, level: Number(s[1]) || 0};
+	}
+
 	
 	let game: Game;
 	const LINK = "https://raw.githubusercontent.com/musiquammation/JumpyJump/levels";
@@ -210,7 +243,9 @@ export async function startGame() {
 		eventTarget: document,
 		stageList: weakStages,
 		networkAddress: NETWORK_ADDRESS,
-		architecture
+		architecture,
+		progression: progression,
+		canProgress: true
 	}, 'GameClassicContructor');
 	const chronoDiv = document.getElementById("chrono")!;
 	
@@ -261,4 +296,10 @@ declare global {
 window.game = null;
 window.running = false;
 window.startGame = startGame;
-window.useRequestAnimationFrame = true;
+
+const localUseRequestAnimationFrame = localStorage.getItem("useRequestAnimationFrame");
+if (localUseRequestAnimationFrame === null) {
+	window.useRequestAnimationFrame = true;
+} else {
+	window.useRequestAnimationFrame = localUseRequestAnimationFrame != '0';
+}

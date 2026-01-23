@@ -36,7 +36,7 @@ export abstract class AbstractModule {
 }
 
 interface FrameModule {
-	update(block: Block, room: Room): void;
+	update(block: Block, room: Room, game: Game): void;
 }
 
 interface CollisionModule {
@@ -85,11 +85,21 @@ class EntityCouldownHelper {
 		this.liberationCouldown = liberationCouldown;
 	}
 
-	track(entity: Entity, frameNumber: number) {
+	trackLinear(entity: Entity, frameNumber: number) {
 		const next = this.usages.get(entity);
 		this.usages.set(entity, frameNumber + this.liberationCouldown);
 
 		return (next === undefined || next <= frameNumber);
+	}
+
+	trackPointly(entity: Entity, frameNumber: number) {
+		const next = this.usages.get(entity);
+		if (next === undefined || next <= frameNumber) {
+			this.usages.set(entity, frameNumber + this.liberationCouldown);
+			return true;
+		}
+
+		return false;
 	}
 
 	reset() {
@@ -118,7 +128,7 @@ class MovingModule extends AbstractModule implements SendableModule, DrawableMod
 		this.active = true;
 	}
 
-	update(block: Block, room: Room) {
+	update(block: Block, room: Room, _game: Game) {
 		if (!this.active || this.patterns.length === 0) return;
 
 		const path = this.patterns[this.currentPattern];
@@ -676,6 +686,7 @@ class BounceAnimator {
 class BounceModule extends AbstractModule implements SendableModule, DrawableModule<BounceAnimator>, ArgumentModule, FrameModule, CollisionModule {
 	cost: number;
 	factor: number;
+	liberationCouldown: number;
 	playerOnly: boolean;
 	helper: EntityCouldownHelper;
 
@@ -684,6 +695,7 @@ class BounceModule extends AbstractModule implements SendableModule, DrawableMod
 		this.factor = factor;
 		this.cost = cost;
 		this.playerOnly = playerOnly;
+		this.liberationCouldown = liberationCouldown;
 		this.helper = new EntityCouldownHelper(liberationCouldown);
 	}
 
@@ -698,11 +710,14 @@ class BounceModule extends AbstractModule implements SendableModule, DrawableMod
 	override getCollisionInterface() {return this;}
 	override getModuleName() {return "bounce";}
 	
-	reset() { this.helper.reset(); }
+	reset() {
+		this.helper.liberationCouldown = this.liberationCouldown;
+		this.helper.reset();
+	}
 
 	onTouch(entity: Entity, _block: Block, frameNumber: number) {
 		if (this.playerOnly && !(entity instanceof Player)) return;
-		if (this.helper.track(entity, frameNumber)) entity.bounce(this.factor, this.cost);
+		if (this.helper.trackLinear(entity, frameNumber)) entity.bounce(this.factor, this.cost);
 	}
 
 	update() {}
@@ -1307,7 +1322,7 @@ class SpeedModule extends AbstractModule implements SendableModule, DrawableModu
 	override getCollisionInterface() {return null;}
 	override getModuleName() {return "speed";}
 	
-	update(block: Block, room: Room) {
+	update(block: Block, room: Room, _game: Game) {
 		block.x += this.vx;
 		block.y += this.vy;
 
@@ -1588,7 +1603,7 @@ class RestoreJumpModule extends AbstractModule implements SendableModule, Drawab
 	onTouch(entity: Entity, _block: Block, frameNumber: number) {
 		if (!(entity instanceof Player)) return;
 
-		if (this.helper.track(entity, frameNumber)) {
+		if (this.helper.trackLinear(entity, frameNumber)) {
 			entity.restoreJumpAdd(this.gain);
 		}
 	}
@@ -1672,7 +1687,7 @@ class RotationModule extends AbstractModule implements SendableModule, ArgumentM
 	
 
 	override getImportArgsCount() {return 2;}
-	override importModule(buffer: number[]) {return new SpeedModule(buffer[0], buffer[1]);}
+	override importModule(buffer: number[]) {return new RotationModule(buffer[0], buffer[1]);}
 
 
 	update() {
@@ -1729,13 +1744,920 @@ class RotationModule extends AbstractModule implements SendableModule, ArgumentM
 }
 
 
+class AntigravityParticle {
+	x: number;
+	y: number;
+	size: number;
+	vx: number;
+	vy: number;
+	alpha: number;
+	rotation: number;
+	vr: number;
+
+	constructor(w: number, h: number) {
+		this.x = (Math.random() - 0.5) * w;
+		this.y = (Math.random() - 0.5) * h;
+		this.size = 3 + Math.random() * 4;
+		this.vx = (Math.random() - 0.5) * 0.3;
+		this.vy = -0.5 - Math.random() * 0.8;
+		this.alpha = 1.2;
+		this.rotation = Math.random() * Math.PI;
+		this.vr = (Math.random() - 0.5) * 0.04;
+	}
+
+	update() {
+		this.x += this.vx;
+		this.y += this.vy;
+		this.rotation += this.vr;
+		this.alpha -= 0.01;
+		return this.alpha > 0;
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		ctx.save();
+		ctx.translate(this.x, this.y);
+		ctx.rotate(this.rotation);
+		const s = this.size;
+		const r = s * 0.5; // radius for rounded corners
+		const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 1.5);
+		gradient.addColorStop(0, `rgba(180, 255, 255, ${this.alpha})`);
+		gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+
+		ctx.fillStyle = gradient;
+
+		// Rounded diamond shape (rotated square) - upward pointing
+		ctx.beginPath();
+		ctx.moveTo(0, -s);
+		ctx.quadraticCurveTo(r, -s + r, s, 0);
+		ctx.quadraticCurveTo(s - r, r, 0, s);
+		ctx.quadraticCurveTo(-r, s - r, -s, 0);
+		ctx.quadraticCurveTo(-s + r, -r, 0, -s);
+		ctx.closePath();
+		ctx.fill();
+
+		ctx.restore();
+	}
+}
+
+class AntigravityAnimator {
+	particles: AntigravityParticle[] = [];
+	production = 0;
+	static PRODUCTION = 200000;
+
+	update(w: number, h: number) {
+		this.production += w * h
+		if (this.production > AntigravityAnimator.PRODUCTION) {
+			this.production -= AntigravityAnimator.PRODUCTION;
+			this.particles.push(new AntigravityParticle(w, h));
+		}
+
+		this.particles = this.particles.filter(p => p.update());
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		this.particles.forEach(p => p.draw(ctx));
+	}
+}
+
+class AntigravityModule extends AbstractModule implements SendableModule, DrawableModule<AntigravityAnimator>, ArgumentModule, CollisionModule {
+	duration: number;
+	liberationCouldown: number;
+	helper: EntityCouldownHelper;
+
+	constructor(duration: number, liberationCouldown: number) {
+		super();
+		this.duration = duration;
+		this.liberationCouldown = liberationCouldown;
+		this.helper = new EntityCouldownHelper(liberationCouldown);
+	}
+
+	static {
+		AbstractModule.register(AntigravityModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getCollisionInterface() {return this;}
+	override getModuleName() {return "antigravity";}
+	
+
+	override getImportArgsCount() {return 2;}
+	override importModule(buffer: number[]) {
+		return new AntigravityModule(buffer[0], buffer[1]);
+	}
+
+
+	reset() {
+		this.helper.liberationCouldown = this.liberationCouldown;
+		this.helper.reset();
+	}
+
+	onTouch(entity: Entity, _block: Block, frameNumber: number) {
+		if (this.helper.trackPointly(entity, frameNumber)) {
+			entity.gravityEscapeCouldown = this.duration;
+		}
+	}
+
+	override copy() {
+		return new AntigravityModule(this.duration, this.liberationCouldown);
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: AntigravityAnimator) {
+		ctx.save();
+		ctx.shadowColor = "rgba(100, 200, 255, 0.9)";
+		ctx.shadowBlur = 15;
+		ctx.fillStyle = "rgba(150, 220, 255, 0.6)";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+		ctx.restore();
+
+		animator.update(block.w, block.h);
+		block.cancelRotation(ctx, () => animator.draw(ctx));
+	}
+
+	generateAnimator(_: Block) {
+		return new AntigravityAnimator();
+	}
+
+	getDrawLevel(): number {
+		return 141;
+	}
+
+	enumArgs() {
+		return [
+			{ name: "duration", type: 'number' as const },
+			{ name: "liberationCouldown", type: 'number' as const },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "duration") return this.duration;
+		if (name === "liberationCouldown") return this.liberationCouldown;
+	}
+	
+	setArg(name: string, value: any) {
+		if (name === "duration") {this.duration = value;}
+		if (name === "liberationCouldown") {this.liberationCouldown = value;}
+	}
+
+	moduleEditorName() {return "Antigravity";}
+
+	receive(_reader: DataReader, _block: Block, _: Player) {
+
+	}
+
+	send(_writer: DataWriter, _block: Block, _: Player) {
+
+	}
+
+	getSendFlag() {
+		return 11;
+	}
+}
+
+
+
+
+
+class BlackHoleAnimator {
+	time: number = 0;
+	particles: Array<{x: number, y: number, angle: number, radius: number, speed: number, color: string, size: number}>;
+
+	constructor(w = 128, h = 128, n = 26) {
+		this.time = 0;
+		this.particles = [];
+		const centerX = w/2, centerY = h/2;
+		for (let i = 0; i < n; i++) {
+			const angle = Math.random() * Math.PI * 2;
+			const radius = (w < h ? w : h) * (0.4 + Math.random() * 0.52);
+			const speed = 0.7 + 0.7 * Math.random();
+			const colorOptions = [
+				"rgba(93, 173, 226, 0.6)",   // bleu lumineuses
+				"rgba(41, 128, 185, 0.5)",
+				"rgba(162, 155, 254,0.7)",
+				"rgba(236, 240, 241,0.28)",  // gris très pâles (vapeur)
+				"rgba(30, 39, 46,0.29)",
+			];
+			const color = colorOptions[Math.floor(Math.random()*colorOptions.length)];
+			const size = 5 + Math.random()*6;
+			this.particles.push({
+				x: centerX + radius * Math.cos(angle),
+				y: centerY + radius * Math.sin(angle),
+				angle,
+				radius,
+				speed,
+				color,
+				size
+			});
+		}
+	}
+
+	update(w: number, h: number) {
+		this.time += 1/60;
+		const centerX = 0, centerY = 0;
+		for (let p of this.particles) {
+			const dx = centerX - p.x;
+			const dy = centerY - p.y;
+			const dist = Math.sqrt(dx*dx + dy*dy) + 0.1;
+			// Les particules spiralent vers le centre, avec un peu de random :
+			// const _angleToCenter = Math.atan2(dy, dx);
+			// Small spiral/rotation
+			p.angle += 0.04 + (Math.random()-0.5)*0.003;
+			// Move inwards, slower when close
+			p.x += Math.cos(p.angle) * 0.4 + dx/(dist+3)*p.speed*0.8;
+			p.y += Math.sin(p.angle) * 0.4 + dy/(dist+3)*p.speed*0.8;
+			// Si vraiment proche, respawn loin :
+			if (dist < 16) {
+				const r = (w < h ? w : h) * (0.5 + Math.random() * 0.6);
+				const theta = Math.random()*Math.PI*2;
+				p.x = r * Math.cos(theta);
+				p.y = r * Math.sin(theta);
+				p.angle = theta;
+			}
+		}
+	}
+
+	draw(ctx: CanvasRenderingContext2D) {
+		// Dessiner le "trou noir" :
+		const mainR = 42, glowR = 64;
+		// Glow :
+		const gradient = ctx.createRadialGradient(0, 0, 3, 0, 0, glowR);
+		gradient.addColorStop(0, "rgba(30,30,30,0.51)");
+		gradient.addColorStop(0.24, "rgba(57,59,106,0.38)");
+		gradient.addColorStop(0.52, "rgba(17,17,17,0.24)");
+		gradient.addColorStop(1, "rgba(0,0,0,0.01)");
+		ctx.save();
+		ctx.beginPath();
+		ctx.arc(0, 0, glowR, 0, Math.PI*2);
+		ctx.closePath();
+		ctx.fillStyle = gradient;
+		ctx.fill();
+		ctx.restore();
+
+		// Corps du trou noir :
+		ctx.save();
+		ctx.beginPath();
+		ctx.arc(0, 0, mainR, 0, Math.PI*2);
+		ctx.closePath();
+		ctx.fillStyle = "#111";
+		ctx.shadowColor = "rgba(55,48,117,0.38)";
+		ctx.shadowBlur = 12 + 8 * Math.abs(Math.sin(this.time));
+		ctx.fill();
+		ctx.restore();
+
+		// Anneau d'accrétion blanc/bleu :
+		ctx.save();
+		const outerR = mainR + 13;
+		const gradient2 = ctx.createRadialGradient(0, 0, mainR+4, 0, 0, outerR);
+		gradient2.addColorStop(0.21, "rgba(255,255,255,0.06)");
+		gradient2.addColorStop(0.35, "rgba(213,237,255,0.18)");
+		gradient2.addColorStop(0.72, "rgba(120,149,255,0.09)");
+		gradient2.addColorStop(1, "rgba(80,51,190,0.02)");
+		ctx.beginPath();
+		ctx.arc(0, 0, outerR, 0, Math.PI*2);
+		ctx.closePath();
+		ctx.lineWidth = 4.5;
+		ctx.strokeStyle = gradient2;
+		ctx.shadowBlur = 6 + 6 * Math.sin(this.time*3);
+		ctx.shadowColor = "rgb(70,133,255)";
+		ctx.stroke();
+		ctx.restore();
+
+		// Particules spirales
+		for (let p of this.particles) {
+			ctx.save();
+			ctx.globalAlpha = 0.7;
+			ctx.beginPath();
+			ctx.arc(p.x, p.y, p.size, 0, Math.PI*2);
+			ctx.closePath();
+			ctx.fillStyle = p.color;
+			ctx.shadowColor = "#b2eafe";
+			ctx.shadowBlur = 7 + Math.sin(this.time + p.x + p.y)*1.5;
+			ctx.fill();
+			ctx.restore();
+		}
+	}
+}
+
+class BlackHoleModule extends AbstractModule implements DrawableModule<BlackHoleAnimator>, ArgumentModule, FrameModule {
+	strong: number;
+	range: number;
+
+	constructor(strong: number, range: number) {
+		super();
+		this.strong = strong;
+		this.range = range;
+	}
+
+	static {
+		AbstractModule.register(BlackHoleModule);
+	}
+
+	override getArgumentInterface() { return this; }
+	override getDrawableInterface() { return this; }
+	override getSendableInterface() { return null; }
+	override getFrameInterface() { return this; }
+	override getCollisionInterface() { return null; }
+	override getModuleName() { return "blackhole"; }
+
+	override getImportArgsCount() { return 2; }
+	override importModule(buffer: number[]): AbstractModule {
+		return new BlackHoleModule(buffer[0], buffer[1]);
+	}
+
+	override copy() {
+		return new BlackHoleModule(this.strong, this.range);
+	}
+
+	override reset() {
+		// rien à reset ici
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: BlackHoleAnimator) {
+		ctx.save();
+		animator.draw(ctx);
+		ctx.restore();
+		animator.update(block.w, block.h);
+	}
+
+	generateAnimator(_: Block) {
+		return new BlackHoleAnimator();
+	}
+
+	getDrawLevel() { return 200; }
+
+	enumArgs() {
+		return [
+			{ name: "strong", type: 'number' as const, step: 50 },
+			{ name: "range", type: 'number' as const, step: 10 },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "strong") return this.strong;
+		if (name === "range") return this.range;
+		return undefined;
+	}
+
+	setArg(name: string, value: any) {
+		if (name === "strong") this.strong = value;
+		if (name === "range") this.range = value;
+	}
+
+	moduleEditorName() { return "Black Hole"; }
+
+	update(block: Block, _room: Room, game: Game) {
+		console.log("frame");
+		const cx = block.x + block.w / 2, cy = block.y + block.h / 2;
+		const entities = [game.player!];
+		
+		for (let entity of entities) {
+			const dx = cx - entity.x;
+			const dy = cy - entity.y;
+		
+			const dist2 = dx*dx + dy*dy;
+			const dist = Math.sqrt(dist2);
+		
+			const minDist = 20;
+			const d = Math.max(dist, minDist);
+		
+			let force;
+			if (d < this.range) {
+				const x = d / this.range;
+				force = this.strong * x;
+			} else {
+				force = this.strong * (this.range / d);
+			}
+		
+			const nx = dx / d;
+			const ny = dy / d;
+		
+			entity.vx += nx * force;
+			entity.vy += ny * force;
+		}
+		
+	}
+
+	getSendFlag() { return 12; }
+}
+
+
+
+class DashAnimator {
+	time = 0;
+
+	constructor(public vx: number, public vy: number) {}
+
+	getDirection() {
+		const len = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+		if (len === 0) return {nx: 1, ny: 0};
+		return {nx: this.vx / len, ny: this.vy / len};
+	}
+}
+
+class DashModule extends AbstractModule implements DrawableModule<DashAnimator>, ArgumentModule, CollisionModule {
+	liberationCouldown: number;
+	activationCouldown: number;
+	duration: number;
+	vx: number;
+	vy: number;
+	helper: EntityCouldownHelper;
+
+	constructor(liberationCouldown: number, activationCouldown: number, duration: number, vx: number, vy: number) {
+		super();
+		this.liberationCouldown = liberationCouldown;
+		this.activationCouldown = activationCouldown;
+		this.duration = duration;
+		this.vx = vx;
+		this.vy = vy;
+		this.helper = new EntityCouldownHelper(liberationCouldown);
+	}
+
+	static {
+		AbstractModule.register(DashModule);
+	}
+
+	override getArgumentInterface() {return this;}
+	override getDrawableInterface() {return this;}
+	override getSendableInterface(){return null;}
+	override getCollisionInterface() {return this;}
+	override getFrameInterface() {return null;}
+	override getModuleName() {return "dash";}
+
+	override reset() {
+		this.helper.liberationCouldown = this.liberationCouldown;
+		this.helper.reset();
+	}
+
+	override copy(): AbstractModule {
+		return new DashModule(this.liberationCouldown, this.activationCouldown, this.duration, this.vx, this.vy);
+	}
+
+	override getImportArgsCount() {return 5;}
+	override importModule(buffer: number[]) {
+		return new DashModule(buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+	}
+
+	enumArgs() {
+		return [
+			{name: "liberationCouldown", type: "number" as const, step: 1},
+			{name: "activationCouldown", type: "number" as const, step: 1},
+			{name: "duration", type: "number" as const, step: 1},
+			{name: "vx", type: "number" as const, step: 1},
+			{name: "vy", type: "number" as const, step: 1}
+		];
+	}
+
+	getArg(name: string) {
+		switch(name) {
+			case "liberationCouldown": return this.liberationCouldown;
+			case "activationCouldown": return this.activationCouldown;
+			case "duration": return this.duration;
+			case "vx": return this.vx;
+			case "vy": return this.vy;
+			default: return undefined;
+		}
+	}
+	setArg(name: string, value: any) {
+		switch(name) {
+			case "liberationCouldown": this.liberationCouldown = value; break;
+			case "activationCouldown": this.activationCouldown = value; break;
+			case "duration": this.duration = value; break;
+			case "vx": this.vx = value; break;
+			case "vy": this.vy = value; break;
+		}
+	}
+
+	moduleEditorName() { return "Dash"; }
+
+	onTouch(entity: Entity, _block: Block, frameNumber: number) {
+		if (this.helper.trackPointly(entity, frameNumber)) {
+			entity.appendDash({
+				date: frameNumber + this.activationCouldown,
+				duration: this.duration,
+				vx: this.vx,
+				vy: this.vy,
+			});
+		}
+	}
+
+	generateAnimator(_block: Block) {
+		return new DashAnimator(this.vx, this.vy);
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, anim: DashAnimator) {
+		const {vx, vy} = anim;
+		const w = block.w;
+		const h = block.h;
+		const maxDim = Math.max(w, h);
+		const arrowLen = 1.5 * maxDim;
+
+		// Normaliser la direction
+		const len = Math.sqrt(vx*vx + vy*vy);
+		const nx = vx / len, ny = vy / len;
+
+
+		// Rectangle orange
+		ctx.fillStyle = "#FFA502";
+		ctx.strokeStyle = "black";
+		ctx.lineWidth = 3;
+		ctx.beginPath();
+		ctx.rect(-w/2, -h/2, w, h);
+		ctx.fill();
+		ctx.stroke();
+
+		// Flèche orange avec contour noir
+		const arrowHeadLen = 20;
+		// const arrowHeadWidth = 13;
+		const toX = nx * arrowLen;
+		const toY = ny * arrowLen;
+		const fromX = -nx * (w/7);
+		const fromY = -ny * (h/7);
+
+		// Corps de la flèche
+		ctx.beginPath();
+		ctx.moveTo(fromX, fromY);
+		ctx.lineTo(toX, toY);
+		ctx.strokeStyle = "#FFA502";
+		ctx.lineWidth = 8;
+		ctx.shadowColor = "#ffaa30";
+		ctx.shadowBlur = 10;
+		ctx.stroke();
+
+		ctx.beginPath();
+		ctx.moveTo(fromX, fromY);
+		ctx.lineTo(toX, toY);
+		ctx.strokeStyle = "black";
+		ctx.lineWidth = 2.4;
+		ctx.shadowBlur = 0;
+		ctx.stroke();
+		
+		// Tête de la flèche
+		ctx.beginPath();
+		let angle = Math.atan2(toY-fromY, toX-fromX);
+		ctx.moveTo(toX, toY);
+		ctx.lineTo(
+			toX - arrowHeadLen*Math.cos(angle - Math.PI/6),
+			toY - arrowHeadLen*Math.sin(angle - Math.PI/6)
+		);
+		ctx.lineTo(
+			toX - arrowHeadLen*Math.cos(angle + Math.PI/6),
+			toY - arrowHeadLen*Math.sin(angle + Math.PI/6)
+		);
+		ctx.closePath();
+		ctx.fillStyle = "#FFA502";
+		ctx.strokeStyle = "black";
+		ctx.lineWidth = 2.5;
+		ctx.fill();
+		ctx.stroke();
+
+	}
+
+	getDrawLevel(): number {
+		return 3;
+	}
+
+	getSendFlag() { return 32; }
+}
+
+
+class WindAnimator {
+	angle = 0;
+}
+
+class WindModule extends AbstractModule implements DrawableModule<WindAnimator>, CollisionModule, ArgumentModule {
+	vx: number;
+	vy: number;
+
+	constructor(vx: number, vy: number) {
+		super();
+		this.vx = vx;
+		this.vy = vy;
+	}
+
+	static {
+		AbstractModule.register(WindModule);
+	}
+
+	override getModuleName() { return "wind"; }
+	override getFrameInterface() { return null; }
+	override getArgumentInterface() { return this; }
+	override getSendableInterface() { return null; }
+	override getDrawableInterface() { return this; }
+	override getCollisionInterface() { return this; }
+
+	override copy(): AbstractModule {
+		return new WindModule(this.vx, this.vy);
+	}
+
+	override reset() {}
+
+
+
+	enumArgs() {
+		return [
+			{ name: "vx", type: "number" as const, step: 1 },
+			{ name: "vy", type: "number" as const, step: 1 }
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "vx") return this.vx;
+		if (name === "vy") return this.vy;
+	}
+
+	setArg(name: string, value: any) {
+		if (name === "vx") this.vx = value;
+		if (name === "vy") this.vy = value;
+	}
+
+	moduleEditorName() {
+		return "Wind";
+	}
+
+	override getImportArgsCount() { return 2; }
+	override importModule(buffer: number[]) {
+		return new WindModule(buffer[0], buffer[1]);
+	}
+
+	onTouch(entity: Entity, _block: Block, _frameNumber: number): void {
+		entity.x += this.vx;
+		entity.y += this.vy;
+	}
+
+
+
+	generateAnimator(_: Block) {
+		return new WindAnimator();
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, animator: WindAnimator) {
+		const w = block.w;
+		const h = block.h;
+	
+		const w2 = w/2;
+		const h2 = h/2;
+
+
+		ctx.fillStyle = "#87CEEB";
+		ctx.fillRect(-w2, -h2, w, h);
+	
+		const spirales = 6;
+		const maxRadius = Math.min(w, h) * 0.45;
+		const centerX = 0;
+		const centerY = 0;
+	
+		ctx.strokeStyle = "white";
+		ctx.lineWidth = 2;
+	
+		const a = animator.angle;
+		animator.angle = a + .03;
+
+		for (let i = 0; i < spirales; i++) {
+			const angleOffset = (i * Math.PI * 2) / spirales;
+			const startRadius = (i / spirales) * maxRadius * 0.3 + maxRadius * 0.1;
+			const endRadius = maxRadius * 1.1;
+	
+			ctx.beginPath();
+			for (let t = 0; t <= 1; t += 0.05) {
+				const r = startRadius + (endRadius - startRadius) * t;
+				const angle = angleOffset + 6 * Math.PI * t + a;
+				const x = centerX + r * Math.cos(angle);
+				const y = centerY + r * Math.sin(angle);
+				if (t === 0) ctx.moveTo(x, y);
+				else ctx.lineTo(x, y);
+			}
+			ctx.stroke();
+		}
+	}
+	
+	getDrawLevel() {
+		return 151;
+	}
+}
+
+
+
+
+
+class DirectionAnimator {
+
+}
+
+class DirectionModule extends AbstractModule implements DrawableModule<DirectionAnimator>, CollisionModule, ArgumentModule {
+	direction: number;
+	ceil: number;
+	damages: number;
+	liberationCouldown: number;
+	helper: EntityCouldownHelper;
+
+	constructor(direction: number, ceil: number, damages: number, liberationCouldown: number) {
+		super();
+		this.direction = direction;
+		this.ceil = ceil;
+		this.damages = damages
+		this.liberationCouldown = liberationCouldown
+		this.helper = new EntityCouldownHelper(liberationCouldown);
+	}
+
+	static {
+		AbstractModule.register(DirectionModule);
+	}
+
+	override getModuleName() { return "direction"; }
+	override getFrameInterface() { return null; }
+	override getArgumentInterface() { return this; }
+	override getSendableInterface() { return null; }
+	override getDrawableInterface() { return this; }
+	override getCollisionInterface() { return this; }
+
+	override copy(): AbstractModule {
+		return new DirectionModule(this.direction, this.ceil, this.damages, this.liberationCouldown);
+	}
+
+	override reset() {
+		this.helper.liberationCouldown = this.liberationCouldown;
+		this.helper.reset();
+	}
+
+
+
+	enumArgs() {
+		return [
+			{ name: "direction", type: "number" as const, step: 1 },
+			{ name: "ceil", type: "number" as const, step: 1 },
+			{ name: "damages", type: "number" as const, step: 1 },
+			{ name: "liberationCouldown", type: "number" as const, step: 1 },
+		];
+	}
+
+	getArg(name: string) {
+		if (name === "direction") return this.direction;
+		if (name === "ceil") return this.ceil;
+		if (name === "damages") return this.damages;
+		if (name === "liberationCouldown") return this.liberationCouldown;
+	}
+
+	setArg(name: string, value: any) {
+		if (name === "direction") this.direction = value;
+		if (name === "ceil") this.ceil = value;
+		if (name === "damages") this.damages = value;
+		if (name === "liberationCouldown") this.liberationCouldown = value;
+	}
+
+	moduleEditorName() {
+		return "Direction";
+	}
+
+	override getImportArgsCount() { return 4; }
+	override importModule(buffer: number[]) {
+		return new DirectionModule(buffer[0], buffer[1], buffer[2], buffer[3]);
+	}
+
+	onTouch(entity: Entity, _block: Block, frameNumber: number): void {
+		if (!(entity instanceof Player)) {
+			return;
+		}
+
+		switch (this.direction) {
+		// right
+		case 0:
+			if (entity.vx >= -this.ceil)
+				return;
+			break;
+
+		// up
+		case 1:
+			if (entity.vy <= this.ceil)
+				return;
+			break;
+
+		// right
+		case 2:
+			if (entity.vx <= this.ceil)
+				return;
+			break;
+
+		// down
+		case 3:
+			if (entity.vy >= -this.ceil)
+				return;
+			break;
+		}
+
+		if (this.helper.trackLinear(entity, frameNumber)) {
+			entity.hit(this.damages, null);
+		}
+	}
+
+
+
+	generateAnimator(_: Block) {
+		return new DirectionAnimator();
+	}
+
+	draw(block: Block, ctx: CanvasRenderingContext2D, _animator: DirectionAnimator) {
+		// Draw spikes along the relevant side based on this.direction (0=right, 1=up, 2=left, 3=down)
+		// We'll always draw the base block as a darker rect below.
+
+		ctx.fillStyle = "#f08aa0";
+		ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+
+		// Parameters for spikes
+		const spikeLength = 28; // How long the spikes stick out
+		const minSpikes = 3;
+		const targetSpikeWidth = 32; // Target width per spike
+
+		// Determine number of spikes by block dimension
+		let spikeCount = minSpikes;
+		let startX = 0, startY = 0, dx = 0, dy = 0, perpX = 0, perpY = 0, span = 0;
+
+		switch (this.direction) {
+			case 0: // right
+				span = block.h;
+				spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+				startX = block.w / 2;
+				startY = -block.h / 2;
+				dx = 0;
+				dy = span / spikeCount;
+				perpX = spikeLength;
+				perpY = 0;
+				break;
+
+			case 1: // up
+				span = block.w;
+				spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+				startX = -block.w / 2;
+				startY = -block.h / 2;
+				dx = span / spikeCount;
+				dy = 0;
+				perpX = 0;
+				perpY = -spikeLength;
+				break;
+
+			case 2: // left
+				span = block.h;
+				spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+				startX = -block.w / 2;
+				startY = -block.h / 2;
+				dx = 0;
+				dy = span / spikeCount;
+				perpX = -spikeLength;
+				perpY = 0;
+				break;
+
+			case 3: // down
+				span = block.w;
+				spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+				startX = -block.w / 2;
+				startY = block.h / 2;
+				dx = span / spikeCount;
+				dy = 0;
+				perpX = 0;
+				perpY = spikeLength;
+				break;
+		}
+
+		ctx.save();
+		ctx.beginPath();
+		for (let i = 0; i < spikeCount; i++) {
+			const base1X = startX + dx * i;
+			const base1Y = startY + dy * i;
+			const base2X = startX + dx * (i + 1);
+			const base2Y = startY + dy * (i + 1);
+			const tipX = (base1X + base2X) / 2 + perpX;
+			const tipY = (base1Y + base2Y) / 2 + perpY;
+
+			ctx.moveTo(base1X, base1Y);
+			ctx.lineTo(tipX, tipY);
+			ctx.lineTo(base2X, base2Y);
+		}
+
+		ctx.closePath();
+		ctx.fillStyle = "#f08aa0";   // rose chaud
+		ctx.strokeStyle = "#b35a6d"; // contour plus sombre
+		ctx.lineWidth = 2;
+		ctx.fill();
+		ctx.stroke();
+
+		ctx.restore();
+	}
+	
+	getDrawLevel() {
+		return 152;
+	}
+}
+
+
+
+
 
 
 class GoalAnimator {
 	time = 0;
 
 	getColor() {
-		// Oscillation douce du bleu pour le scintillement
 		const glow = 0.7 + 0.3 * Math.sin(this.time * 4);
 		const r = 0;
 		const g = Math.floor(150 + 50 * glow);
@@ -1744,7 +2666,6 @@ class GoalAnimator {
 	}
 
 	getShadowBlur(base: number) {
-		// Halo plus ou moins intense selon le temps
 		return base + 15 * Math.sin(this.time * 4);
 	}
 }
@@ -2068,16 +2989,9 @@ export class BlockModule {
 			this.record.speed = new SpeedModule(0, 0);
 		}
 
-		this.checkCollision = [
-			this.record.couldownedAttack,
-			this.record.continuousAttack,
-			this.record.bounce,
-			this.record.kill,
-			this.record.heal,
-			this.record.touchDespawn,
-			this.record.restoreJump,
-			this.record.goal
-		].some(x => !!x);
+		this.checkCollision = Object.values(this.record).some(
+			mod => mod && (mod.getCollisionInterface() !== null)
+		);
 	}
 
 	getModule<T>(name?: string): T | null {
@@ -2177,14 +3091,14 @@ export class BlockModule {
 		}
 	}
 
-	update(block: Block, room: Room) {
+	update(block: Block, room: Room, game: Game) {
 		for (const key in this.record) {
 			const module = this.record[key];
 			if (!module) continue;
 
 			const frameModule = module.getFrameInterface();
 			if (frameModule) {
-				frameModule.update(block, room);
+				frameModule.update(block, room, game);
 			}
 		}
 	}
@@ -2289,7 +3203,7 @@ export class Block {
 
 	frame(game: Game, room: Room, blf: BlockLifeHandler): void {
 		// Frame updates
-		this.module.update(this, room);
+		this.module.update(this, room, game);
 
 		if (this.module.record.spawner) {
 			const spawner = this.module.record.spawner as SpawnerModule;
@@ -2383,6 +3297,11 @@ export const bmodules = {
 	AccelerationModule,
 	RestoreJumpModule,
 	RotationModule,
+	AntigravityModule,
+	BlackHoleModule,
+	DashModule,
+	WindModule,
+	DirectionModule,
 	TextModule,
 
 	GoalModule,

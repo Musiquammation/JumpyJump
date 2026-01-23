@@ -134,6 +134,8 @@ interface GameClassicContructor {
 	stageList: WeakStage[][];
 	networkAddress: string | null;
 	architecture: any;
+	progression: {world: number, level: number};
+	canProgress: boolean;
 }
 
 interface GameServConstructor {
@@ -149,17 +151,20 @@ export class Game {
 	static WIDTH_2 = Game.WIDTH/2;
 	static HEIGHT_2 = Game.HEIGHT/2;
 
-	static GAME_VERSION = "1.6.1";
+	static GAME_VERSION = "1.7.0";
 
 	static SPECIAL_ACTIONS = [
 		"Open file",
 		"Join multiplayer room",
-		"Create multiplayer room"
+		"Create multiplayer room",
+		"Leaderboard",
+		"Map editor"
 	];
 
 
 	players: Player[];
 	player: Player | null;
+	progression: {world: number, level: number} | null;
 	camera = new Camera();
 
 	stageList: WeakStage[][];
@@ -170,14 +175,16 @@ export class Game {
 	gameChrono = 0;
 	state = new State(this);
 	validRun = true;
-	currentWorld = 0;
-	currentLevel = 0;
+	currentWorld: number;
+	currentLevel: number;
 	specialActionsWorld = false;
 	playerUsername: string | null = null;
 	stageName: string | null = null;
 	clientNet: ClientNet | null = null;
 	networkAddress: string | null;
 	inChain = false;
+	playingStageMap = true;
+	canProgress = false;
 
 	constructor(
 		data: GameClassicContructor | GameServConstructor,
@@ -192,6 +199,10 @@ export class Game {
 			const player = new Player();
 			this.player = player;
 			this.players = [player];
+			this.progression = data.progression;
+			this.currentWorld = data.progression.world;
+			this.currentLevel = data.progression.level;
+			this.canProgress = data.canProgress;
 
 			player.inputHandler = new InputHandler(data.keyboardMode);
 			player.inputHandler.startListeners(data.eventTarget);
@@ -199,8 +210,12 @@ export class Game {
 			data = data as GameServConstructor;
 			this.stageList = [[new WeakStage(null, data.stage, "")]];
 			this.networkAddress = null;
+			this.progression = null;
 			this.player = null;
 			this.players = [];
+			this.currentWorld = 0;
+			this.currentLevel = 0;
+
 			for (let i = 0; i < data.playerCount; i++) {
 				const player = new Player();
 				player.inputHandler = new InputHandler("zqsd");
@@ -286,6 +301,23 @@ export class Game {
 		return respawnCouldown;
 	}
 
+	updateProgression() {
+		if (!this.playingStageMap || !this.canProgress)
+			return;
+
+		const progression = this.progression!;
+
+		if (progression.level <= this.currentLevel && progression.world <= this.currentWorld) {
+			progression.level++;
+			if (progression.level >= this.stageList[progression.world].length) {
+				progression.world++;
+				progression.level = 0;
+			}
+			localStorage.setItem("progression", progression.world + "." + progression.level);
+		}
+		
+	}
+
 	playLogic_solo(player: Player, checkComplete: boolean) {
 		const resetStage = player.reduceCouldown();
 
@@ -329,8 +361,12 @@ export class Game {
 		}
 		
 		if (checkComplete) {
-			if (this.goalComplete > 0)
+			if (this.goalComplete > 0) {
 				this.state.set('playToWin');
+				if (this.validRun) {
+					this.updateProgression();
+				}
+			}
 
 			if (player.respawnCouldown <= Player.RESPAWN_COULDOWN)
 				this.gameChrono++;
@@ -442,6 +478,7 @@ export class Game {
 						const {stage, name} = await importStage(
 							createImportStageGenerator(file)
 						);
+						this.playingStageMap = false;
 						this.state.set('play');
 						this.startLevel(stage, name);
 					})();
@@ -472,13 +509,33 @@ export class Game {
 					});
 					break;
 				}
+
+				// Open leaderboard
+				case 3:
+				{
+					window.open("leaderboard.html", "_blank");
+					break;
+				}
+
+				// Open map editor
+				case 4:
+				{
+					window.open("editor.html", "_blank");
+					break;
+				}
 				
 				}
 
 				inputHandler.kill('enter');
 				
-			} else {
+			} else if (
+				this.currentWorld <= this.progression!.world &&
+				this.currentLevel <= this.progression!.level
+			) {
+				this.playingStageMap = true;
 				this.directStart();
+			} else {
+				alert("Unlock previous levels");
 			}
 		}
 
@@ -512,12 +569,18 @@ export class Game {
 			if (
 				inputHandler.first('down') &&
 				this.currentWorld < this.stageList.length - 1
-			) {this.currentWorld++;}
+			) {
+				this.currentWorld++;
+				this.currentLevel = 0;
+			}
 	
 			if (
 				inputHandler.first('up') &&
 				this.currentWorld > 0
-			) {this.currentWorld--;}
+			) {
+				this.currentWorld--;
+				this.currentLevel = this.stageList[this.currentWorld].length - 1;
+			}
 
 			if (inputHandler.first('debug')) {
 				this.inChain = true;
@@ -854,9 +917,9 @@ export class Game {
 			ctx.font = "30px Arial";
 
 			ctx.fillStyle = "white";
+
 			if (this.specialActionsWorld) {
 				ctx.fillText(`Special`, Game.WIDTH_2, 100);
-
 
 				for (let i = 0; i < Game.SPECIAL_ACTIONS.length; i++) {
 					ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
@@ -871,11 +934,22 @@ export class Game {
 
 
 			} else {
+			const progression = this.progression!;
 				ctx.fillText(`World ${(this.currentWorld+1)}`, Game.WIDTH_2, 100);
 				if (this.currentWorld < this.stageList.length) {
 					const stage = this.stageList[this.currentWorld];
 					for (let i = 0; i < stage.length; i++) {
-						ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+						if (i == this.currentLevel) {
+							ctx.fillStyle = "yellow";
+						} else if (
+							this.currentWorld > progression.world ||
+							(this.currentWorld == progression.world && i > progression.level)
+						) {
+							ctx.fillStyle = "gray";
+						} else {
+							ctx.fillStyle = "white";
+						}
+
 						let x = 400 + 200 * (i%5);
 						let y = 300 + Math.floor(i/5) * 100;
 						ctx.font = "30px Arial";
@@ -887,7 +961,9 @@ export class Game {
 					}
 				}
 
-				ctx.fillText("Press P to start an %any", Game.WIDTH_2, 800);
+				ctx.fillStyle = "white";
+				ctx.fillText("Press P to start a full speedrun", Game.WIDTH_2, 820);
+				ctx.fillText("Press ENTER to start a level", Game.WIDTH_2, 800);
 			}
 
 			// Show version

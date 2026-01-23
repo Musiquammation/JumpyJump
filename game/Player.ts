@@ -1,4 +1,5 @@
 import { Camera } from "./Camera";
+import { Dash } from "./Dash";
 import { Entity } from "./Entity";
 import { Game } from "./Game";
 import { GAME_GRAVITY } from "./GAME_GRAVITY";
@@ -12,8 +13,11 @@ export class Player extends Entity {
 	static DASH = 20;
 	static JUMP = 25;
 	static MAX_SPEED = 25;
+	static MAX_SPEED_ETERNAL = 75;
 	static SPEED_INC = 3;
+	static SPEED_INC_ETERNAL = 9;
 	static SPEED_DEC = 10;
+	static SPEED_SLOW = .3;
 	static JUMP_COUNT = 3;
 	static HP = 3;
 	static JUMP_HP_COST = 1;
@@ -24,6 +28,10 @@ export class Player extends Entity {
 
 	vx = 0;
 	vy = 0;
+	dashCouldown = -1;
+	forseenDashs: Dash[] = [];
+	useDefaultDeceleration = true;
+
 	eternalMode = false;
 	protectFromEjection = false;
 	goalComplete = 0;
@@ -84,6 +92,10 @@ export class Player extends Entity {
 		}
 		this.vy *= -factor;
 
+	}
+
+	override appendDash(dash: Dash) {
+		this.forseenDashs.push(dash);
 	}
 
 	restoreJumps() {
@@ -150,6 +162,9 @@ export class Player extends Entity {
 		this.vy = -Player.JUMP;
 		this.currentRoom = room;
 		this.goalComplete = 0;
+		this.gravityEscapeCouldown = -1;
+		this.dashCouldown = -1;
+		this.forseenDashs.length = 0;
 		this.restoreHp();
 		this.restoreJumps();
 	}
@@ -236,29 +251,44 @@ export class Player extends Entity {
 
 	override frame(game: Game): boolean {
 		const input = this.inputHandler;
+		
+		
+		// Give dashs
+		const gameFrame = game.frame;
+		for (let i = this.forseenDashs.length - 1; i >= 0; i--) {
+			const dash = this.forseenDashs[i];
+			if (gameFrame >= dash.date) {
+				const newDashCouldown = dash.date - gameFrame + dash.duration;
+				if (newDashCouldown > this.dashCouldown) {
+					this.dashCouldown = newDashCouldown;
+					this.useDefaultDeceleration = false;
+					this.vx = dash.vx;
+					this.vy = dash.vy;
+				}
+				this.forseenDashs.splice(i, 1);
+			}
+		}
 
+
+		// Handle dash
+		if (this.dashCouldown >= 0) {
+			this.dashCouldown--;
+			this.x += this.vx;
+			this.y += this.vy;
+			return true;
+		}
+
+
+
+		let dirX = 0;
 		if (input) {
 			// Horizontal movement
-			if (input.press("left")) {
-				if (this.vx > 0) {
-					this.vx -= Player.SPEED_DEC;
-				} else {
-					this.vx -= Player.SPEED_INC;
-				}
-			} else if (input.press("right")) {
-				if (this.vx < 0) {
-					this.vx += Player.SPEED_DEC;
-				} else {
-					this.vx += Player.SPEED_INC;
-				}
-			} else {
-				if (this.vx > 0) {
-					this.vx -= Player.SPEED_DEC;
-					if (this.vx < 0) this.vx = 0;
-				} else if (this.vx < 0) {
-					this.vx += Player.SPEED_DEC;
-					if (this.vx > 0) this.vx = 0;
-				}
+			if (input.press("right")) {
+				dirX = this.eternalMode ? Player.SPEED_INC_ETERNAL : Player.SPEED_INC;
+				this.useDefaultDeceleration = true;
+			} else if (input.press("left")) {
+				dirX = this.eternalMode ? -Player.SPEED_INC_ETERNAL : -Player.SPEED_INC;	
+				this.useDefaultDeceleration = true;
 			}
 		
 			// Jump
@@ -273,14 +303,60 @@ export class Player extends Entity {
 			}
 		}
 
-		// Clamp horizontal speed
-		if (this.vx > Player.MAX_SPEED) this.vx = Player.MAX_SPEED;
-		if (this.vx < -Player.MAX_SPEED) this.vx = -Player.MAX_SPEED;
 
 
 		// Gravity
-		this.vy += GAME_GRAVITY;
+		if (this.gravityEscapeCouldown < 0) {
+			this.vy += GAME_GRAVITY;
+		} else {
+			this.gravityEscapeCouldown--;
+		}
 
+
+		// Handle acceleration
+		if (dirX > 0) {
+			if (this.vx < 0)
+				this.vx += Player.SPEED_DEC;
+
+			const maxSpeed = this.eternalMode ? Player.MAX_SPEED_ETERNAL : Player.MAX_SPEED;
+			if (this.vx < maxSpeed) {
+				this.vx += dirX;
+				if (this.vx > maxSpeed) {
+					this.vx = maxSpeed;
+				}
+			} else {
+				this.vx -= Player.SPEED_SLOW;
+			}
+
+
+		} else if (dirX < 0) {
+			if (this.vx > 0)
+				this.vx -= Player.SPEED_DEC;
+
+			const maxSpeed = this.eternalMode ? Player.MAX_SPEED_ETERNAL : Player.MAX_SPEED;
+			if (this.vx > -maxSpeed) {
+				this.vx += dirX;
+				if (this.vx < -maxSpeed) {
+					this.vx = -maxSpeed;
+				}
+			} else {
+				this.vx += Player.SPEED_SLOW;
+			}
+
+		} else if (this.vx > 0) {
+			// Deceleration
+			this.vx -= this.useDefaultDeceleration ? Player.SPEED_DEC : Player.SPEED_SLOW;
+			if (this.vx < 0) {
+				this.vx = 0;
+			}
+
+		} else if (this.vx < 0) {
+			// Deceleration
+			this.vx += this.useDefaultDeceleration ? Player.SPEED_DEC : Player.SPEED_SLOW;
+			if (this.vx > 0) {
+				this.vx = 0;
+			}
+		}
 
 		if (this.protectFromEjection) {
 			// Check for ceil
@@ -305,7 +381,7 @@ export class Player extends Entity {
 		}
 
 		// Update position
-		this.x += this.vx * (this.eternalMode ? 3 : 1);
+		this.x += this.vx;
 		this.y += this.vy;
 
 		return true;

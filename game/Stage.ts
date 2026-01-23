@@ -59,7 +59,7 @@ export class WeakStage {
 		})) as string;
 
 		if (!file) {
-			localStorage.clear();
+			localStorage.removeItem("architecture");
 			alert("An error occured. The page will restart");
 			window.location.reload();
 		}
@@ -175,7 +175,6 @@ export class Stage {
 	}
 
 	fullRemoveBlock(id: number) {
-		console.log(this.servMod)
 		this.appendIfServMode(() => {
 			const w = new DataWriter();
 			w.writeInt8(1); // for full remove
