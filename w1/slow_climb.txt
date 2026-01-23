@@ -1,0 +1,48 @@
+Slow climb
+room -800 -450 2800 900
+	1600 12.5 800 225
+		antigravity 250 15
+room 1200 -2700 800 2250
+	1425 -925 450 50
+		couldownedAttack 1 100 1
+	1775 -1250 450 50
+		couldownedAttack 1 100 1
+	1425 -1575 450 50
+		couldownedAttack 1 100 1
+	1775 -1925 450 50
+		couldownedAttack 1 100 1
+	1600 -650 800 50
+		couldownedAttack 1 100 1
+room 2000 -2700 1600 450
+	3225 -2362.5 50 225
+		heal 1 1
+room 3600 -2700 775 3150
+	3987.5 -2137.5 775 225
+		antigravity 60 15
+room 3200 900 8000 900
+	3312.5 1762.5 225 75
+		bounce 0 1.1 1
+		speed 10.5 0
+	5225 1350 50 450
+		couldownedAttack 1.9 100 1
+	6425 1125 50 450
+		couldownedAttack 1.9 100 1
+	7625 1462.5 50 675
+		couldownedAttack 1.9 100 1
+	8825 1075 50 350
+		couldownedAttack 1 100 1
+	8825 1625 50 350
+		couldownedAttack 21111 100 1
+	10025 1462.5 50 675
+		couldownedAttack 21 100 1
+emptyroom 11200 900 800 900
+room 11200 0 800 900
+	11250 437.5 100 425
+		antigravity 300 15
+room 12000 0 5600 900
+	17400 862.5 400 75
+		bounce 0.003 2 1
+room 17200 -2675 400 2675
+	17400 -2625 400 100
+		goal 1
+emptyroom 3600 450 775 450

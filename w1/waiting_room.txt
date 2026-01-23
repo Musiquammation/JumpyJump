@@ -1,0 +1,47 @@
+Waiting room
+room -800 -450 2000 900
+	837.5 12.5 75 875
+		couldownedAttack 1 100 1
+		speed 0 1
+room 900 450 300 900
+	1050 1325 300 50
+		bounce 0.003 2 1
+emptyroom 925 -2700 275 2250
+room 925 -3600 1475 900
+	1625 -3150 50 900
+		couldownedAttack 2 100 1
+		speed 0 -0.85
+room 4000 -4500 1600 900
+	4200 -4225 400 50
+		couldownedAttack 1 100 1
+	4025 -4037.5 50 325
+		kill 1
+room 2400 -6300 1600 2425
+	3375 -5737.5 50 675
+		couldownedAttack 1 100 1
+	3025 -5737.5 50 675
+		couldownedAttack 1 100 1
+	3200 -6075 50 450
+		kill 1
+	3187.5 -5425 275 50
+		bounce 0.003 1.21 1
+	3837.5 -4075 325 50
+		bounce 3000 2 1
+	3800 -5800 400 100
+		restoreJump 3
+	2900 -5375 1000 50
+		kill 1
+room 2400 -3600 3200 900
+	3175 -3225 50 750
+		couldownedAttack 2 100 1
+		speed 0.5 0
+	3225 -3100 50 800
+		couldownedAttack 2 100 1
+		speed -0.5 0
+	4175 -2737.5 300 75
+		bounce 0.003 1.5 1
+emptyroom 0 -6300 2400 900
+room -400 -5400 800 3600
+	-200 -5087.5 200 75
+		speed 0 4
+		goal 1

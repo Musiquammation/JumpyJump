@@ -13,6 +13,13 @@
 	{"name": "w1", "levels": [
 		{"filename": "supermarcket.txt",		"hash": "14919788f0547ee2", 	"name": "Supermarcket",			"author": "Musiquammation",		"version": 1},
 		{"filename": "cars.txt",	 			"hash": "9e499e4cdaf42f92", 	"name": "Cars", 				"author": "Musiquammation",		"version": 1},
-		{"filename": "rage_race.txt", 			"hash": "bab3df5695eda4f2", 	"name": "Rage race", 			"author": "Musiquammation",		"version": 1}
+		{"filename": "rage_race.txt", 			"hash": "bab3df5695eda4f2", 	"name": "Rage race", 			"author": "Musiquammation",		"version": 1},
+		{"filename": "waiting_room.txt", 		"hash": "e820cfc5a5ddc064", 	"name": "Waiting room", 		"author": "Musiquammation",		"version": 1},
+		{"filename": "cannon_timing.txt", 		"hash": "4e3fb7d910b66f87", 	"name": "Cannon timing", 		"author": "Musiquammation",		"version": 1},
+		{"filename": "antigravity_intro.txt",	"hash": "9e4b749e9af18459", 	"name": "Antigravity intro", 	"author": "Musiquammation",		"version": 1},
+		{"filename": "slow_climb.txt", 			"hash": "c6bd3f1951e71ef2", 	"name": "Slow climb", 			"author": "Musiquammation",		"version": 1},
+		{"filename": "cannon.txt", 				"hash": "23c237c85e6a130b", 	"name": "Cannon", 				"author": "Musiquammation",		"version": 1},
+		{"filename": "merry_go_round.txt", 		"hash": "323e1dc84348bd25", 	"name": "Merry go round", 		"author": "Musiquammation",		"version": 1},
+		{"filename": "autoballad.txt", 			"hash": "cdcd74134b391c10", 	"name": "Autoballad", 			"author": "Musiquammation",		"version": 1}
 	]}
 ]
