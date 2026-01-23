@@ -200,8 +200,20 @@ export class Game {
 			this.player = player;
 			this.players = [player];
 			this.progression = data.progression;
-			this.currentWorld = data.progression.world;
-			this.currentLevel = data.progression.level;
+
+			if (data.progression.world >= data.stageList.length) {
+				this.currentWorld = data.stageList.length-1;
+				this.currentLevel = data.stageList[this.currentWorld].length-1;
+			} else {
+				this.currentWorld = data.progression.world;
+				if (data.progression.level >= data.stageList[this.currentWorld].length) {
+					this.currentLevel = data.stageList[this.currentWorld].length-1;
+				} else {
+					this.currentLevel = data.progression.level;
+				}
+			}
+
+
 			this.canProgress = data.canProgress;
 
 			player.inputHandler = new InputHandler(data.keyboardMode);
@@ -529,8 +541,11 @@ export class Game {
 				inputHandler.kill('enter');
 				
 			} else if (
-				this.currentWorld <= this.progression!.world &&
-				this.currentLevel <= this.progression!.level
+				this.currentWorld < this.progression!.world ||
+				(
+					this.currentWorld == this.progression!.world &&
+					this.currentLevel <= this.progression!.level
+				)
 			) {
 				this.playingStageMap = true;
 				this.directStart();
