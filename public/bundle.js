@@ -420,6 +420,7 @@
   var Entity = class {
     constructor(x, y, hp) {
       this.currentRoom = null;
+      this.gravityEscapeCouldown = -1;
       this.x = x;
       this.y = y;
       this.hp = hp;
@@ -531,6 +532,8 @@
     }
     isMonster() {
       return this.evil;
+    }
+    appendDash(_dash) {
     }
     canForget(entity) {
       const dx = entity.x - this.x;
@@ -644,6 +647,9 @@
       super(0, 0, _Player.HP);
       this.vx = 0;
       this.vy = 0;
+      this.dashCouldown = -1;
+      this.forseenDashs = [];
+      this.useDefaultDeceleration = true;
       this.eternalMode = false;
       this.protectFromEjection = false;
       this.goalComplete = 0;
@@ -704,6 +710,9 @@
       }
       this.vy *= -factor;
     }
+    appendDash(dash) {
+      this.forseenDashs.push(dash);
+    }
     restoreJumps() {
       this.jumps = _Player.JUMP_COUNT;
       this.jump_leveledBar.setRatio(1);
@@ -755,6 +764,9 @@
       this.vy = -_Player.JUMP;
       this.currentRoom = room;
       this.goalComplete = 0;
+      this.gravityEscapeCouldown = -1;
+      this.dashCouldown = -1;
+      this.forseenDashs.length = 0;
       this.restoreHp();
       this.restoreJumps();
     }
@@ -817,27 +829,34 @@
     }
     frame(game) {
       const input = this.inputHandler;
+      const gameFrame = game.frame;
+      for (let i = this.forseenDashs.length - 1; i >= 0; i--) {
+        const dash = this.forseenDashs[i];
+        if (gameFrame >= dash.date) {
+          const newDashCouldown = dash.date - gameFrame + dash.duration;
+          if (newDashCouldown > this.dashCouldown) {
+            this.dashCouldown = newDashCouldown;
+            this.useDefaultDeceleration = false;
+            this.vx = dash.vx;
+            this.vy = dash.vy;
+          }
+          this.forseenDashs.splice(i, 1);
+        }
+      }
+      if (this.dashCouldown >= 0) {
+        this.dashCouldown--;
+        this.x += this.vx;
+        this.y += this.vy;
+        return true;
+      }
+      let dirX = 0;
       if (input) {
-        if (input.press("left")) {
-          if (this.vx > 0) {
-            this.vx -= _Player.SPEED_DEC;
-          } else {
-            this.vx -= _Player.SPEED_INC;
-          }
-        } else if (input.press("right")) {
-          if (this.vx < 0) {
-            this.vx += _Player.SPEED_DEC;
-          } else {
-            this.vx += _Player.SPEED_INC;
-          }
-        } else {
-          if (this.vx > 0) {
-            this.vx -= _Player.SPEED_DEC;
-            if (this.vx < 0) this.vx = 0;
-          } else if (this.vx < 0) {
-            this.vx += _Player.SPEED_DEC;
-            if (this.vx > 0) this.vx = 0;
-          }
+        if (input.press("right")) {
+          dirX = this.eternalMode ? _Player.SPEED_INC_ETERNAL : _Player.SPEED_INC;
+          this.useDefaultDeceleration = true;
+        } else if (input.press("left")) {
+          dirX = this.eternalMode ? -_Player.SPEED_INC_ETERNAL : -_Player.SPEED_INC;
+          this.useDefaultDeceleration = true;
         }
         if (input.first("up")) {
           this.consumeJump();
@@ -847,9 +866,46 @@
           this.y += _Player.DASH;
         }
       }
-      if (this.vx > _Player.MAX_SPEED) this.vx = _Player.MAX_SPEED;
-      if (this.vx < -_Player.MAX_SPEED) this.vx = -_Player.MAX_SPEED;
-      this.vy += GAME_GRAVITY;
+      if (this.gravityEscapeCouldown < 0) {
+        this.vy += GAME_GRAVITY;
+      } else {
+        this.gravityEscapeCouldown--;
+      }
+      if (dirX > 0) {
+        if (this.vx < 0)
+          this.vx += _Player.SPEED_DEC;
+        const maxSpeed = this.eternalMode ? _Player.MAX_SPEED_ETERNAL : _Player.MAX_SPEED;
+        if (this.vx < maxSpeed) {
+          this.vx += dirX;
+          if (this.vx > maxSpeed) {
+            this.vx = maxSpeed;
+          }
+        } else {
+          this.vx -= _Player.SPEED_SLOW;
+        }
+      } else if (dirX < 0) {
+        if (this.vx > 0)
+          this.vx -= _Player.SPEED_DEC;
+        const maxSpeed = this.eternalMode ? _Player.MAX_SPEED_ETERNAL : _Player.MAX_SPEED;
+        if (this.vx > -maxSpeed) {
+          this.vx += dirX;
+          if (this.vx < -maxSpeed) {
+            this.vx = -maxSpeed;
+          }
+        } else {
+          this.vx += _Player.SPEED_SLOW;
+        }
+      } else if (this.vx > 0) {
+        this.vx -= this.useDefaultDeceleration ? _Player.SPEED_DEC : _Player.SPEED_SLOW;
+        if (this.vx < 0) {
+          this.vx = 0;
+        }
+      } else if (this.vx < 0) {
+        this.vx += this.useDefaultDeceleration ? _Player.SPEED_DEC : _Player.SPEED_SLOW;
+        if (this.vx > 0) {
+          this.vx = 0;
+        }
+      }
       if (this.protectFromEjection) {
         const ceiling = game.stage?.projectUp(this.x, this.y) ?? Infinity;
         const ceilDelta = this.vy * this.vy - 2 * GAME_GRAVITY * (this.y - ceiling);
@@ -867,7 +923,7 @@
           this.vx -= a;
         }
       }
-      this.x += this.vx * (this.eternalMode ? 3 : 1);
+      this.x += this.vx;
       this.y += this.vy;
       return true;
     }
@@ -931,8 +987,11 @@
   _Player.DASH = 20;
   _Player.JUMP = 25;
   _Player.MAX_SPEED = 25;
+  _Player.MAX_SPEED_ETERNAL = 75;
   _Player.SPEED_INC = 3;
+  _Player.SPEED_INC_ETERNAL = 9;
   _Player.SPEED_DEC = 10;
+  _Player.SPEED_SLOW = 0.3;
   _Player.JUMP_COUNT = 3;
   _Player.HP = 3;
   _Player.JUMP_HP_COST = 1;
@@ -966,10 +1025,18 @@
       this.usages = /* @__PURE__ */ new Map();
       this.liberationCouldown = liberationCouldown;
     }
-    track(entity, frameNumber) {
+    trackLinear(entity, frameNumber) {
       const next = this.usages.get(entity);
       this.usages.set(entity, frameNumber + this.liberationCouldown);
       return next === void 0 || next <= frameNumber;
+    }
+    trackPointly(entity, frameNumber) {
+      const next = this.usages.get(entity);
+      if (next === void 0 || next <= frameNumber) {
+        this.usages.set(entity, frameNumber + this.liberationCouldown);
+        return true;
+      }
+      return false;
     }
     reset() {
       this.usages.clear();
@@ -985,7 +1052,7 @@
       this.loopCount = 0;
       this.active = true;
     }
-    update(block, room) {
+    update(block, room, _game) {
       if (!this.active || this.patterns.length === 0) return;
       const path = this.patterns[this.currentPattern];
       block.x += path.dx;
@@ -1454,6 +1521,7 @@
       this.factor = factor;
       this.cost = cost;
       this.playerOnly = playerOnly;
+      this.liberationCouldown = liberationCouldown;
       this.helper = new EntityCouldownHelper(liberationCouldown);
     }
     getArgumentInterface() {
@@ -1475,11 +1543,12 @@
       return "bounce";
     }
     reset() {
+      this.helper.liberationCouldown = this.liberationCouldown;
       this.helper.reset();
     }
     onTouch(entity, _block, frameNumber) {
       if (this.playerOnly && !(entity instanceof Player)) return;
-      if (this.helper.track(entity, frameNumber)) entity.bounce(this.factor, this.cost);
+      if (this.helper.trackLinear(entity, frameNumber)) entity.bounce(this.factor, this.cost);
     }
     update() {
     }
@@ -2024,7 +2093,7 @@
     getModuleName() {
       return "speed";
     }
-    update(block, room) {
+    update(block, room, _game) {
       block.x += this.vx;
       block.y += this.vy;
       if (!room.containsBox(block.x, block.y, block.w, block.h)) {
@@ -2275,7 +2344,7 @@
     }
     onTouch(entity, _block, frameNumber) {
       if (!(entity instanceof Player)) return;
-      if (this.helper.track(entity, frameNumber)) {
+      if (this.helper.trackLinear(entity, frameNumber)) {
         entity.restoreJumpAdd(this.gain);
       }
     }
@@ -2353,7 +2422,7 @@
       return 2;
     }
     importModule(buffer) {
-      return new SpeedModule(buffer[0], buffer[1]);
+      return new _RotationModule(buffer[0], buffer[1]);
     }
     update() {
       this.angle += this.speed;
@@ -2404,6 +2473,804 @@
   };
   AbstractModule.register(_RotationModule);
   var RotationModule = _RotationModule;
+  var AntigravityParticle = class {
+    constructor(w, h) {
+      this.x = (Math.random() - 0.5) * w;
+      this.y = (Math.random() - 0.5) * h;
+      this.size = 3 + Math.random() * 4;
+      this.vx = (Math.random() - 0.5) * 0.3;
+      this.vy = -0.5 - Math.random() * 0.8;
+      this.alpha = 1.2;
+      this.rotation = Math.random() * Math.PI;
+      this.vr = (Math.random() - 0.5) * 0.04;
+    }
+    update() {
+      this.x += this.vx;
+      this.y += this.vy;
+      this.rotation += this.vr;
+      this.alpha -= 0.01;
+      return this.alpha > 0;
+    }
+    draw(ctx) {
+      ctx.save();
+      ctx.translate(this.x, this.y);
+      ctx.rotate(this.rotation);
+      const s = this.size;
+      const r = s * 0.5;
+      const gradient = ctx.createRadialGradient(0, 0, 0, 0, 0, s * 1.5);
+      gradient.addColorStop(0, `rgba(180, 255, 255, ${this.alpha})`);
+      gradient.addColorStop(1, `rgba(100, 200, 255, 0)`);
+      ctx.fillStyle = gradient;
+      ctx.beginPath();
+      ctx.moveTo(0, -s);
+      ctx.quadraticCurveTo(r, -s + r, s, 0);
+      ctx.quadraticCurveTo(s - r, r, 0, s);
+      ctx.quadraticCurveTo(-r, s - r, -s, 0);
+      ctx.quadraticCurveTo(-s + r, -r, 0, -s);
+      ctx.closePath();
+      ctx.fill();
+      ctx.restore();
+    }
+  };
+  var _AntigravityAnimator = class _AntigravityAnimator {
+    constructor() {
+      this.particles = [];
+      this.production = 0;
+    }
+    update(w, h) {
+      this.production += w * h;
+      if (this.production > _AntigravityAnimator.PRODUCTION) {
+        this.production -= _AntigravityAnimator.PRODUCTION;
+        this.particles.push(new AntigravityParticle(w, h));
+      }
+      this.particles = this.particles.filter((p) => p.update());
+    }
+    draw(ctx) {
+      this.particles.forEach((p) => p.draw(ctx));
+    }
+  };
+  _AntigravityAnimator.PRODUCTION = 2e5;
+  var AntigravityAnimator = _AntigravityAnimator;
+  var _AntigravityModule = class _AntigravityModule extends AbstractModule {
+    constructor(duration, liberationCouldown) {
+      super();
+      this.duration = duration;
+      this.liberationCouldown = liberationCouldown;
+      this.helper = new EntityCouldownHelper(liberationCouldown);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getModuleName() {
+      return "antigravity";
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _AntigravityModule(buffer[0], buffer[1]);
+    }
+    reset() {
+      this.helper.liberationCouldown = this.liberationCouldown;
+      this.helper.reset();
+    }
+    onTouch(entity, _block, frameNumber) {
+      if (this.helper.trackPointly(entity, frameNumber)) {
+        entity.gravityEscapeCouldown = this.duration;
+      }
+    }
+    copy() {
+      return new _AntigravityModule(this.duration, this.liberationCouldown);
+    }
+    draw(block, ctx, animator) {
+      ctx.save();
+      ctx.shadowColor = "rgba(100, 200, 255, 0.9)";
+      ctx.shadowBlur = 15;
+      ctx.fillStyle = "rgba(150, 220, 255, 0.6)";
+      ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+      ctx.restore();
+      animator.update(block.w, block.h);
+      block.cancelRotation(ctx, () => animator.draw(ctx));
+    }
+    generateAnimator(_) {
+      return new AntigravityAnimator();
+    }
+    getDrawLevel() {
+      return 141;
+    }
+    enumArgs() {
+      return [
+        { name: "duration", type: "number" },
+        { name: "liberationCouldown", type: "number" }
+      ];
+    }
+    getArg(name) {
+      if (name === "duration") return this.duration;
+      if (name === "liberationCouldown") return this.liberationCouldown;
+    }
+    setArg(name, value) {
+      if (name === "duration") {
+        this.duration = value;
+      }
+      if (name === "liberationCouldown") {
+        this.liberationCouldown = value;
+      }
+    }
+    moduleEditorName() {
+      return "Antigravity";
+    }
+    receive(_reader, _block, _) {
+    }
+    send(_writer, _block, _) {
+    }
+    getSendFlag() {
+      return 11;
+    }
+  };
+  AbstractModule.register(_AntigravityModule);
+  var AntigravityModule = _AntigravityModule;
+  var BlackHoleAnimator = class {
+    constructor(w = 128, h = 128, n = 26) {
+      this.time = 0;
+      this.time = 0;
+      this.particles = [];
+      const centerX = w / 2, centerY = h / 2;
+      for (let i = 0; i < n; i++) {
+        const angle = Math.random() * Math.PI * 2;
+        const radius = (w < h ? w : h) * (0.4 + Math.random() * 0.52);
+        const speed = 0.7 + 0.7 * Math.random();
+        const colorOptions = [
+          "rgba(93, 173, 226, 0.6)",
+          // bleu lumineuses
+          "rgba(41, 128, 185, 0.5)",
+          "rgba(162, 155, 254,0.7)",
+          "rgba(236, 240, 241,0.28)",
+          // gris très pâles (vapeur)
+          "rgba(30, 39, 46,0.29)"
+        ];
+        const color = colorOptions[Math.floor(Math.random() * colorOptions.length)];
+        const size = 5 + Math.random() * 6;
+        this.particles.push({
+          x: centerX + radius * Math.cos(angle),
+          y: centerY + radius * Math.sin(angle),
+          angle,
+          radius,
+          speed,
+          color,
+          size
+        });
+      }
+    }
+    update(w, h) {
+      this.time += 1 / 60;
+      const centerX = 0, centerY = 0;
+      for (let p of this.particles) {
+        const dx = centerX - p.x;
+        const dy = centerY - p.y;
+        const dist = Math.sqrt(dx * dx + dy * dy) + 0.1;
+        p.angle += 0.04 + (Math.random() - 0.5) * 3e-3;
+        p.x += Math.cos(p.angle) * 0.4 + dx / (dist + 3) * p.speed * 0.8;
+        p.y += Math.sin(p.angle) * 0.4 + dy / (dist + 3) * p.speed * 0.8;
+        if (dist < 16) {
+          const r = (w < h ? w : h) * (0.5 + Math.random() * 0.6);
+          const theta = Math.random() * Math.PI * 2;
+          p.x = r * Math.cos(theta);
+          p.y = r * Math.sin(theta);
+          p.angle = theta;
+        }
+      }
+    }
+    draw(ctx) {
+      const mainR = 42, glowR = 64;
+      const gradient = ctx.createRadialGradient(0, 0, 3, 0, 0, glowR);
+      gradient.addColorStop(0, "rgba(30,30,30,0.51)");
+      gradient.addColorStop(0.24, "rgba(57,59,106,0.38)");
+      gradient.addColorStop(0.52, "rgba(17,17,17,0.24)");
+      gradient.addColorStop(1, "rgba(0,0,0,0.01)");
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, glowR, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStyle = gradient;
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      ctx.beginPath();
+      ctx.arc(0, 0, mainR, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.fillStyle = "#111";
+      ctx.shadowColor = "rgba(55,48,117,0.38)";
+      ctx.shadowBlur = 12 + 8 * Math.abs(Math.sin(this.time));
+      ctx.fill();
+      ctx.restore();
+      ctx.save();
+      const outerR = mainR + 13;
+      const gradient2 = ctx.createRadialGradient(0, 0, mainR + 4, 0, 0, outerR);
+      gradient2.addColorStop(0.21, "rgba(255,255,255,0.06)");
+      gradient2.addColorStop(0.35, "rgba(213,237,255,0.18)");
+      gradient2.addColorStop(0.72, "rgba(120,149,255,0.09)");
+      gradient2.addColorStop(1, "rgba(80,51,190,0.02)");
+      ctx.beginPath();
+      ctx.arc(0, 0, outerR, 0, Math.PI * 2);
+      ctx.closePath();
+      ctx.lineWidth = 4.5;
+      ctx.strokeStyle = gradient2;
+      ctx.shadowBlur = 6 + 6 * Math.sin(this.time * 3);
+      ctx.shadowColor = "rgb(70,133,255)";
+      ctx.stroke();
+      ctx.restore();
+      for (let p of this.particles) {
+        ctx.save();
+        ctx.globalAlpha = 0.7;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, p.size, 0, Math.PI * 2);
+        ctx.closePath();
+        ctx.fillStyle = p.color;
+        ctx.shadowColor = "#b2eafe";
+        ctx.shadowBlur = 7 + Math.sin(this.time + p.x + p.y) * 1.5;
+        ctx.fill();
+        ctx.restore();
+      }
+    }
+  };
+  var _BlackHoleModule = class _BlackHoleModule extends AbstractModule {
+    constructor(strong, range) {
+      super();
+      this.strong = strong;
+      this.range = range;
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getFrameInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "blackhole";
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _BlackHoleModule(buffer[0], buffer[1]);
+    }
+    copy() {
+      return new _BlackHoleModule(this.strong, this.range);
+    }
+    reset() {
+    }
+    draw(block, ctx, animator) {
+      ctx.save();
+      animator.draw(ctx);
+      ctx.restore();
+      animator.update(block.w, block.h);
+    }
+    generateAnimator(_) {
+      return new BlackHoleAnimator();
+    }
+    getDrawLevel() {
+      return 200;
+    }
+    enumArgs() {
+      return [
+        { name: "strong", type: "number", step: 50 },
+        { name: "range", type: "number", step: 10 }
+      ];
+    }
+    getArg(name) {
+      if (name === "strong") return this.strong;
+      if (name === "range") return this.range;
+      return void 0;
+    }
+    setArg(name, value) {
+      if (name === "strong") this.strong = value;
+      if (name === "range") this.range = value;
+    }
+    moduleEditorName() {
+      return "Black Hole";
+    }
+    update(block, _room, game) {
+      console.log("frame");
+      const cx = block.x + block.w / 2, cy = block.y + block.h / 2;
+      const entities = [game.player];
+      for (let entity of entities) {
+        const dx = cx - entity.x;
+        const dy = cy - entity.y;
+        const dist2 = dx * dx + dy * dy;
+        const dist = Math.sqrt(dist2);
+        const minDist = 20;
+        const d = Math.max(dist, minDist);
+        let force;
+        if (d < this.range) {
+          const x = d / this.range;
+          force = this.strong * x;
+        } else {
+          force = this.strong * (this.range / d);
+        }
+        const nx = dx / d;
+        const ny = dy / d;
+        entity.vx += nx * force;
+        entity.vy += ny * force;
+      }
+    }
+    getSendFlag() {
+      return 12;
+    }
+  };
+  AbstractModule.register(_BlackHoleModule);
+  var BlackHoleModule = _BlackHoleModule;
+  var DashAnimator = class {
+    constructor(vx, vy) {
+      this.vx = vx;
+      this.vy = vy;
+      this.time = 0;
+    }
+    getDirection() {
+      const len = Math.sqrt(this.vx * this.vx + this.vy * this.vy);
+      if (len === 0) return { nx: 1, ny: 0 };
+      return { nx: this.vx / len, ny: this.vy / len };
+    }
+  };
+  var _DashModule = class _DashModule extends AbstractModule {
+    constructor(liberationCouldown, activationCouldown, duration, vx, vy) {
+      super();
+      this.liberationCouldown = liberationCouldown;
+      this.activationCouldown = activationCouldown;
+      this.duration = duration;
+      this.vx = vx;
+      this.vy = vy;
+      this.helper = new EntityCouldownHelper(liberationCouldown);
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getModuleName() {
+      return "dash";
+    }
+    reset() {
+      this.helper.liberationCouldown = this.liberationCouldown;
+      this.helper.reset();
+    }
+    copy() {
+      return new _DashModule(this.liberationCouldown, this.activationCouldown, this.duration, this.vx, this.vy);
+    }
+    getImportArgsCount() {
+      return 5;
+    }
+    importModule(buffer) {
+      return new _DashModule(buffer[0], buffer[1], buffer[2], buffer[3], buffer[4]);
+    }
+    enumArgs() {
+      return [
+        { name: "liberationCouldown", type: "number", step: 1 },
+        { name: "activationCouldown", type: "number", step: 1 },
+        { name: "duration", type: "number", step: 1 },
+        { name: "vx", type: "number", step: 1 },
+        { name: "vy", type: "number", step: 1 }
+      ];
+    }
+    getArg(name) {
+      switch (name) {
+        case "liberationCouldown":
+          return this.liberationCouldown;
+        case "activationCouldown":
+          return this.activationCouldown;
+        case "duration":
+          return this.duration;
+        case "vx":
+          return this.vx;
+        case "vy":
+          return this.vy;
+        default:
+          return void 0;
+      }
+    }
+    setArg(name, value) {
+      switch (name) {
+        case "liberationCouldown":
+          this.liberationCouldown = value;
+          break;
+        case "activationCouldown":
+          this.activationCouldown = value;
+          break;
+        case "duration":
+          this.duration = value;
+          break;
+        case "vx":
+          this.vx = value;
+          break;
+        case "vy":
+          this.vy = value;
+          break;
+      }
+    }
+    moduleEditorName() {
+      return "Dash";
+    }
+    onTouch(entity, _block, frameNumber) {
+      if (this.helper.trackPointly(entity, frameNumber)) {
+        entity.appendDash({
+          date: frameNumber + this.activationCouldown,
+          duration: this.duration,
+          vx: this.vx,
+          vy: this.vy
+        });
+      }
+    }
+    generateAnimator(_block) {
+      return new DashAnimator(this.vx, this.vy);
+    }
+    draw(block, ctx, anim) {
+      const { vx, vy } = anim;
+      const w = block.w;
+      const h = block.h;
+      const maxDim = Math.max(w, h);
+      const arrowLen = 1.5 * maxDim;
+      const len = Math.sqrt(vx * vx + vy * vy);
+      const nx = vx / len, ny = vy / len;
+      ctx.fillStyle = "#FFA502";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.rect(-w / 2, -h / 2, w, h);
+      ctx.fill();
+      ctx.stroke();
+      const arrowHeadLen = 20;
+      const toX = nx * arrowLen;
+      const toY = ny * arrowLen;
+      const fromX = -nx * (w / 7);
+      const fromY = -ny * (h / 7);
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.strokeStyle = "#FFA502";
+      ctx.lineWidth = 8;
+      ctx.shadowColor = "#ffaa30";
+      ctx.shadowBlur = 10;
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.moveTo(fromX, fromY);
+      ctx.lineTo(toX, toY);
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2.4;
+      ctx.shadowBlur = 0;
+      ctx.stroke();
+      ctx.beginPath();
+      let angle = Math.atan2(toY - fromY, toX - fromX);
+      ctx.moveTo(toX, toY);
+      ctx.lineTo(
+        toX - arrowHeadLen * Math.cos(angle - Math.PI / 6),
+        toY - arrowHeadLen * Math.sin(angle - Math.PI / 6)
+      );
+      ctx.lineTo(
+        toX - arrowHeadLen * Math.cos(angle + Math.PI / 6),
+        toY - arrowHeadLen * Math.sin(angle + Math.PI / 6)
+      );
+      ctx.closePath();
+      ctx.fillStyle = "#FFA502";
+      ctx.strokeStyle = "black";
+      ctx.lineWidth = 2.5;
+      ctx.fill();
+      ctx.stroke();
+    }
+    getDrawLevel() {
+      return 3;
+    }
+    getSendFlag() {
+      return 32;
+    }
+  };
+  AbstractModule.register(_DashModule);
+  var DashModule = _DashModule;
+  var WindAnimator = class {
+    constructor() {
+      this.angle = 0;
+    }
+  };
+  var _WindModule = class _WindModule extends AbstractModule {
+    constructor(vx, vy) {
+      super();
+      this.vx = vx;
+      this.vy = vy;
+    }
+    getModuleName() {
+      return "wind";
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    copy() {
+      return new _WindModule(this.vx, this.vy);
+    }
+    reset() {
+    }
+    enumArgs() {
+      return [
+        { name: "vx", type: "number", step: 1 },
+        { name: "vy", type: "number", step: 1 }
+      ];
+    }
+    getArg(name) {
+      if (name === "vx") return this.vx;
+      if (name === "vy") return this.vy;
+    }
+    setArg(name, value) {
+      if (name === "vx") this.vx = value;
+      if (name === "vy") this.vy = value;
+    }
+    moduleEditorName() {
+      return "Wind";
+    }
+    getImportArgsCount() {
+      return 2;
+    }
+    importModule(buffer) {
+      return new _WindModule(buffer[0], buffer[1]);
+    }
+    onTouch(entity, _block, _frameNumber) {
+      entity.x += this.vx;
+      entity.y += this.vy;
+    }
+    generateAnimator(_) {
+      return new WindAnimator();
+    }
+    draw(block, ctx, animator) {
+      const w = block.w;
+      const h = block.h;
+      const w2 = w / 2;
+      const h2 = h / 2;
+      ctx.fillStyle = "#87CEEB";
+      ctx.fillRect(-w2, -h2, w, h);
+      const spirales = 6;
+      const maxRadius = Math.min(w, h) * 0.45;
+      const centerX = 0;
+      const centerY = 0;
+      ctx.strokeStyle = "white";
+      ctx.lineWidth = 2;
+      const a = animator.angle;
+      animator.angle = a + 0.03;
+      for (let i = 0; i < spirales; i++) {
+        const angleOffset = i * Math.PI * 2 / spirales;
+        const startRadius = i / spirales * maxRadius * 0.3 + maxRadius * 0.1;
+        const endRadius = maxRadius * 1.1;
+        ctx.beginPath();
+        for (let t = 0; t <= 1; t += 0.05) {
+          const r = startRadius + (endRadius - startRadius) * t;
+          const angle = angleOffset + 6 * Math.PI * t + a;
+          const x = centerX + r * Math.cos(angle);
+          const y = centerY + r * Math.sin(angle);
+          if (t === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+    getDrawLevel() {
+      return 151;
+    }
+  };
+  AbstractModule.register(_WindModule);
+  var WindModule = _WindModule;
+  var DirectionAnimator = class {
+  };
+  var _DirectionModule = class _DirectionModule extends AbstractModule {
+    constructor(direction, ceil, damages, liberationCouldown) {
+      super();
+      this.direction = direction;
+      this.ceil = ceil;
+      this.damages = damages;
+      this.liberationCouldown = liberationCouldown;
+      this.helper = new EntityCouldownHelper(liberationCouldown);
+    }
+    getModuleName() {
+      return "direction";
+    }
+    getFrameInterface() {
+      return null;
+    }
+    getArgumentInterface() {
+      return this;
+    }
+    getSendableInterface() {
+      return null;
+    }
+    getDrawableInterface() {
+      return this;
+    }
+    getCollisionInterface() {
+      return this;
+    }
+    copy() {
+      return new _DirectionModule(this.direction, this.ceil, this.damages, this.liberationCouldown);
+    }
+    reset() {
+      this.helper.liberationCouldown = this.liberationCouldown;
+      this.helper.reset();
+    }
+    enumArgs() {
+      return [
+        { name: "direction", type: "number", step: 1 },
+        { name: "ceil", type: "number", step: 1 },
+        { name: "damages", type: "number", step: 1 },
+        { name: "liberationCouldown", type: "number", step: 1 }
+      ];
+    }
+    getArg(name) {
+      if (name === "direction") return this.direction;
+      if (name === "ceil") return this.ceil;
+      if (name === "damages") return this.damages;
+      if (name === "liberationCouldown") return this.liberationCouldown;
+    }
+    setArg(name, value) {
+      if (name === "direction") this.direction = value;
+      if (name === "ceil") this.ceil = value;
+      if (name === "damages") this.damages = value;
+      if (name === "liberationCouldown") this.liberationCouldown = value;
+    }
+    moduleEditorName() {
+      return "Direction";
+    }
+    getImportArgsCount() {
+      return 4;
+    }
+    importModule(buffer) {
+      return new _DirectionModule(buffer[0], buffer[1], buffer[2], buffer[3]);
+    }
+    onTouch(entity, _block, frameNumber) {
+      if (!(entity instanceof Player)) {
+        return;
+      }
+      switch (this.direction) {
+        // right
+        case 0:
+          if (entity.vx >= -this.ceil)
+            return;
+          break;
+        // up
+        case 1:
+          if (entity.vy <= this.ceil)
+            return;
+          break;
+        // right
+        case 2:
+          if (entity.vx <= this.ceil)
+            return;
+          break;
+        // down
+        case 3:
+          if (entity.vy >= -this.ceil)
+            return;
+          break;
+      }
+      if (this.helper.trackLinear(entity, frameNumber)) {
+        entity.hit(this.damages, null);
+      }
+    }
+    generateAnimator(_) {
+      return new DirectionAnimator();
+    }
+    draw(block, ctx, _animator) {
+      ctx.fillStyle = "#f08aa0";
+      ctx.fillRect(-block.w / 2, -block.h / 2, block.w, block.h);
+      const spikeLength = 28;
+      const minSpikes = 3;
+      const targetSpikeWidth = 32;
+      let spikeCount = minSpikes;
+      let startX = 0, startY = 0, dx = 0, dy = 0, perpX = 0, perpY = 0, span = 0;
+      switch (this.direction) {
+        case 0:
+          span = block.h;
+          spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+          startX = block.w / 2;
+          startY = -block.h / 2;
+          dx = 0;
+          dy = span / spikeCount;
+          perpX = spikeLength;
+          perpY = 0;
+          break;
+        case 1:
+          span = block.w;
+          spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+          startX = -block.w / 2;
+          startY = -block.h / 2;
+          dx = span / spikeCount;
+          dy = 0;
+          perpX = 0;
+          perpY = -spikeLength;
+          break;
+        case 2:
+          span = block.h;
+          spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+          startX = -block.w / 2;
+          startY = -block.h / 2;
+          dx = 0;
+          dy = span / spikeCount;
+          perpX = -spikeLength;
+          perpY = 0;
+          break;
+        case 3:
+          span = block.w;
+          spikeCount = Math.max(minSpikes, Math.round(span / targetSpikeWidth));
+          startX = -block.w / 2;
+          startY = block.h / 2;
+          dx = span / spikeCount;
+          dy = 0;
+          perpX = 0;
+          perpY = spikeLength;
+          break;
+      }
+      ctx.save();
+      ctx.beginPath();
+      for (let i = 0; i < spikeCount; i++) {
+        const base1X = startX + dx * i;
+        const base1Y = startY + dy * i;
+        const base2X = startX + dx * (i + 1);
+        const base2Y = startY + dy * (i + 1);
+        const tipX = (base1X + base2X) / 2 + perpX;
+        const tipY = (base1Y + base2Y) / 2 + perpY;
+        ctx.moveTo(base1X, base1Y);
+        ctx.lineTo(tipX, tipY);
+        ctx.lineTo(base2X, base2Y);
+      }
+      ctx.closePath();
+      ctx.fillStyle = "#f08aa0";
+      ctx.strokeStyle = "#b35a6d";
+      ctx.lineWidth = 2;
+      ctx.fill();
+      ctx.stroke();
+      ctx.restore();
+    }
+    getDrawLevel() {
+      return 152;
+    }
+  };
+  AbstractModule.register(_DirectionModule);
+  var DirectionModule = _DirectionModule;
   var GoalAnimator = class {
     constructor() {
       this.time = 0;
@@ -2693,16 +3560,9 @@
       if (this.record.acceleration && !this.record.speed) {
         this.record.speed = new SpeedModule(0, 0);
       }
-      this.checkCollision = [
-        this.record.couldownedAttack,
-        this.record.continuousAttack,
-        this.record.bounce,
-        this.record.kill,
-        this.record.heal,
-        this.record.touchDespawn,
-        this.record.restoreJump,
-        this.record.goal
-      ].some((x) => !!x);
+      this.checkCollision = Object.values(this.record).some(
+        (mod) => mod && mod.getCollisionInterface() !== null
+      );
     }
     getModule(name) {
       if (!name) return null;
@@ -2780,13 +3640,13 @@
         }
       }
     }
-    update(block, room) {
+    update(block, room, game) {
       for (const key in this.record) {
         const module = this.record[key];
         if (!module) continue;
         const frameModule = module.getFrameInterface();
         if (frameModule) {
-          frameModule.update(block, room);
+          frameModule.update(block, room, game);
         }
       }
     }
@@ -2850,7 +3710,7 @@
       this.spawnRoom = room;
     }
     frame(game, room, blf) {
-      this.module.update(this, room);
+      this.module.update(this, room, game);
       if (this.module.record.spawner) {
         const spawner = this.module.record.spawner;
         spawner.update(this, room, blf);
@@ -2926,6 +3786,11 @@
     AccelerationModule,
     RestoreJumpModule,
     RotationModule,
+    AntigravityModule,
+    BlackHoleModule,
+    DashModule,
+    WindModule,
+    DirectionModule,
     TextModule,
     GoalModule,
     SpawnerModule
@@ -3333,7 +4198,7 @@
         req.onerror = () => reject(req.error);
       });
       if (!file) {
-        localStorage.clear();
+        localStorage.removeItem("architecture");
         alert("An error occured. The page will restart");
         window.location.reload();
       }
@@ -3413,7 +4278,6 @@
       return block;
     }
     fullRemoveBlock(id) {
-      console.log(this.servMod);
       this.appendIfServMode(() => {
         const w = new DataWriter();
         w.writeInt8(1);
@@ -5188,13 +6052,13 @@
       this.gameChrono = 0;
       this.state = new State(this);
       this.validRun = true;
-      this.currentWorld = 0;
-      this.currentLevel = 0;
       this.specialActionsWorld = false;
       this.playerUsername = null;
       this.stageName = null;
       this.clientNet = null;
       this.inChain = false;
+      this.playingStageMap = true;
+      this.canProgress = false;
       if (constructorUsed === "GameClassicContructor") {
         data = data;
         this.stageList = data.stageList;
@@ -5203,14 +6067,21 @@
         const player = new Player();
         this.player = player;
         this.players = [player];
+        this.progression = data.progression;
+        this.currentWorld = data.progression.world;
+        this.currentLevel = data.progression.level;
+        this.canProgress = data.canProgress;
         player.inputHandler = new InputHandler(data.keyboardMode);
         player.inputHandler.startListeners(data.eventTarget);
       } else {
         data = data;
         this.stageList = [[new WeakStage(null, data.stage, "")]];
         this.networkAddress = null;
+        this.progression = null;
         this.player = null;
         this.players = [];
+        this.currentWorld = 0;
+        this.currentLevel = 0;
         for (let i = 0; i < data.playerCount; i++) {
           const player = new Player();
           player.inputHandler = new InputHandler("zqsd");
@@ -5279,6 +6150,19 @@
       }
       return respawnCouldown;
     }
+    updateProgression() {
+      if (!this.playingStageMap || !this.canProgress)
+        return;
+      const progression = this.progression;
+      if (progression.level <= this.currentLevel && progression.world <= this.currentWorld) {
+        progression.level++;
+        if (progression.level >= this.stageList[progression.world].length) {
+          progression.world++;
+          progression.level = 0;
+        }
+        localStorage.setItem("progression", progression.world + "." + progression.level);
+      }
+    }
     playLogic_solo(player, checkComplete) {
       const resetStage = player.reduceCouldown();
       const inputHandler = this.player.inputHandler;
@@ -5312,8 +6196,12 @@
         player.handleRoom(stage, this.camera);
       }
       if (checkComplete) {
-        if (this.goalComplete > 0)
+        if (this.goalComplete > 0) {
           this.state.set("playToWin");
+          if (this.validRun) {
+            this.updateProgression();
+          }
+        }
         if (player.respawnCouldown <= Player.RESPAWN_COULDOWN)
           this.gameChrono++;
       }
@@ -5396,6 +6284,7 @@
                 const { stage, name } = await importStage(
                   createImportStageGenerator(file)
                 );
+                this.playingStageMap = false;
                 this.state.set("play");
                 this.startLevel(stage, name);
               })();
@@ -5420,10 +6309,23 @@
               });
               break;
             }
+            // Open leaderboard
+            case 3: {
+              window.open("leaderboard.html", "_blank");
+              break;
+            }
+            // Open map editor
+            case 4: {
+              window.open("editor.html", "_blank");
+              break;
+            }
           }
           inputHandler.kill("enter");
-        } else {
+        } else if (this.currentWorld <= this.progression.world && this.currentLevel <= this.progression.level) {
+          this.playingStageMap = true;
           this.directStart();
+        } else {
+          alert("Unlock previous levels");
         }
       }
       if (inputHandler.first("right")) {
@@ -5449,9 +6351,11 @@
       } else {
         if (inputHandler.first("down") && this.currentWorld < this.stageList.length - 1) {
           this.currentWorld++;
+          this.currentLevel = 0;
         }
         if (inputHandler.first("up") && this.currentWorld > 0) {
           this.currentWorld--;
+          this.currentLevel = this.stageList[this.currentWorld].length - 1;
         }
         if (inputHandler.first("debug")) {
           this.inChain = true;
@@ -5707,11 +6611,18 @@
               ctx.fillText(`${_Game.SPECIAL_ACTIONS[i]}`, x, y + 25);
             }
           } else {
+            const progression = this.progression;
             ctx.fillText(`World ${this.currentWorld + 1}`, _Game.WIDTH_2, 100);
             if (this.currentWorld < this.stageList.length) {
               const stage = this.stageList[this.currentWorld];
               for (let i = 0; i < stage.length; i++) {
-                ctx.fillStyle = i == this.currentLevel ? "yellow" : "white";
+                if (i == this.currentLevel) {
+                  ctx.fillStyle = "yellow";
+                } else if (this.currentWorld > progression.world || this.currentWorld == progression.world && i > progression.level) {
+                  ctx.fillStyle = "gray";
+                } else {
+                  ctx.fillStyle = "white";
+                }
                 let x = 400 + 200 * (i % 5);
                 let y = 300 + Math.floor(i / 5) * 100;
                 ctx.font = "30px Arial";
@@ -5720,7 +6631,9 @@
                 ctx.fillText(`${stage[i].name}`, x, y + 25);
               }
             }
-            ctx.fillText("Press P to start an %any", _Game.WIDTH_2, 800);
+            ctx.fillStyle = "white";
+            ctx.fillText("Press P to start a full speedrun", _Game.WIDTH_2, 820);
+            ctx.fillText("Press ENTER to start a level", _Game.WIDTH_2, 800);
           }
           const pastBaseline = ctx.textBaseline;
           ctx.textBaseline = "bottom";
@@ -5883,11 +6796,13 @@
   _Game.HEIGHT = 900;
   _Game.WIDTH_2 = _Game.WIDTH / 2;
   _Game.HEIGHT_2 = _Game.HEIGHT / 2;
-  _Game.GAME_VERSION = "1.6.1";
+  _Game.GAME_VERSION = "1.7.0";
   _Game.SPECIAL_ACTIONS = [
     "Open file",
     "Join multiplayer room",
-    "Create multiplayer room"
+    "Create multiplayer room",
+    "Leaderboard",
+    "Map editor"
   ];
   var Game = _Game;
 
@@ -6002,12 +6917,31 @@
     return container;
   }
   async function startGame() {
-    let countedFps = 0;
     const FPS_FREQUENCY = 4;
+    const EXCESS_COUNT = 70;
+    const EXCESS_LIM = 4 * FPS_FREQUENCY;
+    let countedFps = 0;
+    let excessCount = 0;
     setInterval(() => {
       const e = document.getElementById("fps");
+      const count = countedFps * FPS_FREQUENCY;
+      if (excessCount >= 0) {
+        if (count > EXCESS_COUNT) {
+          excessCount++;
+          if (excessCount >= EXCESS_LIM) {
+            window.useRequestAnimationFrame = false;
+            excessCount = -1;
+          }
+        } else {
+          excessCount = 0;
+        }
+      }
       if (e) {
-        e.textContent = countedFps * FPS_FREQUENCY + "fps";
+        let text = count + "fps";
+        if (!window.useRequestAnimationFrame) {
+          text += " (async)";
+        }
+        e.textContent = text;
       }
       countedFps = 0;
     }, 1e3 / FPS_FREQUENCY);
@@ -6024,6 +6958,15 @@
       realKeyboardMode = "wasd";
     } else {
       realKeyboardMode = keyboardMode;
+    }
+    const progressionStr = localStorage.getItem("progression");
+    let progression;
+    if (progressionStr === null) {
+      progression = { world: 0, level: 0 };
+      localStorage.setItem("progression", "0.0");
+    } else {
+      const s = progressionStr.split(".");
+      progression = { world: Number(s[0]) || 0, level: Number(s[1]) || 0 };
     }
     let game;
     const LINK = "https://raw.githubusercontent.com/musiquammation/JumpyJump/levels";
@@ -6056,7 +6999,9 @@
       eventTarget: document,
       stageList: weakStages,
       networkAddress: NETWORK_ADDRESS,
-      architecture
+      architecture,
+      progression,
+      canProgress: true
     }, "GameClassicContructor");
     const chronoDiv = document.getElementById("chrono");
     function runGameLoop() {
@@ -6086,7 +7031,12 @@
   window.game = null;
   window.running = false;
   window.startGame = startGame;
-  window.useRequestAnimationFrame = true;
+  var localUseRequestAnimationFrame = localStorage.getItem("useRequestAnimationFrame");
+  if (localUseRequestAnimationFrame === null) {
+    window.useRequestAnimationFrame = true;
+  } else {
+    window.useRequestAnimationFrame = localUseRequestAnimationFrame != "0";
+  }
 
   // src/editor.ts
   var levelName = null;
@@ -6103,7 +7053,12 @@
     AccelerationModule: AccelerationModule2,
     RestoreJumpModule: RestoreJumpModule2,
     RotationModule: RotationModule2,
+    AntigravityModule: AntigravityModule2,
     GoalModule: GoalModule2,
+    BlackHoleModule: BlackHoleModule2,
+    DashModule: DashModule2,
+    WindModule: WindModule2,
+    DirectionModule: DirectionModule2,
     SpawnerModule: SpawnerModule3,
     TextModule: TextModule3
   } = bmodules;
@@ -6126,8 +7081,13 @@
     new ModuleInfo("modAcceleration", "Acceleration", "acceleration", () => new AccelerationModule2(0, 0)),
     new ModuleInfo("modRestoreJump", "Restore Jump", "restoreJump", () => new RestoreJumpModule2(1)),
     new ModuleInfo("modRotation", "Rotation", "rotation", () => new RotationModule2(0, 0.01)),
+    new ModuleInfo("modAntigravity", "Antigravity", "antigravity", () => new AntigravityModule2(60, 15)),
+    new ModuleInfo("modBlackhole", "Black hole", "blackhole", () => new BlackHoleModule2(20, 80)),
+    new ModuleInfo("modDash", "Dash", "dash", () => new DashModule2(60, 0, 60, 50, 0)),
     new ModuleInfo("modGoal", "Goal", "goal", () => 1),
-    new ModuleInfo("modText", "Text", "text", () => new TextModule3())
+    new ModuleInfo("modText", "Text", "text", () => new TextModule3()),
+    new ModuleInfo("modWind", "Wind", "wind", () => new WindModule2(0, -10)),
+    new ModuleInfo("modDirection", "Direction", "direction", () => new DirectionModule2(0, 10, 3, 60))
   ];
   async function exportBlockModule(m, writeln, indent) {
     const moving = m.getModule("moving");
@@ -6147,10 +7107,6 @@
         }
         await writeln(`${indent}	endbuilder`);
       }
-    }
-    const couldownDespawn = m.getModule("couldownDespawn");
-    if (couldownDespawn) {
-      await writeln(`${indent}couldownDespawn ${couldownDespawn.duration ?? 0}`);
     }
     for (let i of moduleList) {
       if (i.prop === "goal")
@@ -6174,14 +7130,6 @@
         }
       }
       await writeln(line.join(" "));
-    }
-    const speed = m.getModule("speed");
-    if (speed) {
-      await writeln(`${indent}speed ${speed.vx ?? 0} ${speed.vy ?? 0}`);
-    }
-    const acceleration = m.getModule("acceleration");
-    if (acceleration) {
-      await writeln(`${indent}acceleration ${acceleration.ax ?? 0} ${acceleration.ay ?? 0}`);
     }
     const goal = m.getModule("goal");
     if (goal !== null && goal !== void 0) {
@@ -7837,7 +8785,9 @@
               eventTarget: document,
               stageList: [[new WeakStage("", stageCopy, name)]],
               networkAddress: null,
-              architecture: null
+              architecture: null,
+              progression: { world: 0, level: 0 },
+              canProgress: false
             }, "GameClassicContructor");
             window.game = playGame;
             playGame.state.set("play");
